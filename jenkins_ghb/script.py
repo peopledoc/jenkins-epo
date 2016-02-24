@@ -7,11 +7,6 @@ import os
 import re
 import time
 
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
-
 import argh
 from github import GitHub, ApiError
 from jenkinsapi.jenkins import Jenkins
@@ -19,6 +14,7 @@ import requests
 from retrying import retry
 import yaml
 
+from .cache import CACHE
 
 logger = logging.getLogger('jenkins-ghb')
 
@@ -26,29 +22,8 @@ logger = logging.getLogger('jenkins-ghb')
 PR = None
 GITHUB = None
 JENKINS = None
-CACHE = None
 REVISION_PARAM = os.environ.get('REVISION_PARAM', 'REVISION')
 WAIT_FIXED = int(os.environ.get('WAIT_FIXED', 15000))
-
-
-def cache_get(key, default):
-    global CACHE
-
-    if CACHE is None:
-        if os.path.exists('ghb_cache.pickle'):
-            with open('ghb_cache.pickle', 'rb') as fo:
-                CACHE = pickle.load(fo)
-        else:
-            CACHE = {}
-
-    return CACHE.get(key, default)
-
-
-def cache_save():
-    global CACHE
-
-    with open('ghb_cache.pickle', 'w+b') as f:
-        pickle.dump(CACHE, f)
 
 
 def loop_pulls(wrapped):
@@ -81,7 +56,7 @@ def loop_pulls(wrapped):
 @retry(stop_max_attempt_number=3, wait_fixed=WAIT_FIXED)
 def get_expected_contexts(jobs, jenkins):
     cache_key = 'contexts:' + ','.join(jobs)
-    contexts = cache_get(cache_key, [])
+    contexts = CACHE.get(cache_key, [])
 
     if contexts:
         return contexts
@@ -97,7 +72,6 @@ def get_expected_contexts(jobs, jenkins):
             contexts.append(name)
 
     CACHE[cache_key] = contexts
-    cache_save()
     return contexts
 
 
@@ -522,9 +496,7 @@ def rebuild_queued(wait_free_queue=False, retry_every=10, dry=False):
 
 def reset():
     """Reset jenkins-ghb cache"""
-    if os.path.exists('ghb_cache.pickle'):
-        os.unlink('ghb_cache.pickle')
-    logger.info("Cache clean")
+    CACHE.reset()
 
 
 def run(wait_free_queue=False, retry_every=10, dry=False):
@@ -572,6 +544,8 @@ def entrypoint():
             if os.environ.get('PDB', None):
                 import pdb
                 pdb.post_mortem()
+        finally:
+            CACHE.save()
 
 
 if __name__ == '__main__':
