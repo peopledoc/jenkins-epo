@@ -10,6 +10,9 @@ setup(
         ('lib/systemd/system', ['jenkins-ghb.service']),
         ('/etc', ['jenkins-ghb.conf']),
     ],
+    entry_points={
+        'console_scripts': ['jenkins-ghb=jenkins_ghb.script:entrypoint'],
+    },
     extras_require={
         'release': ['wheel', 'zest.releaser'],
     },
@@ -21,7 +24,7 @@ setup(
         'requests',
         'retrying',
     ],
-    scripts=['jenkins-ghb'],
+    packages=['jenkins_ghb'],
     description='GitHub independant builder for Jenkins',
     author=', '.join([
         'James Pic <james.pic@people-doc.com>',

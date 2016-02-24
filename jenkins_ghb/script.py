@@ -553,7 +553,7 @@ def main():
     parser.dispatch()
 
 
-if __name__ == '__main__':
+def entrypoint():
     logging.basicConfig(level=logging.WARNING, format='%(levelname)-8s %(message)s')
     logger.setLevel(logging.DEBUG)
     logger.info("Starting jenkins-ghb")
@@ -572,3 +572,7 @@ if __name__ == '__main__':
             if os.environ.get('PDB', None):
                 import pdb
                 pdb.post_mortem()
+
+
+if __name__ == '__main__':
+    entrypoint()
