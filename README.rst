@@ -8,8 +8,34 @@ Is your Jenkins crazy?
 ####################################
 
 A pure python poller based on github API. This is an alternative solution to
-jenkins poll or github webhook
+jenkins poll or github webhook.
 
+
+Features
+========
+
+- Query github API to poll PR instead of cloning repository.
+- Query Jenkins API without jar nor JRE.
+- Set commit status as soon as job is in the queue.
+- Skip jobs in PR comments.
+- Rebuild jobs on demand or on failure.
+- Requeue jobs on queue loss.
+- Retry on network failure.
+- Nice with humans: wait for queue to be empty before queuing new PR jobs.
+- Update github status according to Jenkins builds.
+
+
+Skipping jobs
+-------------
+
+If some jobs are unrelated to your PR, you can skip them with a YAML comment:
+
+.. code-block:: markdown
+
+   ```
+   jenkins:
+      skip: [app-doc, app-assets, '(?!.*notskipped.*)']
+   ```
 
 Installation
 ============
