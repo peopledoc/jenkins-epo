@@ -3,3 +3,4 @@
 /*.egg-info/
 *.pickle
 __pycache__/
+/my-*
