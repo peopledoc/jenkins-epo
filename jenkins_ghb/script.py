@@ -528,7 +528,10 @@ def main():
 
 
 def entrypoint():
-    logging.basicConfig(level=logging.WARNING, format='%(levelname)-8s %(message)s')
+    logging.basicConfig(
+        level=logging.WARNING,
+        format='[%(name)-16s %(levelname)8s] %(message)s'
+    )
     logger.setLevel(logging.DEBUG)
     logger.info("Starting jenkins-ghb")
     retry_after = os.environ.get('RETRY_AFTER', None)
