@@ -17,6 +17,13 @@ from .settings import SETTINGS
 logger = logging.getLogger('jenkins_ghb')
 
 
+def list_projects():
+    """List GitHub projects tested by this Jenkins"""
+
+    for project in JENKINS.list_projects():
+        print(project)
+
+
 @retry(stop_max_attempt_number=3, wait_fixed=SETTINGS.WAIT_FIXED)
 def get_queue(jenkins):
     data = {}
@@ -332,6 +339,7 @@ def main():
     parser = argh.ArghParser()
     parser.add_commands([
         enqueue_new,
+        list_projects,
         rebuild_queued,
         rebuild_failed,
         rebuild,
