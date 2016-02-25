@@ -17,6 +17,13 @@ from .settings import SETTINGS
 logger = logging.getLogger('jenkins_ghb')
 
 
+def list_pr():
+    """List GitHub PR polled"""
+    for project in JENKINS.list_projects():
+        for pr in project.list_pull_requests():
+            print(pr)
+
+
 def list_projects():
     """List GitHub projects tested by this Jenkins"""
 
@@ -340,6 +347,7 @@ def main():
     parser.add_commands([
         enqueue_new,
         list_projects,
+        list_pr,
         rebuild_queued,
         rebuild_failed,
         rebuild,

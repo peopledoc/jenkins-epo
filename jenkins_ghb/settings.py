@@ -23,6 +23,8 @@ SETTINGS = EnvironmentSettings(defaults={
     'DEBUG_PR': None,
     # Drop into Pdb on unhandled exception
     'GHIB_DEBUG': False,
+    'GHIB_LIMIT_JOBS': '',
+    'GHIB_LIMIT_PR': '',
     # Trigger loop
     'GHIB_LOOP': 0,
     'GHIB_VERBOSE': '',
