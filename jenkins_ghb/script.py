@@ -1,75 +1,19 @@
 #!/usr/bin/env python3
 
-import functools
-import json
 import logging
 import os
-import re
 import time
 
 import argh
-from github import GitHub, ApiError
 import requests
 from retrying import retry
-import yaml
 
 from .cache import CACHE
 from .jenkins import JENKINS
+from .pullrequest import GITHUB, REVISION_PARAM, WAIT_FIXED, loop_pulls
 
 
 logger = logging.getLogger('jenkins-ghb')
-
-
-PR = None
-GITHUB = None
-REVISION_PARAM = os.environ.get('REVISION_PARAM', 'REVISION')
-WAIT_FIXED = int(os.environ.get('WAIT_FIXED', 15000))
-
-
-def loop_pulls(wrapped):
-    def wrapper(*args, **kwargs):
-        global PR
-
-        for owner_repo, owner, repo, jobs, contexts in generator():
-            pulls = GITHUB.repos(owner)(repo).pulls.get(per_page=b'100')
-
-            for pull in pulls:
-                logger.info('Doing PR: %s', pull['html_url'])
-
-                # Skip any PR that's not $DEBUG_PR if set
-                debug = os.environ.get('DEBUG_PR', None)
-                if debug and debug != pull['html_url']:
-                    print('Skipping PR', pull['html_url'], 'to debug', debug)
-                    continue
-
-                PR = PullRequest(owner, repo, jobs, contexts, pull)
-                wrapped(*args, **kwargs)
-
-    functools.update_wrapper(wrapper, wrapped)
-
-    return wrapper
-
-
-@retry(stop_max_attempt_number=3, wait_fixed=WAIT_FIXED)
-def get_expected_contexts(jobs, jenkins):
-    cache_key = 'contexts:' + ','.join(jobs)
-    contexts = CACHE.get(cache_key, [])
-
-    if contexts:
-        return contexts
-
-    for name in jobs:
-        job = jenkins.get_job(name)
-        configurations = job._data.get('activeConfigurations', [])
-
-        if configurations:
-            for c in configurations:
-                contexts.append('%s/%s' % (name, c['name']))
-        else:
-            contexts.append(name)
-
-    CACHE[cache_key] = contexts
-    return contexts
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=WAIT_FIXED)
@@ -113,161 +57,6 @@ def get_queue(jenkins):
     return data
 
 
-class PullRequest(object):
-    def __init__(self, owner, repo, jobs, contexts, data):
-        self.owner = owner
-        self.repo = repo
-        self.jobs = jobs
-        self.contexts = contexts
-        self.data = data
-
-    @retry(stop_max_attempt_number=20, wait_fixed=WAIT_FIXED)
-    def build(self, jenkins, contexts):
-        branch = self.data['head']['ref']
-
-        if not contexts:
-            return
-
-        matrix = {}
-        for context in contexts:
-            if '/' not in context:
-                try:
-                    jenkins.jobs[context].invoke(
-                        build_params={REVISION_PARAM: branch})
-                except ValueError:
-                    # It worked anyway :D
-                    pass
-
-                continue
-
-            job_name, configuration = context.split('/')
-            matrix.setdefault(job_name, [])
-            matrix[job_name].append(configuration)
-
-        for job_name, configurations in matrix.items():
-            job_configurations = [
-                '/'.join(c.split('/')[1:])
-                for c in self.contexts
-                if c.split('/')[0] == job_name
-            ]
-
-            data = {
-                'parameter': [
-                    {
-                        'name': REVISION_PARAM,
-                        'value': branch,
-                    },
-                    {
-                        'name': 'paramFilter',
-                        'values': [
-                            'true' if c in configurations else 'false'
-                            for c in job_configurations
-                        ],
-                        'confs': job_configurations,
-                    },
-                ],
-                'statusCode': '303',
-                'redirectTo': '.',
-            }
-
-            job = JENKINS.get_job(job_name)
-            requests.post(job._data['url'] + '/build?delay=0sec', data={
-                'Submit': 'Build', 'statusCode': '303',
-                'redirectTo': '.', 'json':
-                json.dumps(data)})
-
-    @retry(stop_max_attempt_number=20, wait_fixed=WAIT_FIXED)
-    def get_github_statuses(self, github):
-        url = 'https://api.github.com/repos/%s/%s/status/%s?access_token=%s&per_page=100' % (  # noqa
-            self.owner, self.repo, self.data['head']['sha'],
-            os.environ['GITHUB_TOKEN'])
-        self.statuses = requests.get(url.encode('utf-8')).json()['statuses']
-        return self.statuses
-
-    @retry(stop_max_attempt_number=20, wait_fixed=WAIT_FIXED)
-    def update_context(self, github, context, state, description, url=None):
-        matching = [
-            i for (i, d) in enumerate(self.statuses)
-            if d['context'] == context
-        ]
-
-        if matching:
-            current = self.statuses[matching[0]]
-
-            if current['state'] == state:
-                logger.info('Already up to date, skipping github api call')
-                return  # already up to date
-
-        try:
-            (
-                github
-                .repos(self.owner)(self.repo)
-                .statuses(self.data['head']['sha'])
-                .post(
-                    context=context, state=state, description=description,
-                    target_url=url
-                )
-            )
-        except ApiError:  # because we add 1000 updates
-            logger.warn('ERROR: 1000 updates on %s', self.data)
-
-    @retry(stop_max_attempt_number=20, wait_fixed=WAIT_FIXED)
-    def get_configuration(self, github):
-        comments = github.repos(self.owner)(self.repo).issues(
-                self.data['number']).comments.get()
-
-        configuration = {}
-
-        for comment in reversed(comments):
-            match = re.search('`*.*jenkins:.*`', comment['body'], re.DOTALL)
-
-            if match is None:
-                continue
-
-            try:
-                configuration = yaml.load(
-                    match.group(0).rstrip('`').lstrip('`')
-                )['jenkins']
-            except:
-                pass
-            break
-
-        if 'skip' not in configuration.keys():
-            configuration['skip'] = None
-        elif isinstance(configuration['skip'], basestring):
-            configuration['skip'] = [configuration['skip']]
-        elif not isinstance(configuration['skip'], list):
-            configuration.pop('skip')
-
-        return configuration
-
-    def skip(self, configuration, context):
-        if not configuration.get('skip', None):
-            return
-
-        for pattern in configuration['skip']:
-            if re.match(pattern, context) is not None:
-                return True
-
-
-def get_github():
-    return GitHub(
-        username=os.environ.get('GITHUB_USERNAME', None),
-        access_token=os.environ.get('GITHUB_TOKEN', None) or None,
-        password=os.environ.get('GITHUB_PASSWORD', None))
-
-
-def generator():
-    for github_jenkins in os.environ.get('GITHUB_JOBS').split(' '):
-        owner_repo, jobs_config = github_jenkins.split(':')
-        owner, repo = owner_repo.split('/')
-        jobs = jobs_config.split(',')
-        logger.debug("Managing jobs %s for repo %s", jobs, owner_repo)
-        contexts = get_expected_contexts(jobs, JENKINS)
-
-        yield owner_repo, owner, repo, jobs, contexts
-
-
 def wait_empty_queue(jenkins, retry_every):
     printed = False
     while len(jenkins.get_queue().keys()) > 0:
@@ -280,22 +69,22 @@ def wait_empty_queue(jenkins, retry_every):
 
 
 @loop_pulls
-def update_github(dry=False):
+def update_github(pr, dry=False):
     """
     Set all missing contexts to pending with description "New" to block the
     merge.
     """
 
-    configuration = PR.get_configuration(GITHUB)
-    statuses = PR.get_github_statuses(GITHUB)
+    configuration = pr.get_configuration(GITHUB)
+    statuses = pr.get_github_statuses(GITHUB)
     github_contexts = [s['context'] for s in statuses]
 
-    for context in PR.contexts:
-        if PR.skip(configuration, context):
+    for context in pr.contexts:
+        if pr.skip(configuration, context):
             print('Skipping context', context, 'config', configuration)
 
             if not dry:
-                PR.update_context(GITHUB, context, 'success', 'Skipped')
+                pr.update_context(GITHUB, context, 'success', 'Skipped')
 
             continue
 
@@ -304,10 +93,10 @@ def update_github(dry=False):
 
         print('Missing context:', context)
         if not dry:
-            PR.update_context(GITHUB, context, 'pending', 'New')
+            pr.update_context(GITHUB, context, 'pending', 'New')
 
     for status in statuses:
-        if status['context'] in PR.contexts:
+        if status['context'] in pr.contexts:
             continue
 
         if status['state'] == 'success':
@@ -315,11 +104,11 @@ def update_github(dry=False):
 
         print('Obsolete context:', status['context'])
         if not dry:
-            PR.update_context(GITHUB, status['context'], 'success', 'Old')
+            pr.update_context(GITHUB, status['context'], 'success', 'Old')
 
 
 @loop_pulls
-def enqueue_new(wait_free_queue=False, retry_every=10, dry=False):
+def enqueue_new(pr, wait_free_queue=False, retry_every=10, dry=False):
     """
     Enqueue all "pending" statuses with description "New", set them to
     "Queued".
@@ -327,19 +116,19 @@ def enqueue_new(wait_free_queue=False, retry_every=10, dry=False):
     if not dry:
         wait_empty_queue(JENKINS, retry_every)
 
-    configuration = PR.get_configuration(GITHUB)
-    statuses = PR.get_github_statuses(GITHUB)
+    configuration = pr.get_configuration(GITHUB)
+    statuses = pr.get_github_statuses(GITHUB)
     github_contexts = [s['context'] for s in statuses]
-    queue = get_queue(JENKINS).get(PR.data['head']['ref'], {})
+    queue = get_queue(JENKINS).get(pr.data['head']['ref'], {})
 
     build = []
-    for context in PR.contexts:
+    for context in pr.contexts:
         if context not in github_contexts:
-            if PR.skip(configuration, context):
+            if pr.skip(configuration, context):
                 print('Skipping context', context, 'config', configuration)
 
                 if not dry:
-                    PR.update_context(GITHUB, context, 'success', 'Skipped')
+                    pr.update_context(GITHUB, context, 'success', 'Skipped')
 
                 continue
 
@@ -349,7 +138,7 @@ def enqueue_new(wait_free_queue=False, retry_every=10, dry=False):
             build.append(context)
 
     for status in statuses:
-        if PR.skip(configuration, status['context']):
+        if pr.skip(configuration, status['context']):
             continue
 
         if status['context'] in queue:
@@ -358,8 +147,8 @@ def enqueue_new(wait_free_queue=False, retry_every=10, dry=False):
         if status['target_url']:
             continue
 
-        if status['context'] not in PR.contexts and not dry:
-            PR.update_context(GITHUB, status['context'], 'success', 'Old')
+        if status['context'] not in pr.contexts and not dry:
+            pr.update_context(GITHUB, status['context'], 'success', 'Old')
             continue
 
         build.append(status['context'])
@@ -372,10 +161,10 @@ def enqueue_new(wait_free_queue=False, retry_every=10, dry=False):
     if dry:
         return
 
-    PR.build(JENKINS, build)
+    pr.build(JENKINS, build)
 
     for context in build:
-        PR.update_context(GITHUB, context, 'pending', 'Queued')
+        pr.update_context(GITHUB, context, 'pending', 'Queued')
 
 
 def show_queue():
@@ -386,7 +175,7 @@ def show_queue():
 
 
 @loop_pulls
-def rebuild_failed(dry=False):
+def rebuild_failed(pr, dry=False):
     """
     Inspects console log of failed builds and rebuild if any network failure is
     detected.
@@ -404,8 +193,8 @@ def rebuild_failed(dry=False):
         'InsecurePlatformWarning: A true SSLContext object is not available',
     ]
 
-    statuses = PR.get_github_statuses(GITHUB)
-    queue = get_queue(JENKINS).get(PR.data['head']['ref'], {})
+    statuses = pr.get_github_statuses(GITHUB)
+    queue = get_queue(JENKINS).get(pr.data['head']['ref'], {})
 
     @retry(stop_max_attempt_number=3, wait_fixed=WAIT_FIXED)
     def request_console(status):
@@ -433,16 +222,16 @@ def rebuild_failed(dry=False):
     if dry:
         return
 
-    PR.build(JENKINS, build)
+    pr.build(JENKINS, build)
 
 
 @loop_pulls
-def rebuild(contexts='', dry=False):
+def rebuild(pr, contexts='', dry=False):
     """
     Typically for when a job configuration in development has been changed.
     """
     contexts = contexts.split(',')
-    statuses = PR.get_github_statuses(GITHUB)
+    statuses = pr.get_github_statuses(GITHUB)
     build = [
         s['context'] for s in statuses
         if (s['state'] != 'success' and s['context'] in contexts)
@@ -453,11 +242,11 @@ def rebuild(contexts='', dry=False):
     if dry:
         return
 
-    PR.build(JENKINS, build)
+    pr.build(JENKINS, build)
 
 
 @loop_pulls
-def rebuild_queued(wait_free_queue=False, retry_every=10, dry=False):
+def rebuild_queued(pr, wait_free_queue=False, retry_every=10, dry=False):
     """
     Typically when recovering from a crashed jenkins.
     """
@@ -465,8 +254,8 @@ def rebuild_queued(wait_free_queue=False, retry_every=10, dry=False):
     if wait_free_queue and not dry:
         wait_empty_queue(wait_free_queue, retry_every)
 
-    statuses = PR.get_github_statuses(GITHUB)
-    queue = get_queue(JENKINS).get(PR.data['head']['ref'], {})
+    statuses = pr.get_github_statuses(GITHUB)
+    queue = get_queue(JENKINS).get(pr.data['head']['ref'], {})
 
     build = []
     for status in statuses:
@@ -484,7 +273,7 @@ def rebuild_queued(wait_free_queue=False, retry_every=10, dry=False):
     if dry:
         return
 
-    PR.build(JENKINS, build)
+    pr.build(JENKINS, build)
 
 
 def reset():
@@ -503,8 +292,6 @@ def run(wait_free_queue=False, retry_every=10, dry=False):
 
 
 def main():
-    global GITHUB
-
     parser = argh.ArghParser()
     parser.add_commands([
         enqueue_new,
@@ -516,8 +303,6 @@ def main():
         show_queue,
         update_github,
     ])
-
-    GITHUB = get_github()
 
     parser.dispatch()
 
