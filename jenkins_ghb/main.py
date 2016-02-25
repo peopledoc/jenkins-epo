@@ -1,4 +1,5 @@
 import asyncio
+import bdb
 import logging
 import time
 import sys
@@ -306,8 +307,23 @@ class ErrorHandler(object):
         if not self.context:
             return 0
 
+        exception = self.context['future'].exception()
+        if isinstance(exception, bdb.BdbQuit):
+            logger.debug('Graceful exit from debugger')
+            return 0
+
         logger.critical('Unhandled error')
         self.context['future'].print_stack()
+
+        if not SETTINGS.GHIB_DEBUG:
+            return 1
+
+        try:
+            import ipdb as pdb
+        except ImportError:
+            import pdb
+
+        pdb.post_mortem(exception.__traceback__)
 
         return 1
 

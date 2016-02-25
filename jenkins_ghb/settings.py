@@ -21,6 +21,8 @@ class EnvironmentSettings(object):
 SETTINGS = EnvironmentSettings(defaults={
     # Work only on this PR github full URL.
     'DEBUG_PR': None,
+    # Drop into Pdb on unhandled exception
+    'GHIB_DEBUG': False,
     # Trigger loop
     'GHIB_LOOP': 0,
     'GHIB_VERBOSE': '',
@@ -30,8 +32,6 @@ SETTINGS = EnvironmentSettings(defaults={
     'GITHUB_USERNAME': None,
     'GITHUB_PASSWORD': None,
     'JENKINS_URL': 'http://localhost:8080',
-    # Drop into Pdb on unhandled exception
-    'PDB': False,
     # Wait this milliseconds before actually do something.
     'WAIT_FIXED': 15000,
     # Jenkins job param name.

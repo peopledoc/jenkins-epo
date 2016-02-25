@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 def entrypoint():
-    debug = os.environ.get('GHIB_VERBOSE') or os.environ.get('PDB')
+    debug = os.environ.get('GHIB_VERBOSE') or os.environ.get('GHIB_DEBUG')
     if debug:
         format = '[%(name)-24s %(levelname)8s] %(message)s'
         level = logging.DEBUG
