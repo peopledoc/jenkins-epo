@@ -28,10 +28,7 @@ WAIT_FIXED = int(os.environ.get('WAIT_FIXED', 15000))
 
 def loop_pulls(wrapped):
     def wrapper(*args, **kwargs):
-        global GITHUB, JENKINS, PR
-
-        GITHUB = get_github()
-        JENKINS = get_jenkins()
+        global PR
 
         for owner_repo, owner, repo, jobs, contexts in generator():
             pulls = GITHUB.repos(owner)(repo).pulls.get(per_page=b'100')
@@ -510,6 +507,8 @@ def run(wait_free_queue=False, retry_every=10, dry=False):
 
 
 def main():
+    global GITHUB, JENKINS
+
     parser = argh.ArghParser()
     parser.add_commands([
         enqueue_new,
@@ -522,11 +521,17 @@ def main():
         update_github,
     ])
 
+    GITHUB = get_github()
+    JENKINS = get_jenkins()
+
     parser.dispatch()
 
 
 def entrypoint():
-    logging.basicConfig(level=logging.WARNING, format='%(levelname)-8s %(message)s')
+    logging.basicConfig(
+        level=logging.WARNING,
+        format='[%(name)-16s %(levelname)8s] %(message)s'
+    )
     logger.setLevel(logging.DEBUG)
     logger.info("Starting jenkins-ghb")
     retry_after = os.environ.get('RETRY_AFTER', None)
