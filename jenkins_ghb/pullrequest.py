@@ -21,7 +21,7 @@ def generator():
         owner_repo, jobs_config = github_jenkins.split(':')
         owner, repo = owner_repo.split('/')
         jobs = jobs_config.split(',')
-        logger.debug("Managing jobs %s for repo %s", jobs, owner_repo)
+        logger.debug("Managing %s for %s", ', '.join(jobs), owner_repo)
         contexts = get_expected_contexts(jobs, JENKINS)
 
         yield owner_repo, owner, repo, jobs, contexts
@@ -33,6 +33,7 @@ def get_expected_contexts(jobs, jenkins):
     contexts = CACHE.get(cache_key, [])
 
     if contexts:
+        logger.debug("Cache hit %s = %r", cache_key, contexts)
         return contexts
 
     for name in jobs:
@@ -55,14 +56,13 @@ def loop_pulls(wrapped):
             pulls = GITHUB.repos(owner)(repo).pulls.get(per_page=b'100')
 
             for pull in pulls:
-                logger.info('Doing PR: %s', pull['html_url'])
-
                 # Skip any PR that's not $DEBUG_PR if set
                 debug = SETTINGS.DEBUG_PR
                 if debug and debug != pull['html_url']:
-                    print('Skipping PR', pull['html_url'], 'to debug', debug)
+                    logger.debug('Skipping %s', pull['html_url'])
                     continue
 
+                logger.info('Working on %s', pull['html_url'])
                 pr = PullRequest(owner, repo, jobs, contexts, pull)
                 wrapped(pr=pr, *args, **kwargs)
 
@@ -84,14 +84,16 @@ class PullRequest(object):
         branch = self.data['head']['ref']
 
         if not contexts:
+            logger.debug("Nothing to build")
             return
 
         matrix = {}
         for context in contexts:
             if '/' not in context:
                 try:
-                    jenkins.jobs[context].invoke(
-                        build_params={SETTINGS.REVISION_PARAM: branch})
+                    params = {SETTINGS.REVISION_PARAM: branch}
+                    logger.info("Trigger %s with %r", context, params)
+                    jenkins.jobs[context].invoke(build_params=params)
                 except ValueError:
                     # It worked anyway :D
                     pass
@@ -140,6 +142,8 @@ class PullRequest(object):
             self.owner, self.repo, self.data['head']['sha'],
             SETTINGS.GITHUB_TOKEN)
         self.statuses = requests.get(url.encode('utf-8')).json()['statuses']
+        for status in self.statuses:
+            logger.debug("Current %s: %s", status['context'], status['state'])
         return self.statuses
 
     @retry(stop_max_attempt_number=20, wait_fixed=SETTINGS.WAIT_FIXED)

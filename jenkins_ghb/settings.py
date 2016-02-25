@@ -21,6 +21,7 @@ class EnvironmentSettings(object):
 SETTINGS = EnvironmentSettings(defaults={
     # Work only on this PR github full URL.
     'DEBUG_PR': None,
+    'GHIB_VERBOSE': '',
     # [owner/repository:job1,job2 ...]
     'GITHUB_JOBS': '',
     'GITHUB_TOKEN': None,
