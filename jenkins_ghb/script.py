@@ -1,6 +1,5 @@
 import os
 import logging
-import time
 
 
 logger = logging.getLogger(__name__)
@@ -23,15 +22,11 @@ def entrypoint():
 
     # Import GHB modules after logging is setup
     from .main import main
-    from .settings import SETTINGS
 
-    if SETTINGS.RETRY_AFTER:
-        while True:
-            main()
-            logger.info('Sleeping before starting over')
-            time.sleep(int(SETTINGS.RETRY_AFTER))
-    else:
+    try:
         main()
+    except KeyboardInterrupt:
+        logger.info("Done")
 
 
 if __name__ == '__main__':

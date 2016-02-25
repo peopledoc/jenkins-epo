@@ -1,5 +1,7 @@
+import asyncio
 import logging
 import time
+import sys
 
 import argh
 import requests
@@ -292,6 +294,24 @@ def run(wait_free_queue=False, retry_every=10, dry=False):
     )
 
 
+class ErrorHandler(object):
+    def __init__(self):
+        self.context = None
+
+    def __call__(self, loop, context):
+        self.context = context
+        loop.stop()
+
+    def exit(self):
+        if not self.context:
+            return 0
+
+        logger.critical('Unhandled error')
+        self.context['future'].print_stack()
+
+        return 1
+
+
 def main():
     parser = argh.ArghParser()
     parser.add_commands([
@@ -305,12 +325,23 @@ def main():
         update_github,
     ])
 
-    try:
-        parser.dispatch()
-    except Exception:
-        logger.exception('Unhandled error')
-        if SETTINGS.PDB:
-            import pdb
-            pdb.post_mortem()
-    finally:
-        CACHE.save()
+    loop = asyncio.get_event_loop()
+    error_handler = ErrorHandler()
+    loop.set_exception_handler(error_handler)
+
+    @asyncio.coroutine
+    def main_iteration(loop):
+        res = parser.dispatch()
+        if asyncio.iscoroutine(res):
+            res = yield from res
+
+        if SETTINGS.GHIB_LOOP:
+            logger.debug("Looping in %s seconds", SETTINGS.GHIB_LOOP)
+            loop.call_later(SETTINGS.GHIB_LOOP, main_iteration, loop)
+        else:
+            loop.stop()
+
+    asyncio.async(main_iteration(loop))
+    loop.run_forever()
+    loop.close()
+    sys.exit(error_handler.exit())

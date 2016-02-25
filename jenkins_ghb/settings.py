@@ -21,6 +21,8 @@ class EnvironmentSettings(object):
 SETTINGS = EnvironmentSettings(defaults={
     # Work only on this PR github full URL.
     'DEBUG_PR': None,
+    # Trigger loop
+    'GHIB_LOOP': 0,
     'GHIB_VERBOSE': '',
     # [owner/repository:job1,job2 ...]
     'GITHUB_JOBS': '',
@@ -32,8 +34,6 @@ SETTINGS = EnvironmentSettings(defaults={
     'PDB': False,
     # Wait this milliseconds before actually do something.
     'WAIT_FIXED': 15000,
-    # Trigger loop
-    'RETRY_AFTER': 60,
     # Jenkins job param name.
     'REVISION_PARAM': 'REVISION',
 })
