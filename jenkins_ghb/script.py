@@ -9,19 +9,19 @@ import time
 
 import argh
 from github import GitHub, ApiError
-from jenkinsapi.jenkins import Jenkins
 import requests
 from retrying import retry
 import yaml
 
 from .cache import CACHE
+from .jenkins import JENKINS
+
 
 logger = logging.getLogger('jenkins-ghb')
 
 
 PR = None
 GITHUB = None
-JENKINS = None
 REVISION_PARAM = os.environ.get('REVISION_PARAM', 'REVISION')
 WAIT_FIXED = int(os.environ.get('WAIT_FIXED', 15000))
 
@@ -255,10 +255,6 @@ def get_github():
         username=os.environ.get('GITHUB_USERNAME', None),
         access_token=os.environ.get('GITHUB_TOKEN', None) or None,
         password=os.environ.get('GITHUB_PASSWORD', None))
-
-
-def get_jenkins():
-    return Jenkins(os.environ.get('JENKINS_URL', 'http://localhost:8080'))
 
 
 def generator():
@@ -507,7 +503,7 @@ def run(wait_free_queue=False, retry_every=10, dry=False):
 
 
 def main():
-    global GITHUB, JENKINS
+    global GITHUB
 
     parser = argh.ArghParser()
     parser.add_commands([
@@ -522,7 +518,6 @@ def main():
     ])
 
     GITHUB = get_github()
-    JENKINS = get_jenkins()
 
     parser.dispatch()
 
