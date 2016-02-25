@@ -41,6 +41,13 @@ def bot():
                 )
 
 
+def list_jobs():
+    """List managed jobs"""
+    for project in JENKINS.list_projects():
+        for job in project.jobs:
+            print(job)
+
+
 def list_pr():
     """List GitHub PR polled"""
     for project in JENKINS.list_projects():
@@ -371,6 +378,7 @@ def main():
     parser.add_commands([
         bot,
         enqueue_new,
+        list_jobs,
         list_projects,
         list_pr,
         rebuild_queued,
