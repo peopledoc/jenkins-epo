@@ -2,9 +2,11 @@ import fnmatch
 import logging
 import re
 
-from github import GitHub
+from github import GitHub, ApiError
+import requests
 
 from .settings import SETTINGS
+from .utils import retry
 
 
 logger = logging.getLogger(__name__)
@@ -27,12 +29,128 @@ GITHUB = LazyGithub()
 
 
 class PullRequest(object):
-    def __init__(self, pr, project):
-        self.pr = pr
+    def __init__(self, data, project):
+        self.data = data
         self.project = project
+        self._statuses_cache = None
 
     def __str__(self):
-        return self.pr['html_url']
+        return self.data['html_url']
+
+    @property
+    def ref(self):
+        return self.data['head']['ref']
+
+    @retry()
+    def comment(self, body):
+        if SETTINGS.GHIB_DRY_RUN:
+            return logger.info("Would comment on %s", self)
+
+        logger.info("Commenting on %s", self)
+        (
+            GITHUB.repos(self.project.owner)(self.project.repository)
+            .issues(self.data['number']).comments.post(body=body)
+        )
+
+    @retry()
+    def get_statuses(self):
+        if self._statuses_cache is None:
+            if SETTINGS.GHIB_IGNORE_STATUSES:
+                logger.debug("Skip GitHub statuses")
+                statuses = {}
+            else:
+                logger.info("Fetching statuses for %s", self)
+                url = 'https://api.github.com/repos/%s/%s/status/%s?access_token=%s&per_page=100' % (  # noqa
+                    self.project.owner, self.project.repository,
+                    self.data['head']['sha'], SETTINGS.GITHUB_TOKEN
+                )
+                statuses = dict([(x['context'], x) for x in (
+                    requests.get(url.encode('utf-8'))
+                    .json()['statuses']
+                )])
+                logger.debug("Got status for %r", sorted(statuses.keys()))
+            self._statuses_cache = statuses
+
+        return self._statuses_cache
+
+    def get_status_for(self, context):
+        return self.get_statuses()[context]
+
+    instruction_re = re.compile(
+        '('
+        # Case beginning:  jenkins: XXX or `jenkins: XXX`
+        '\A`*jenkins:[^\n]*`*' '|'
+        # Case one middle line:  jenkins: XXX
+        '(?!`)\njenkins:[^\n]*' '|'
+        # Case middle line teletype:  `jenkins: XXX`
+        '\n`+jenkins:[^\n]*`+' '|'
+        # Case block code: ```\njenkins:\n  XXX```
+        '```(?:yaml)?\njenkins:[\s\S]*?\n```'
+        ')'
+    )
+
+    @retry()
+    def list_instructions(self):
+        logger.info("Queyring comments for instructions")
+        issue = (
+            GITHUB.repos(self.project.owner)(self.project.repository)
+            .issues(self.data['number'])
+        )
+        comments = [issue.get()] + issue.comments.get()
+        for comment in comments:
+            body = comment['body'].replace('\r', '')
+
+            for instruction in self.instruction_re.findall(body):
+                try:
+                    instruction = instruction.strip().strip('`')
+                    if instruction.startswith('yaml\n'):
+                        instruction = instruction[4:].strip()
+                    instruction = yaml.load(instruction)
+                except yaml.error.YAMLError as e:
+                    logger.warn(
+                        "Invalid YAML instruction in %s", comment['html_url']
+                    )
+                    logger.debug("%s", e)
+                    continue
+
+                if not instruction['jenkins']:
+                    # Just skip empty or null instructions.
+                    continue
+
+                yield (
+                    datetime.datetime.strptime(
+                        comment['updated_at'],
+                        '%Y-%m-%dT%H:%M:%SZ'
+                    ),
+                    comment['user']['login'],
+                    instruction['jenkins'],
+                )
+
+    @retry()
+    def update_statuses(self, context, state, description, url=None):
+        current_statuses = self.get_statuses()
+
+        new_status = dict(
+            context=context, description=description,
+            state=state, target_url=url,
+        )
+
+        if context in current_statuses:
+            raise Exception("MàJ de statut")
+
+        try:
+            logger.info(
+                "Set GitHub status %s to %s/%s", context, state, description,
+            )
+            new_status = (
+                GITHUB.repos(self.project.owner)(self.project.repository)
+                .statuses(self.data['head']['sha']).post(**new_status)
+            )
+            self._statuses_cache[context] = new_status
+        except ApiError:
+            logger.warn(
+                'Hit 1000 status updates on %s', self.data['head']['sha']
+            )
 
 
 class Project(object):
@@ -60,6 +178,7 @@ class Project(object):
     def url(self):
         return 'https://github.com/%s/%s' % (self.owner, self.repository)
 
+    @retry()
     def list_pull_requests(self):
         logger.info(
             "Querying GitHub for %s/%s PR", self.owner, self.repository,
@@ -80,3 +199,8 @@ class Project(object):
                     continue
 
             yield PullRequest(pr, project=self)
+
+    def list_contextes(self):
+        for job in self.jobs:
+            for context in job.list_contextes():
+                yield context

@@ -17,6 +17,30 @@ from .settings import SETTINGS
 logger = logging.getLogger('jenkins_ghb')
 
 
+def bot():
+    """Poll GitHub to find something to do"""
+    for project in JENKINS.list_projects():
+        for pr in project.list_pull_requests():
+            logger.info("Working on %s", pr)
+            triggered_contextes = []
+            for job in project.jobs:
+                for context in job.list_contextes():
+                    try:
+                        pr.get_status_for(context)
+                        logger.info("%s already triggered", context)
+                    except KeyError:
+                        logger.info("Trigger new build %s", job)
+                        triggered_contextes.extend(job.build(pr))
+                        break
+
+            for context in triggered_contextes:
+                pr.update_statuses(
+                    context=context,
+                    description='Queued',
+                    state='pending',
+                )
+
+
 def list_pr():
     """List GitHub PR polled"""
     for project in JENKINS.list_projects():
@@ -345,6 +369,7 @@ class ErrorHandler(object):
 def main():
     parser = argh.ArghParser()
     parser.add_commands([
+        bot,
         enqueue_new,
         list_projects,
         list_pr,
