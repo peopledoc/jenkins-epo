@@ -1,7 +1,6 @@
 import functools
 import json
 import logging
-import os
 import re
 import yaml
 
@@ -11,17 +10,14 @@ from retrying import retry
 
 from .cache import CACHE
 from .jenkins import JENKINS
-
-
-REVISION_PARAM = os.environ.get('REVISION_PARAM', 'REVISION')
-WAIT_FIXED = int(os.environ.get('WAIT_FIXED', 15000))
+from .settings import SETTINGS
 
 
 logger = logging.getLogger(__name__)
 
 
 def generator():
-    for github_jenkins in os.environ.get('GITHUB_JOBS').split(' '):
+    for github_jenkins in SETTINGS.GITHUB_JOBS.split(' '):
         owner_repo, jobs_config = github_jenkins.split(':')
         owner, repo = owner_repo.split('/')
         jobs = jobs_config.split(',')
@@ -31,7 +27,7 @@ def generator():
         yield owner_repo, owner, repo, jobs, contexts
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=WAIT_FIXED)
+@retry(stop_max_attempt_number=3, wait_fixed=SETTINGS.WAIT_FIXED)
 def get_expected_contexts(jobs, jenkins):
     cache_key = 'contexts:' + ','.join(jobs)
     contexts = CACHE.get(cache_key, [])
@@ -62,7 +58,7 @@ def loop_pulls(wrapped):
                 logger.info('Doing PR: %s', pull['html_url'])
 
                 # Skip any PR that's not $DEBUG_PR if set
-                debug = os.environ.get('DEBUG_PR', None)
+                debug = SETTINGS.DEBUG_PR
                 if debug and debug != pull['html_url']:
                     print('Skipping PR', pull['html_url'], 'to debug', debug)
                     continue
@@ -83,7 +79,7 @@ class PullRequest(object):
         self.contexts = contexts
         self.data = data
 
-    @retry(stop_max_attempt_number=20, wait_fixed=WAIT_FIXED)
+    @retry(stop_max_attempt_number=20, wait_fixed=SETTINGS.WAIT_FIXED)
     def build(self, jenkins, contexts):
         branch = self.data['head']['ref']
 
@@ -95,7 +91,7 @@ class PullRequest(object):
             if '/' not in context:
                 try:
                     jenkins.jobs[context].invoke(
-                        build_params={REVISION_PARAM: branch})
+                        build_params={SETTINGS.REVISION_PARAM: branch})
                 except ValueError:
                     # It worked anyway :D
                     pass
@@ -116,7 +112,7 @@ class PullRequest(object):
             data = {
                 'parameter': [
                     {
-                        'name': REVISION_PARAM,
+                        'name': SETTINGS.REVISION_PARAM,
                         'value': branch,
                     },
                     {
@@ -138,15 +134,15 @@ class PullRequest(object):
                 'redirectTo': '.', 'json':
                 json.dumps(data)})
 
-    @retry(stop_max_attempt_number=20, wait_fixed=WAIT_FIXED)
+    @retry(stop_max_attempt_number=20, wait_fixed=SETTINGS.WAIT_FIXED)
     def get_github_statuses(self, github):
         url = 'https://api.github.com/repos/%s/%s/status/%s?access_token=%s&per_page=100' % (  # noqa
             self.owner, self.repo, self.data['head']['sha'],
-            os.environ['GITHUB_TOKEN'])
+            SETTINGS.GITHUB_TOKEN)
         self.statuses = requests.get(url.encode('utf-8')).json()['statuses']
         return self.statuses
 
-    @retry(stop_max_attempt_number=20, wait_fixed=WAIT_FIXED)
+    @retry(stop_max_attempt_number=20, wait_fixed=SETTINGS.WAIT_FIXED)
     def update_context(self, github, context, state, description, url=None):
         matching = [
             i for (i, d) in enumerate(self.statuses)
@@ -173,7 +169,7 @@ class PullRequest(object):
         except ApiError:  # because we add 1000 updates
             logger.warn('ERROR: 1000 updates on %s', self.data)
 
-    @retry(stop_max_attempt_number=20, wait_fixed=WAIT_FIXED)
+    @retry(stop_max_attempt_number=20, wait_fixed=SETTINGS.WAIT_FIXED)
     def get_configuration(self, github):
         comments = github.repos(self.owner)(self.repo).issues(
                 self.data['number']).comments.get()
@@ -219,9 +215,10 @@ class LazyGithub(object):
     def load(self):
         if not self._instance:
             self._instance = GitHub(
-                username=os.environ.get('GITHUB_USERNAME', None),
-                access_token=os.environ.get('GITHUB_TOKEN', None) or None,
-                password=os.environ.get('GITHUB_PASSWORD', None))
+                username=SETTINGS.GITHUB_USERNAME,
+                access_token=SETTINGS.GITHUB_TOKEN or None,
+                password=SETTINGS.GITHUB_PASSWORD,
+            )
 
     def __getattr__(self, name):
         self.load()

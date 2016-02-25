@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import logging
-import os
 import time
 
 import argh
@@ -10,13 +9,14 @@ from retrying import retry
 
 from .cache import CACHE
 from .jenkins import JENKINS
-from .pullrequest import GITHUB, REVISION_PARAM, WAIT_FIXED, loop_pulls
+from .pullrequest import GITHUB, loop_pulls
+from .settings import SETTINGS
 
 
 logger = logging.getLogger('jenkins-ghb')
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=WAIT_FIXED)
+@retry(stop_max_attempt_number=3, wait_fixed=SETTINGS.WAIT_FIXED)
 def get_queue(jenkins):
     data = {}
 
@@ -30,7 +30,7 @@ def get_queue(jenkins):
             # That's not a PR job
             continue
 
-        branch = params.get(REVISION_PARAM, None)
+        branch = params.get(SETTINGS.REVISION_PARAM, None)
 
         if branch is None:
             # That's not a PR job
@@ -196,7 +196,7 @@ def rebuild_failed(pr, dry=False):
     statuses = pr.get_github_statuses(GITHUB)
     queue = get_queue(JENKINS).get(pr.data['head']['ref'], {})
 
-    @retry(stop_max_attempt_number=3, wait_fixed=WAIT_FIXED)
+    @retry(stop_max_attempt_number=3, wait_fixed=SETTINGS.WAIT_FIXED)
     def request_console(status):
         return requests.get(status['target_url'] + 'consoleText')
 
@@ -314,19 +314,18 @@ def entrypoint():
     )
     logger.setLevel(logging.DEBUG)
     logger.info("Starting jenkins-ghb")
-    retry_after = os.environ.get('RETRY_AFTER', None)
 
-    if retry_after:
+    if SETTINGS.RETRY_AFTER:
         while True:
             main()
             logger.info('Sleeping before starting over')
-            time.sleep(int(retry_after))
+            time.sleep(int(SETTINGS.RETRY_AFTER))
     else:
         try:
             main()
         except Exception:
             logger.exception('Unhandled error')
-            if os.environ.get('PDB', None):
+            if SETTINGS.PDB:
                 import pdb
                 pdb.post_mortem()
         finally:
