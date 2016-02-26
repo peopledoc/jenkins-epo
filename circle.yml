@@ -1,0 +1,7 @@
+dependencies:
+  pre:
+    - sudo apt-get -y update; sudo apt-get install -y python3-dev python-all-dev libyaml-dev
+  # Stolen frow https://github.com/samstav/tox-pyenv
+  override:
+    - pip install tox tox-pyenv
+    - pyenv local 3.4.3 3.5.0

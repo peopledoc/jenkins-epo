@@ -1,5 +1,8 @@
 /build/
+.cache
 /dist/
 /*.egg-info/
 *.pickle
 __pycache__/
+/my-*
+/.tox/
