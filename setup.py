@@ -15,6 +15,7 @@ setup(
     },
     extras_require={
         'release': ['wheel', 'zest.releaser'],
+        'test': ['mock', 'pytest', 'pytest-logging'],
     },
     install_requires=[
         'argh',

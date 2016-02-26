@@ -1,4 +1,5 @@
 /build/
+.cache
 /dist/
 /*.egg-info/
 *.pickle
