@@ -7,6 +7,10 @@ Is your Jenkins crazy?
  Jenkins independant Github Builder
 ####################################
 
+.. image:: https://circleci.com/gh/novafloss/jenkins-github-builder.svg?style=shield
+   :target: https://circleci.com/gh/novafloss/jenkins-github-builder
+   :alt: CI Status
+
 A pure python poller based on github API. This is an alternative solution to
 jenkins poll or github webhook.
 
