@@ -8,6 +8,7 @@ import argh
 import requests
 from retrying import retry
 
+from .bot import Bot
 from .cache import CACHE
 from .jenkins import JENKINS
 from .pullrequest import GITHUB, loop_pulls
@@ -23,22 +24,10 @@ def bot():
     if not queue_empty:
         logger.warn("Queue is full. No jobs will be queued.")
 
+    bot = Bot(queue_empty)
     for project in JENKINS.list_projects():
         for pr in project.list_pull_requests():
-            logger.info("Working on %s", pr)
-            for job in project.jobs:
-                not_built = job.list_not_built_contextes(pr)
-                if not_built and queue_empty:
-                    new_contextes = job.build(pr)
-                else:
-                    new_contextes = job.list_not_built_contextes(pr)
-
-                for context in new_contextes:
-                    pr.update_statuses(
-                        context=context,
-                        description='Queued' if queue_empty else 'Backed',
-                        state='pending',
-                    )
+            bot.run(pr)
 
 
 def list_jobs():

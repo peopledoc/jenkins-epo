@@ -129,13 +129,12 @@ class FreestyleJob(Job):
     def list_contextes(self):
         yield self._instance.name
 
-    def build(self, pr):
+    def build(self, pr, contextes):
         params = {}
         if self.revision_param:
             params[self.revision_param] = pr.ref
         self._instance.invoke(build_params=params)
         logger.info("Triggered new build %s", self)
-        return self.list_contextes()
 
 
 class MatrixJob(Job):
@@ -162,7 +161,7 @@ class MatrixJob(Job):
         for c in self._instance._data['activeConfigurations']:
             yield '%s/%s' % (self._instance.name, c['name'])
 
-    def build(self, pr):
+    def build(self, pr, contextes):
         data = {'parameter': [], 'statusCode': '303', 'redirectTo': '.'}
 
         if self.revision_param:
@@ -171,13 +170,12 @@ class MatrixJob(Job):
                 'value': pr.ref,
             })
 
-        not_built_contextes = self.list_not_built_contextes(pr)
         if self.configuration_param:
             conf_index = len(str(self))+1
             confs = [
                 c['name'] for c in self._instance._data['activeConfigurations']
             ]
-            not_built = [c[conf_index:] for c in not_built_contextes]
+            not_built = [c[conf_index:] for c in contextes]
             data['parameter'].append({
                 'name': self.configuration_param,
                 'values': [
@@ -194,7 +192,5 @@ class MatrixJob(Job):
         if res.status_code != 200:
             raise Exception('Failed to trigger build.', res)
 
-        for context in not_built_contextes:
+        for context in contextes:
             logger.info("Triggered new build %s/%s", self, context)
-
-        return not_built_contextes

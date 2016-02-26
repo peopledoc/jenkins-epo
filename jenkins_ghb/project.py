@@ -1,9 +1,11 @@
+import datetime
 import fnmatch
 import logging
 import re
 
 from github import GitHub, ApiError
 import requests
+import yaml
 
 from .settings import SETTINGS
 from .utils import retry
@@ -64,6 +66,53 @@ class PullRequest(object):
 
     def get_status_for(self, context):
         return self.get_statuses()[context]
+
+    instruction_re = re.compile(
+        '('
+        # Case beginning:  jenkins: XXX or `jenkins: XXX`
+        '\A`*jenkins:[^\n\r]*`*' '|'
+        # Case one middle line:  jenkins: XXX
+        '(?!`)\r\njenkins:[^\n\r]*' '|'
+        # Case middle line teletype:  `jenkins: XXX`
+        '\r\n`+jenkins:[^\n]*`+' '|'
+        # Case block code: ```\njenkins:\n  XXX```
+        '```(?:yaml)?\r\njenkins:[^`]*\r\n```'
+        ')'
+    )
+
+    @retry()
+    def list_instructions(self):
+        logger.info("Queyring comments for instructions")
+        issue = (
+            GITHUB.repos(self.project.owner)(self.project.repository)
+            .issues(self.data['number'])
+        )
+        comments = [issue.get()] + issue.comments.get()
+        for comment in comments:
+            for instruction in self.instruction_re.findall(comment['body']):
+                try:
+                    instruction = instruction.strip().strip('`')
+                    if instruction.startswith('yaml\r\n'):
+                        instruction = instruction[6:].strip()
+                    instruction = yaml.load(instruction)
+                except yaml.error.YAMLError as e:
+                    logger.warn(
+                        "Invalid YAML instruction in %s", comment['html_url']
+                    )
+                    logger.debug("%s", e)
+                    continue
+
+                if not instruction['jenkins']:
+                    # Just skip empty or null instructions.
+                    continue
+
+                yield (
+                    datetime.datetime.strptime(
+                        comment['updated_at'],
+                        '%Y-%m-%dT%H:%M:%SZ'
+                    ),
+                    instruction['jenkins'],
+                )
 
     @retry()
     def update_statuses(self, context, state, description, url=None):
