@@ -19,8 +19,6 @@ class EnvironmentSettings(object):
 
 
 SETTINGS = EnvironmentSettings(defaults={
-    # Work only on this PR github full URL.
-    'DEBUG_PR': None,
     # Drop into Pdb on unhandled exception
     'GHIB_DEBUG': False,
     'GHIB_IGNORE_STATUSES': '',
@@ -31,14 +29,6 @@ SETTINGS = EnvironmentSettings(defaults={
     # When commenting on PR
     'GHIB_NAME': 'Jenkins GitHub Builder',
     'GHIB_VERBOSE': '',
-    # [owner/repository:job1,job2 ...]
-    'GITHUB_JOBS': '',
     'GITHUB_TOKEN': None,
-    'GITHUB_USERNAME': None,
-    'GITHUB_PASSWORD': None,
     'JENKINS_URL': 'http://localhost:8080',
-    # Wait this milliseconds before actually do something.
-    'WAIT_FIXED': 15000,
-    # Jenkins job param name.
-    'REVISION_PARAM': 'REVISION',
 })
