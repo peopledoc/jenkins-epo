@@ -1,15 +1,12 @@
 Is your Jenkins crazy?
 
-.. image:: crazy-cat.gif
-   :alt: Crazy cat
+| |crazy|
 
 ####################################
  Jenkins independant Github Builder
 ####################################
 
-.. image:: https://circleci.com/gh/novafloss/jenkins-github-builder.svg?style=shield
-   :target: https://circleci.com/gh/novafloss/jenkins-github-builder
-   :alt: CI Status
+| |CI|
 
 A pure python poller based on github API. This is an alternative solution to
 jenkins poll or github webhook.
@@ -50,3 +47,11 @@ Installation
    editor /etc/jenkins-ghb.conf
    systemctl daemon-reload
    systemctl status jenkins-ghb
+
+
+.. |CI| image:: https://circleci.com/gh/novafloss/jenkins-github-builder.svg?style=shield
+   :target: https://circleci.com/gh/novafloss/jenkins-github-builder
+   :alt: CI Status
+
+.. |crazy| image:: crazy-cat.gif
+   :alt: Crazy cat
