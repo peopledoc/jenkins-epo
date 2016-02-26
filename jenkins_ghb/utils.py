@@ -1,4 +1,5 @@
 import bdb
+import fnmatch
 import functools
 import logging
 
@@ -34,3 +35,7 @@ retry = functools.partial(
     wait_exponential_multiplier=500,
     wait_exponential_max=10000,
 )
+
+
+def match(item, patterns):
+    return not patterns or [p for p in patterns if fnmatch.fnmatch(item, p)]

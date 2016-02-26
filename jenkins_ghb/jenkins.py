@@ -9,7 +9,7 @@ import requests
 
 from .project import Project
 from .settings import SETTINGS
-from .utils import retry
+from .utils import match, retry
 
 
 logger = logging.getLogger(__name__)
@@ -42,13 +42,9 @@ class LazyJenkins(object):
         projects = {}
 
         for name, job in self.get_jobs():
-            if self.limit_jobs:
-                for pattern in self.limit_jobs:
-                    if fnmatch.fnmatch(name, pattern):
-                        break
-                else:
-                    logger.debug("Skipping %s", name)
-                    continue
+            if not match(name, self.limit_jobs):
+                logger.debug("Skipping %s", name)
+                continue
 
             job = Job.factory(job)
             for project in job.get_projects():

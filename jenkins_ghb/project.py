@@ -1,5 +1,4 @@
 import datetime
-import fnmatch
 import logging
 import re
 
@@ -8,7 +7,7 @@ import requests
 import yaml
 
 from .settings import SETTINGS
-from .utils import retry
+from .utils import match, retry
 
 
 logger = logging.getLogger(__name__)
@@ -200,15 +199,10 @@ class Project(object):
         )
 
         for pr in pulls:
-            if self.pr_limit:
-                for pattern in self.pr_limit:
-                    if fnmatch.fnmatch(pr['html_url'], pattern):
-                        break
-                else:
-                    logger.debug("Skipping %s", pr['html_url'])
-                    continue
-
-            yield PullRequest(pr, project=self)
+            if match(pr['html_url'], self.pr_limit):
+                yield PullRequest(pr, project=self)
+            else:
+                logger.debug("Skipping %s", pr['html_url'])
 
     def list_contextes(self):
         for job in self.jobs:
