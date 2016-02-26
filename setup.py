@@ -1,15 +1,21 @@
 #!/usr/bin/env python
 
+import os
 from setuptools import setup
 
+setup_kwargs = dict()
+
+if 0 == os.getuid():
+    setup_kwargs.update(dict(
+        data_files=[
+            ('lib/systemd/system', ['jenkins-ghb.service']),
+            ('/etc', ['jenkins-ghb.conf']),
+        ],
+    ))
 
 setup(
     name='jenkins-ghb',
     version='0.1',
-    data_files=[
-        ('lib/systemd/system', ['jenkins-ghb.service']),
-        ('/etc', ['jenkins-ghb.conf']),
-    ],
     entry_points={
         'console_scripts': ['jenkins-ghb=jenkins_ghb.script:entrypoint'],
     },
@@ -42,4 +48,5 @@ setup(
     keywords=['jenkins', 'github'],
     license='MIT',
     url='https://github.com/novafloss/jenkins-ghb',
+    **setup_kwargs
 )
