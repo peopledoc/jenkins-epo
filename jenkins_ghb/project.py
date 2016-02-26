@@ -44,6 +44,14 @@ class PullRequest(object):
         return self.data['head']['ref']
 
     @retry()
+    def comment(self, body):
+        logger.info("Commenting on %s", self)
+        (
+            GITHUB.repos(self.project.owner)(self.project.repository)
+            .issues(self.data['number']).comments.post(body=body)
+        )
+
+    @retry()
     def get_statuses(self):
         if self._statuses_cache is None:
             if SETTINGS.GHIB_IGNORE_STATUSES:
@@ -70,13 +78,13 @@ class PullRequest(object):
     instruction_re = re.compile(
         '('
         # Case beginning:  jenkins: XXX or `jenkins: XXX`
-        '\A`*jenkins:[^\n\r]*`*' '|'
+        '\A`*jenkins:[^\n]*`*' '|'
         # Case one middle line:  jenkins: XXX
-        '(?!`)\r\njenkins:[^\n\r]*' '|'
+        '(?!`)\njenkins:[^\n]*' '|'
         # Case middle line teletype:  `jenkins: XXX`
-        '\r\n`+jenkins:[^\n]*`+' '|'
+        '\n`+jenkins:[^\n]*`+' '|'
         # Case block code: ```\njenkins:\n  XXX```
-        '```(?:yaml)?\r\njenkins:[^`]*\r\n```'
+        '```(?:yaml)?\njenkins:[\s\S]*?\n```'
         ')'
     )
 
@@ -89,11 +97,13 @@ class PullRequest(object):
         )
         comments = [issue.get()] + issue.comments.get()
         for comment in comments:
-            for instruction in self.instruction_re.findall(comment['body']):
+            body = comment['body'].replace('\r', '')
+
+            for instruction in self.instruction_re.findall(body):
                 try:
                     instruction = instruction.strip().strip('`')
-                    if instruction.startswith('yaml\r\n'):
-                        instruction = instruction[6:].strip()
+                    if instruction.startswith('yaml\n'):
+                        instruction = instruction[4:].strip()
                     instruction = yaml.load(instruction)
                 except yaml.error.YAMLError as e:
                     logger.warn(
@@ -111,6 +121,7 @@ class PullRequest(object):
                         comment['updated_at'],
                         '%Y-%m-%dT%H:%M:%SZ'
                     ),
+                    comment['user']['login'],
                     instruction['jenkins'],
                 )
 

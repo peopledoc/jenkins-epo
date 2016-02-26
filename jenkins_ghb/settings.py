@@ -28,6 +28,8 @@ SETTINGS = EnvironmentSettings(defaults={
     'GHIB_LIMIT_PR': '',
     # Trigger loop
     'GHIB_LOOP': 0,
+    # When commenting on PR
+    'GHIB_NAME': 'Jenkins GitHub Builder',
     'GHIB_VERBOSE': '',
     # [owner/repository:job1,job2 ...]
     'GITHUB_JOBS': '',

@@ -1,12 +1,50 @@
+import copy
 import logging
+import pkg_resources
 import re
+import socket
 
 
 logger = logging.getLogger(__name__)
+GHIB = pkg_resources.get_distribution('jenkins_ghb')
+HELP = """\
+<!--
+jenkins: ignore
+-->
+
+%(mentions)s, this is what I understand:
+
+```yaml
+# Skipping jobs
+jenkins: skip
+jenkins: {skip: '(?!except-this)'}
+jenkins:
+  skip: ['this.*', 'that']
+
+# Requeue past failed jobs
+jenkins: rebuild
+
+# Ask for manual
+jenkins: help|man
+```
+
+You can mix instructions. Multiline instructions **must** be in code block.
+
+--
+*%(me)s for your service*
+
+<!--
+jenkins: [process, help-reset]
+
+Running %(software)s==%(version)s on %(host)s
+-->
+"""
 
 
 class Bot(object):
     DEFAULTS = {
+        'actions': set(),
+        'help-mentions': set(),
         'skip': (),
         'rebuild-failed': None,
     }
@@ -17,19 +55,36 @@ class Bot(object):
         self.settings = {}
 
     def load_instructions(self, pr):
-        self.settings = self.DEFAULTS.copy()
-        for date, instruction in pr.list_instructions():
-            if isinstance(instruction, str):
-                instruction = instruction.lower()
-                if instruction == 'skip':
-                    self.settings['skip'] = self.SKIP_ALL
-                elif instruction == 'rebuild':
-                    self.settings['rebuild-failed'] = date
-                else:
-                    logger.warn("I don't understand %r", instruction)
-            elif isinstance(instruction, dict):
-                if 'skip' in instruction:
-                    skip = instruction['skip']
+        self.settings = copy.deepcopy(self.DEFAULTS)
+        self.settings['actions'].add(self.build)
+        process = True
+        for date, author, instructions in pr.list_instructions():
+            if isinstance(instructions, str):
+                instructions = [instructions]
+            if isinstance(instructions, list):
+                for instruction in instructions:
+                    instruction = instruction.lower()
+                    if not process:
+                        process = 'process' == instruction
+                        continue
+                    if instruction == 'skip':
+                        self.settings['skip'] = self.SKIP_ALL
+                    elif instruction == 'rebuild':
+                        self.settings['rebuild-failed'] = date
+                    elif instruction in ('help', 'man'):
+                        self.settings['actions'].add(self.help_)
+                        self.settings['help-mentions'].add(author)
+                    elif instruction == 'help-reset':
+                        if isinstance(patterns, str):
+                            self.settings['actions'].remove(self.help_)
+                        self.settings['help-mentions'] = set()
+                    elif instruction == 'ignore':
+                        process = False
+                    else:
+                        logger.warn("I don't understand %r", instruction)
+            elif isinstance(instructions, dict):
+                if 'skip' in instructions:
+                    skip = instructions['skip']
                     if isinstance(skip, str):
                         skip = [skip]
                     elif skip is None:
@@ -43,7 +98,8 @@ class Bot(object):
     def run(self, pr):
         logger.info("Working on %s", pr)
         self.load_instructions(pr)
-        self.build(pr)
+        for action in self.settings['actions']:
+            action(pr)
 
     def status_for_new_context(self, context):
         new_status = {'context': context}
@@ -69,6 +125,17 @@ class Bot(object):
 
             for context in not_built:
                 pr.update_statuses(**self.status_for_new_context(context))
+
+    def help_(self, pr):
+        pr.comment(HELP % dict(
+            host=socket.getfqdn(),
+            me='Jenkins GitHub Builder',
+            mentions=','.join([
+                '@' + m for m in self.settings['help-mentions']
+            ]),
+            software=GHIB.project_name,
+            version=GHIB.version,
+        ))
 
     def skip(self, context):
         for pattern in self.settings['skip']:

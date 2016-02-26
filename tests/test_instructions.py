@@ -11,12 +11,14 @@ def test_parse(GITHUB):
     issue = GITHUB.repos.return_value.return_value.issues.return_value
     issue.get.return_value = {
         'updated_at': updated_at, 'body': 'jenkins: issue',
+        'user': {'login': 'reporter'},
     }
     issue.comments.get.return_value = [
         {
-            'updated_at': updated_at,
+            'body': body,
             'html_url': 'URL' + repr(body),
-            'body': body
+            'updated_at': updated_at,
+            'user': {'login': 'commenter'},
         } for body in [
             "jenkins:\r\n",
             "jenkins: start_line\r\n",
@@ -54,10 +56,15 @@ jenkins:\r
   colored: [toto]\r
 ```\r
             """,
+            """\
+```
+jenkins: unix_eof
+```
+            """,
         ]
     ]
 
-    instructions = [i for d, i in pr.list_instructions()]
+    instructions = [i for d, u, i in pr.list_instructions()]
 
     assert 'issue' in instructions
     assert None not in instructions
@@ -74,3 +81,4 @@ jenkins:\r
     assert dict(ticks_one=None) in instructions
     assert dict(indent=[]) in instructions
     assert dict(colored=['toto']) in instructions
+    assert 'unix_eof' in instructions
