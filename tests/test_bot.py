@@ -27,6 +27,17 @@ def test_compute_skip_string():
     assert bot.settings['skip'] == bot.SKIP_ALL
 
 
+def test_compute_rebuild():
+    from jenkins_ghb.bot import Bot
+
+    pr = Mock()
+    bot = Bot()
+
+    pr.list_instructions.return_value = [('DATE', 'rebuild')]
+    bot.load_instructions(pr)
+    assert bot.settings['rebuild-failed'] == 'DATE'
+
+
 def test_compute_skip_override():
     from jenkins_ghb.bot import Bot
 

@@ -1,3 +1,4 @@
+import datetime
 import fnmatch
 import logging
 import json
@@ -114,15 +115,30 @@ class Job(object):
             remote_url = remote_e.findtext('.')
             yield Project.from_remote(remote_url)
 
-    def list_not_built_contextes(self, pr):
+    def list_not_built_contextes(self, pr, rebuild_failed=None):
+        not_built = []
         statuses = pr.get_statuses()
-        return [
-            c for c in self.list_contextes()
-            if (
-                    c not in statuses or
-                    statuses[c]['description'] in {'Backed', 'New'}
-            )
-        ]
+        for context in self.list_contextes():
+            status = statuses.get(context, {})
+            state = status.get('state')
+            # Skip failed job, unless rebuild asked and old
+            if state in {'error', 'failure'}:
+                failure_date = datetime.datetime.strptime(
+                    status['updated_at'], '%Y-%m-%dT%H:%M:%SZ'
+                )
+                if rebuild_failed and failure_date > rebuild_failed:
+                    continue
+            # Skip `Backed`, `New` and `Queued` jobs
+            elif state == 'pending':
+                if status['description'] not in {'Backed', 'New', 'Queued'}:
+                    continue
+            # Skip other known states
+            elif state:
+                continue
+
+            not_built.append(context)
+
+        return not_built
 
 
 class FreestyleJob(Job):

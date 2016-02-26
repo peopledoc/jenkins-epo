@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 class Bot(object):
     DEFAULTS = {
         'skip': (),
+        'rebuild-failed': None,
     }
     SKIP_ALL = ('.*',)
 
@@ -22,6 +23,8 @@ class Bot(object):
                 instruction = instruction.lower()
                 if instruction == 'skip':
                     self.settings['skip'] = self.SKIP_ALL
+                elif instruction == 'rebuild':
+                    self.settings['rebuild-failed'] = date
                 else:
                     logger.warn("I don't understand %r", instruction)
             elif isinstance(instruction, dict):
@@ -58,7 +61,9 @@ class Bot(object):
 
     def build(self, pr):
         for job in pr.project.jobs:
-            not_built = job.list_not_built_contextes(pr)
+            not_built = job.list_not_built_contextes(
+                pr, rebuild_failed=self.settings['rebuild-failed']
+            )
             if not_built and self.queue_empty:
                 job.build(pr, [c for c in not_built if not self.skip(c)])
 
