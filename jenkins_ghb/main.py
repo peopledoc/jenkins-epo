@@ -19,26 +19,26 @@ logger = logging.getLogger('jenkins_ghb')
 
 def bot():
     """Poll GitHub to find something to do"""
+    queue_empty = JENKINS.is_queue_empty()
+    if not queue_empty:
+        logger.warn("Queue is full. No jobs will be queued.")
+
     for project in JENKINS.list_projects():
         for pr in project.list_pull_requests():
             logger.info("Working on %s", pr)
-            triggered_contextes = []
             for job in project.jobs:
-                for context in job.list_contextes():
-                    try:
-                        pr.get_status_for(context)
-                        logger.info("%s already triggered", context)
-                    except KeyError:
-                        logger.info("Trigger new build %s", job)
-                        triggered_contextes.extend(job.build(pr))
-                        break
+                not_built = job.list_not_built_contextes(pr)
+                if not_built and queue_empty:
+                    new_contextes = job.build(pr)
+                else:
+                    new_contextes = job.list_not_built_contextes(pr)
 
-            for context in triggered_contextes:
-                pr.update_statuses(
-                    context=context,
-                    description='Queued',
-                    state='pending',
-                )
+                for context in new_contextes:
+                    pr.update_statuses(
+                        context=context,
+                        description='Queued' if queue_empty else 'Backed',
+                        state='pending',
+                    )
 
 
 def list_jobs():
@@ -396,9 +396,7 @@ def main():
 
     @asyncio.coroutine
     def main_iteration(loop):
-        res = parser.dispatch()
-        if asyncio.iscoroutine(res):
-            res = yield from res
+        parser.dispatch(raw_output=True)
 
         if SETTINGS.GHIB_LOOP:
             logger.debug("Looping in %s seconds", SETTINGS.GHIB_LOOP)

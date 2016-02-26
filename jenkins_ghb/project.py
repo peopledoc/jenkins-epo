@@ -42,17 +42,6 @@ class PullRequest(object):
         return self.data['head']['ref']
 
     @retry()
-    def comment(self, body):
-        if SETTINGS.GHIB_DRY_RUN:
-            return logger.info("Would comment on %s", self)
-
-        logger.info("Commenting on %s", self)
-        (
-            GITHUB.repos(self.project.owner)(self.project.repository)
-            .issues(self.data['number']).comments.post(body=body)
-        )
-
-    @retry()
     def get_statuses(self):
         if self._statuses_cache is None:
             if SETTINGS.GHIB_IGNORE_STATUSES:
@@ -76,56 +65,6 @@ class PullRequest(object):
     def get_status_for(self, context):
         return self.get_statuses()[context]
 
-    instruction_re = re.compile(
-        '('
-        # Case beginning:  jenkins: XXX or `jenkins: XXX`
-        '\A`*jenkins:[^\n]*`*' '|'
-        # Case one middle line:  jenkins: XXX
-        '(?!`)\njenkins:[^\n]*' '|'
-        # Case middle line teletype:  `jenkins: XXX`
-        '\n`+jenkins:[^\n]*`+' '|'
-        # Case block code: ```\njenkins:\n  XXX```
-        '```(?:yaml)?\njenkins:[\s\S]*?\n```'
-        ')'
-    )
-
-    @retry()
-    def list_instructions(self):
-        logger.info("Queyring comments for instructions")
-        issue = (
-            GITHUB.repos(self.project.owner)(self.project.repository)
-            .issues(self.data['number'])
-        )
-        comments = [issue.get()] + issue.comments.get()
-        for comment in comments:
-            body = comment['body'].replace('\r', '')
-
-            for instruction in self.instruction_re.findall(body):
-                try:
-                    instruction = instruction.strip().strip('`')
-                    if instruction.startswith('yaml\n'):
-                        instruction = instruction[4:].strip()
-                    instruction = yaml.load(instruction)
-                except yaml.error.YAMLError as e:
-                    logger.warn(
-                        "Invalid YAML instruction in %s", comment['html_url']
-                    )
-                    logger.debug("%s", e)
-                    continue
-
-                if not instruction['jenkins']:
-                    # Just skip empty or null instructions.
-                    continue
-
-                yield (
-                    datetime.datetime.strptime(
-                        comment['updated_at'],
-                        '%Y-%m-%dT%H:%M:%SZ'
-                    ),
-                    comment['user']['login'],
-                    instruction['jenkins'],
-                )
-
     @retry()
     def update_statuses(self, context, state, description, url=None):
         current_statuses = self.get_statuses()
@@ -136,7 +75,10 @@ class PullRequest(object):
         )
 
         if context in current_statuses:
-            raise Exception("MàJ de statut")
+            current_status = {k: current_statuses[context][k] for k in (
+                'context', 'description', 'state', 'target_url')}
+            if new_status == current_status:
+                return
 
         try:
             logger.info(

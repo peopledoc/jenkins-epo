@@ -57,6 +57,9 @@ class LazyJenkins(object):
 
         return sorted(projects.values(), key=str)
 
+    def is_queue_empty(self):
+        return len(self.get_queue().keys()) == 0
+
 
 JENKINS = LazyJenkins()
 
@@ -111,30 +114,15 @@ class Job(object):
             remote_url = remote_e.findtext('.')
             yield Project.from_remote(remote_url)
 
-    def list_not_built_contextes(self, pr, rebuild_failed=None):
-        not_built = []
+    def list_not_built_contextes(self, pr):
         statuses = pr.get_statuses()
-        for context in self.list_contextes():
-            status = statuses.get(context, {})
-            state = status.get('state')
-            # Skip failed job, unless rebuild asked and old
-            if state in {'error', 'failure'}:
-                failure_date = datetime.datetime.strptime(
-                    status['updated_at'], '%Y-%m-%dT%H:%M:%SZ'
-                )
-                if rebuild_failed and failure_date > rebuild_failed:
-                    continue
-            # Skip `Backed`, `New` and `Queued` jobs
-            elif state == 'pending':
-                if status['description'] not in {'Backed', 'New', 'Queued'}:
-                    continue
-            # Skip other known states
-            elif state:
-                continue
-
-            not_built.append(context)
-
-        return not_built
+        return [
+            c for c in self.list_contextes()
+            if (
+                    c not in statuses or
+                    statuses[c]['description'] in {'Backed', 'New'}
+            )
+        ]
 
 
 class FreestyleJob(Job):
@@ -146,6 +134,7 @@ class FreestyleJob(Job):
         if self.revision_param:
             params[self.revision_param] = pr.ref
         self._instance.invoke(build_params=params)
+        logger.info("Triggered new build %s", self)
         return self.list_contextes()
 
 
@@ -182,15 +171,12 @@ class MatrixJob(Job):
                 'value': pr.ref,
             })
 
+        not_built_contextes = self.list_not_built_contextes(pr)
         if self.configuration_param:
+            conf_index = len(str(self))+1
             confs = [
                 c['name'] for c in self._instance._data['activeConfigurations']
             ]
-            statuses = pr.get_statuses()
-            not_built_contextes = [
-                c for c in self.list_contextes() if c not in statuses
-            ]
-            conf_index = len(str(self))+1
             not_built = [c[conf_index:] for c in not_built_contextes]
             data['parameter'].append({
                 'name': self.configuration_param,
@@ -201,13 +187,14 @@ class MatrixJob(Job):
                 'confs': confs,
             })
 
-            logger.debug("Limiting build to %s", ', '.join(not_built))
-
         res = requests.post(
             self._instance._data['url'] + '/build?delay=0sec',
             data={'json': json.dumps(data)}
         )
         if res.status_code != 200:
             raise Exception('Failed to trigger build.', res)
+
+        for context in not_built_contextes:
+            logger.info("Triggered new build %s/%s", self, context)
 
         return not_built_contextes
