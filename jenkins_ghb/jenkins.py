@@ -149,6 +149,10 @@ class FreestyleJob(Job):
         params = {}
         if self.revision_param:
             params[self.revision_param] = pr.ref
+
+        if SETTINGS.GHIB_DRY_RUN:
+            return logger.info("Would trigger %s", self)
+
         self._instance.invoke(build_params=params)
         logger.info("Triggered new build %s", self)
 
@@ -200,6 +204,11 @@ class MatrixJob(Job):
                 ],
                 'confs': confs,
             })
+
+        if SETTINGS.GHIB_DRY_RUN:
+            for context in contextes:
+                logger.info("Would trigger %s", context)
+            return
 
         res = requests.post(
             self._instance._data['url'] + '/build?delay=0sec',

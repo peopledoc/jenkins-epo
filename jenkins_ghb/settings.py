@@ -21,6 +21,8 @@ class EnvironmentSettings(object):
 SETTINGS = EnvironmentSettings(defaults={
     # Drop into Pdb on unhandled exception
     'GHIB_DEBUG': False,
+    # Do not trigger jobs nor touch GitHub statuses.
+    'GHIB_DRY_RUN': False,
     'GHIB_IGNORE_STATUSES': '',
     'GHIB_LIMIT_JOBS': '',
     'GHIB_LIMIT_PR': '',

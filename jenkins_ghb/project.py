@@ -45,6 +45,9 @@ class PullRequest(object):
 
     @retry()
     def comment(self, body):
+        if SETTINGS.GHIB_DRY_RUN:
+            return logger.info("Would comment on %s", self)
+
         logger.info("Commenting on %s", self)
         (
             GITHUB.repos(self.project.owner)(self.project.repository)
@@ -139,6 +142,11 @@ class PullRequest(object):
                 'context', 'description', 'state', 'target_url')}
             if new_status == current_status:
                 return
+
+        if SETTINGS.GHIB_DRY_RUN:
+            return logger.info(
+                "Would update status %s to %s/%s", context, state, description,
+            )
 
         try:
             logger.info(

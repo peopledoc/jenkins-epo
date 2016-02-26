@@ -45,9 +45,10 @@ Installation
 
    pip3 install jenkins-ghb
    # Check with one PR and one JOB
-   GITHUB_TOKEN=XXX GHIB_LIMIT_PR=*/7823 GHIB_LIMIT_JOBS=app-doc jenkins-ghb list-pr
-   # Run one iteration to check
-   GITHUB_TOKEN=XXX GHIB_LIMIT_PR=*/7823 GHIB_LIMIT_JOBS=app-doc jenkins-ghb bot
+   export GITHUB_TOKEN=XXX GHIB_LIMIT_PR=*/7823 GHIB_LIMIT_JOBS=app-doc
+   jenkins-ghb list-pr
+   # Run a dry run to check
+   GHIB_DRY_RUN=1 jenkins-ghb bot
 
    # Make it a service
    editor /etc/jenkins-ghb.conf
