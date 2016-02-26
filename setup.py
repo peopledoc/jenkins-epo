@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 import os
 from setuptools import setup
@@ -21,7 +22,7 @@ setup(
     },
     extras_require={
         'release': ['wheel', 'zest.releaser'],
-        'test': ['flake8', 'mock', 'pytest', 'pytest-logging'],
+        'test': ['mock', 'pytest', 'pytest-logging'],
     },
     install_requires=[
         'argh',

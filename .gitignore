@@ -5,3 +5,4 @@
 *.pickle
 __pycache__/
 /my-*
+/.tox/
