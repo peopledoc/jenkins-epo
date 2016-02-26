@@ -61,38 +61,34 @@ class Bot(object):
         for date, author, instructions in pr.list_instructions():
             if isinstance(instructions, str):
                 instructions = [instructions]
-            if isinstance(instructions, list):
-                for instruction in instructions:
-                    instruction = instruction.lower()
-                    if not process:
-                        process = 'process' == instruction
-                        continue
-                    if instruction == 'skip':
-                        self.settings['skip'] = self.SKIP_ALL
-                    elif instruction == 'rebuild':
-                        self.settings['rebuild-failed'] = date
-                    elif instruction in ('help', 'man'):
-                        self.settings['actions'].add(self.help_)
-                        self.settings['help-mentions'].add(author)
-                    elif instruction == 'help-reset':
+            for instruction in instructions:
+                instruction = instruction.lower()
+                if not process:
+                    process = 'process' == instruction
+                    continue
+                if instruction == 'skip':
+                    patterns = None
+                    if isinstance(instructions, dict):
+                        patterns = instructions['skip']
                         if isinstance(patterns, str):
-                            self.settings['actions'].remove(self.help_)
-                        self.settings['help-mentions'] = set()
-                    elif instruction == 'ignore':
-                        process = False
-                    else:
-                        logger.warn("I don't understand %r", instruction)
-            elif isinstance(instructions, dict):
-                if 'skip' in instructions:
-                    skip = instructions['skip']
-                    if isinstance(skip, str):
-                        skip = [skip]
-                    elif skip is None:
-                        skip = self.SKIP_ALL
+                            patterns = [patterns]
+                    self.settings['skip'] = patterns or self.SKIP_ALL
+                elif instruction == 'rebuild':
+                    self.settings['rebuild-failed'] = date
+                elif instruction in ('help', 'man'):
+                    self.settings['actions'].add(self.help_)
+                    self.settings['help-mentions'].add(author)
+                elif instruction == 'help-reset':
+                    try:
+                        self.settings['actions'].remove(self.help_)
+                    except KeyError:
+                        pass
+                    self.settings['help-mentions'] = set()
+                elif instruction == 'ignore':
+                    process = False
+                else:
+                    logger.warn("I don't understand %r", instruction)
 
-                    self.settings['skip'] = skip
-            else:
-                logger.warn("I don't understand %r", instruction)
         logger.debug("Bot settings: %r", self.settings)
 
     def run(self, pr):
