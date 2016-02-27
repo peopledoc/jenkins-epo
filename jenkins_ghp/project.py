@@ -53,6 +53,30 @@ class PullRequest(object):
             .issues(self.data['number']).comments.post(body=body)
         )
 
+    def filter_not_built_contextes(self, contextes, rebuild_failed=None):
+        not_built = []
+        for context in contextes:
+            status = self.get_status_for(context)
+            state = status.get('state')
+            # Skip failed job, unless rebuild asked and old
+            if state in {'error', 'failure'}:
+                failure_date = datetime.datetime.strptime(
+                    status['updated_at'], '%Y-%m-%dT%H:%M:%SZ'
+                )
+                if rebuild_failed and failure_date > rebuild_failed:
+                    continue
+            # Skip `Backed`, `New` and `Queued` jobs
+            elif state == 'pending':
+                if status['description'] not in {'Backed', 'New', 'Queued'}:
+                    continue
+            # Skip other known states
+            elif state:
+                continue
+
+            not_built.append(context)
+
+        return not_built
+
     @retry()
     def get_statuses(self):
         if self._statuses_cache is None:
@@ -75,7 +99,7 @@ class PullRequest(object):
         return self._statuses_cache
 
     def get_status_for(self, context):
-        return self.get_statuses()[context]
+        return self.get_statuses().get(context, {})
 
     instruction_re = re.compile(
         '('

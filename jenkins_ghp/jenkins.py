@@ -1,4 +1,3 @@
-import datetime
 import logging
 import json
 from xml.etree import ElementTree as ET
@@ -109,31 +108,6 @@ class Job(object):
         for remote_e in self.config.findall(remote_xpath_query):
             remote_url = remote_e.findtext('.')
             yield Project.from_remote(remote_url)
-
-    def list_not_built_contextes(self, pr, rebuild_failed=None):
-        not_built = []
-        statuses = pr.get_statuses()
-        for context in self.list_contextes():
-            status = statuses.get(context, {})
-            state = status.get('state')
-            # Skip failed job, unless rebuild asked and old
-            if state in {'error', 'failure'}:
-                failure_date = datetime.datetime.strptime(
-                    status['updated_at'], '%Y-%m-%dT%H:%M:%SZ'
-                )
-                if rebuild_failed and failure_date > rebuild_failed:
-                    continue
-            # Skip `Backed`, `New` and `Queued` jobs
-            elif state == 'pending':
-                if status['description'] not in {'Backed', 'New', 'Queued'}:
-                    continue
-            # Skip other known states
-            elif state:
-                continue
-
-            not_built.append(context)
-
-        return not_built
 
 
 class FreestyleJob(Job):
