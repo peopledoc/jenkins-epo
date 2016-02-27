@@ -7,6 +7,10 @@ logger = logging.getLogger(__name__)
 
 class EnvironmentSettings(object):
     def __init__(self, defaults):
+        self.load(defaults)
+        logger.debug("Environment loaded.")
+
+    def load(self, defaults):
         for k, v in sorted(defaults.items()):
             v = os.environ.get(k, v)
             try:
@@ -15,7 +19,6 @@ class EnvironmentSettings(object):
                 pass
             setattr(self, k, v)
             logger.debug("%s=%r", k, v)
-        logger.debug("Environment loaded.")
 
 
 SETTINGS = EnvironmentSettings(defaults={
