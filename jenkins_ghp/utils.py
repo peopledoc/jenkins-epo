@@ -1,4 +1,3 @@
-import bdb
 import fnmatch
 import functools
 import logging
@@ -9,16 +8,8 @@ from retrying import retry
 logger = logging.getLogger(__name__)
 
 
-unfiltered_exceptions = {
-    bdb.BdbQuit,
-    KeyboardInterrupt,
-    NameError,
-    TypeError,
-}
-
-
 def retry_blacklist(exception):
-    if isinstance(exception, tuple(unfiltered_exceptions)):
+    if not isinstance(exception, IOError):
         return False
 
     logger.warn(
