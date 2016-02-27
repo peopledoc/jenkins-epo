@@ -1,5 +1,4 @@
 import datetime
-import fnmatch
 import logging
 import json
 from xml.etree import ElementTree as ET
