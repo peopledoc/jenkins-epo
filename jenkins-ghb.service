@@ -4,7 +4,7 @@ Description=Github independant builder for Jenkins
 [Service]
 EnvironmentFile=/etc/jenkins-ghb.conf
 WorkingDirectory=/var/lib/jenkins/ghb
-ExecStart=/usr/local/bin/jenkins-ghb run
+ExecStart=/usr/local/bin/jenkins-ghb bot
 User=jenkins
 Restart=always
 RestartSec=120

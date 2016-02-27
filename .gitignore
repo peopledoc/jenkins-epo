@@ -6,3 +6,4 @@
 __pycache__/
 /my-*
 /.tox/
+junit.xml
