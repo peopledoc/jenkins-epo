@@ -10,7 +10,7 @@ from .jenkins import JENKINS
 from .settings import SETTINGS
 
 
-logger = logging.getLogger('jenkins_ghb')
+logger = logging.getLogger('jenkins_ghp')
 
 
 def bot():
@@ -66,7 +66,7 @@ class ErrorHandler(object):
         logger.critical('Unhandled error')
         self.context['future'].print_stack()
 
-        if not SETTINGS.GHIB_DEBUG:
+        if not SETTINGS.GHP_DEBUG:
             return 1
 
         try:
@@ -91,9 +91,9 @@ def main():
     def main_iteration(loop):
         parser.dispatch(raw_output=True)
 
-        if SETTINGS.GHIB_LOOP:
-            logger.debug("Looping in %s seconds", SETTINGS.GHIB_LOOP)
-            loop.call_later(SETTINGS.GHIB_LOOP, main_iteration, loop)
+        if SETTINGS.GHP_LOOP:
+            logger.debug("Looping in %s seconds", SETTINGS.GHP_LOOP)
+            loop.call_later(SETTINGS.GHP_LOOP, main_iteration, loop)
         else:
             loop.stop()
 

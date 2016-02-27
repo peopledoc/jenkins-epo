@@ -6,7 +6,7 @@ import socket
 
 
 logger = logging.getLogger(__name__)
-GHIB = pkg_resources.get_distribution('jenkins_ghb')
+DISTRIBUTION = pkg_resources.get_distribution('jenkins_ghp')
 HELP = """\
 <!--
 jenkins: ignore
@@ -129,8 +129,8 @@ class Bot(object):
             mentions=','.join([
                 '@' + m for m in self.settings['help-mentions']
             ]),
-            software=GHIB.project_name,
-            version=GHIB.version,
+            software=DISTRIBUTION.project_name,
+            version=DISTRIBUTION.version,
         ))
 
     def skip(self, context):

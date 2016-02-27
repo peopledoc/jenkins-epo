@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class LazyJenkins(object):
-    limit_jobs = [p for p in SETTINGS.GHIB_LIMIT_JOBS.split(',') if p]
+    limit_jobs = [p for p in SETTINGS.GHP_LIMIT_JOBS.split(',') if p]
 
     def __init__(self):
         self._instance = None
@@ -145,7 +145,7 @@ class FreestyleJob(Job):
         if self.revision_param:
             params[self.revision_param] = pr.ref
 
-        if SETTINGS.GHIB_DRY_RUN:
+        if SETTINGS.GHP_DRY_RUN:
             return logger.info("Would trigger %s", self)
 
         self._instance.invoke(build_params=params)
@@ -200,7 +200,7 @@ class MatrixJob(Job):
                 'confs': confs,
             })
 
-        if SETTINGS.GHIB_DRY_RUN:
+        if SETTINGS.GHP_DRY_RUN:
             for context in contextes:
                 logger.info("Would trigger %s", context)
             return

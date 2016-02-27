@@ -2,9 +2,9 @@ Is your Jenkins crazy?
 
 | |crazy|
 
-####################################
- Jenkins independant GitHub Builder
-####################################
+#######################
+ Jenkins GitHub Poller
+#######################
 
 | |CI|
 
@@ -43,21 +43,21 @@ Installation
 
 ::
 
-   pip3 install jenkins-ghb
+   pip3 install jenkins-ghp
    # Check with one PR and one JOB
-   export GITHUB_TOKEN=XXX GHIB_LIMIT_PR=*/7823 GHIB_LIMIT_JOBS=app-doc
-   jenkins-ghb list-pr
+   export GITHUB_TOKEN=XXX GHP_LIMIT_PR=*/7823 GHP_LIMIT_JOBS=app-doc
+   jenkins-ghp list-pr
    # Run a dry run to check
-   GHIB_DRY_RUN=1 jenkins-ghb bot
+   GHP_DRY_RUN=1 jenkins-ghp bot
 
    # Make it a service
-   editor /etc/jenkins-ghb.conf
+   editor /etc/jenkins-ghp.conf
    systemctl daemon-reload
-   systemctl status jenkins-ghb
+   systemctl status jenkins-ghp
 
 
-.. |CI| image:: https://circleci.com/gh/novafloss/jenkins-github-builder.svg?style=shield
-   :target: https://circleci.com/gh/novafloss/jenkins-github-builder
+.. |CI| image:: https://circleci.com/gh/novafloss/jenkins-github-poller.svg?style=shield
+   :target: https://circleci.com/gh/novafloss/jenkins-github-poller
    :alt: CI Status
 
 .. |crazy| image:: crazy-cat.gif

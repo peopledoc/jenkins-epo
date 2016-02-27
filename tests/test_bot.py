@@ -2,7 +2,7 @@ from mock import Mock
 
 
 def test_compute_skip_null():
-    from jenkins_ghb.bot import Bot
+    from jenkins_ghp.bot import Bot
 
     pr = Mock()
     pr.list_instructions.return_value = [
@@ -15,7 +15,7 @@ def test_compute_skip_null():
 
 
 def test_compute_skip():
-    from jenkins_ghb.bot import Bot
+    from jenkins_ghp.bot import Bot
 
     pr = Mock()
     bot = Bot()
@@ -33,7 +33,7 @@ def test_compute_skip():
 
 
 def test_compute_rebuild():
-    from jenkins_ghb.bot import Bot
+    from jenkins_ghp.bot import Bot
 
     pr = Mock()
     bot = Bot()
@@ -44,7 +44,7 @@ def test_compute_rebuild():
 
 
 def test_compute_help():
-    from jenkins_ghb.bot import Bot
+    from jenkins_ghp.bot import Bot
 
     pr = Mock()
     bot = Bot()
@@ -75,7 +75,7 @@ def test_compute_help():
 
 
 def test_skip_re():
-    from jenkins_ghb.bot import Bot
+    from jenkins_ghp.bot import Bot
 
     pr = Mock()
     pr.list_instructions.return_value = [
@@ -89,7 +89,7 @@ def test_skip_re():
 
 
 def test_skip_re_wrong():
-    from jenkins_ghb.bot import Bot
+    from jenkins_ghp.bot import Bot
 
     pr = Mock()
     pr.list_instructions.return_value = [
