@@ -69,6 +69,8 @@ class PullRequest(object):
                     continue
             # Skip `Backed`, `New` and `Queued` jobs
             elif state == 'pending':
+                # Jenkins deduplicate jobs in the queue. So it's safe to keep
+                # triggering the job in case the queue was flushed.
                 if status['description'] not in {'Backed', 'New', 'Queued'}:
                     continue
             # Skip other known states

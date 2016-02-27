@@ -161,8 +161,11 @@ class BuilderExtension(Extension):
                 'state': 'success',
             })
         else:
+            current_status = self.bot.pr.get_status_for(context)
+            already_queued = 'Queued' == current_status.get('description')
+            queued = self.bot.queue_empty or already_queued
             new_status.update({
-                'description': 'Queued' if self.bot.queue_empty else 'Backed',
+                'description': 'Queued' if queued else 'Backed',
                 'state': 'pending',
             })
         return new_status
