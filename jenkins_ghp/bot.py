@@ -1,11 +1,14 @@
 import collections
 import copy
+import datetime
 import inspect
 import logging
 import pkg_resources
 import re
 import socket
 
+from .jenkins import JENKINS
+from .utils import parse_datetime
 from .settings import SETTINGS
 
 
@@ -169,6 +172,97 @@ class BuilderExtension(Extension):
                 'state': 'pending',
             })
         return new_status
+
+
+def format_duration(duration):
+    duration = datetime.timedelta(seconds=duration / 1000.)
+    h, m, s = str(duration).split(':')
+    h, m, s = int(h), int(m), float(s)
+    duration = '%.1f sec' % s
+    if h or m:
+        duration = '%d min %s' % (m, duration)
+    if h:
+        duration = '%d h %s' % (h, duration)
+    return duration.replace('.0', '')
+
+
+class FixStatusExtension(Extension):
+    SETTINGS = {
+        'GHP_STATUS_LOOP': 300,
+    }
+
+    status_map = {
+        # Requeue an aborted job
+        'ABORTED': ('pending', 'Backed'),
+        'FAILURE': ('failure', 'Build %(name)s failed in %(duration)s!'),
+        'SUCCESS': ('success', 'Build %(name)s succeeded in %(duration)s'),
+    }
+
+    def compute_actual_status(self, build, current_status):
+        target_url = current_status['target_url']
+        jenkins_status = build.get_status()
+        if jenkins_status:
+            state, description = self.status_map[jenkins_status]
+            duration = format_duration(build._data['duration'])
+            try:
+                description = description % dict(
+                    name=build._data['displayName'],
+                    duration=duration,
+                )
+            except TypeError:
+                pass
+
+            if description == 'Backed':
+                target_url = None
+        else:
+            # Touch the commit status to avoid polling it for the next 5
+            # minutes.
+            state = 'pending'
+            description = current_status['description']
+            ellipsis = '...' if description.endswith('....') else '....'
+            description = description.rstrip('.') + ellipsis
+
+        return dict(
+            description=description, state=state, target_url=target_url,
+        )
+
+    def end(self):
+        fivemin_ago = (
+            datetime.datetime.utcnow() -
+            datetime.timedelta(seconds=SETTINGS.GHP_STATUS_LOOP)
+        )
+
+        for context, status in sorted(self.bot.pr.get_statuses().items()):
+            if status['state'] == 'success':
+                continue
+
+            # Jenkins did not assign a build to this SHA1
+            if not status['target_url']:
+                continue
+
+            updated_at = parse_datetime(status['updated_at'])
+            # Don't poll Jenkins more than each 5 min.
+            if status['state'] == 'pending' and updated_at > fivemin_ago:
+                continue
+
+            # We mark actual failed with a bang to avoid rechecking it is
+            # aborted.
+            if status['description'].endswith('!'):
+                continue
+
+            logger.info("Query %s status on Jenkins", context)
+            try:
+                build = JENKINS.get_build_from_url(status['target_url'])
+            except Exception as e:
+                logger.warn(
+                    "Failed to get pending build status: %s: %s",
+                    e.__class__.__name__, e,
+                )
+                continue
+
+            self.bot.pr.update_statuses(
+                context=context, **self.compute_actual_status(build, status)
+            )
 
 
 class HelpExtension(Extension):

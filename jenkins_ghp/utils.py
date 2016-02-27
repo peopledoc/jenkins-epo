@@ -1,3 +1,4 @@
+import datetime
 import fnmatch
 import functools
 import logging
@@ -30,3 +31,9 @@ retry = functools.partial(
 
 def match(item, patterns):
     return not patterns or [p for p in patterns if fnmatch.fnmatch(item, p)]
+
+
+def parse_datetime(formatted):
+    return datetime.datetime.strptime(
+        formatted, '%Y-%m-%dT%H:%M:%SZ'
+    )
