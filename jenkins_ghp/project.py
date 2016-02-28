@@ -86,7 +86,9 @@ class PullRequest(object):
                 logger.debug("Skip GitHub statuses")
                 statuses = {}
             else:
-                logger.info("Fetching statuses for %s", self)
+                logger.info(
+                    "Fetching statuses for %s", self.data['head']['sha'][:8]
+                )
                 url = 'https://api.github.com/repos/%s/%s/status/%s?access_token=%s&per_page=100' % (  # noqa
                     self.project.owner, self.project.repository,
                     self.data['head']['sha'], SETTINGS.GITHUB_TOKEN
