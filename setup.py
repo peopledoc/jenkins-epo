@@ -25,7 +25,6 @@ setup(
         'test': ['mock', 'pytest', 'pytest-logging'],
     },
     install_requires=[
-        'argh',
         'githubpy',
         'jenkinsapi',
         'pyyaml',
