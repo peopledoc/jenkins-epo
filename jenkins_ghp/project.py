@@ -30,6 +30,8 @@ GITHUB = LazyGithub()
 
 
 class PullRequest(object):
+    limit_contextes = [p for p in SETTINGS.GHP_LIMIT_JOBS.split(',') if p]
+
     def __init__(self, data, project):
         self.data = data
         self.project = project
@@ -92,7 +94,7 @@ class PullRequest(object):
                 statuses = dict([(x['context'], x) for x in (
                     requests.get(url.encode('utf-8'))
                     .json()['statuses']
-                )])
+                ) if match(x['context'], self.limit_contextes)])
                 logger.debug("Got status for %r", sorted(statuses.keys()))
             self._statuses_cache = statuses
 
