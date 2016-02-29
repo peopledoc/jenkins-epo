@@ -6,7 +6,7 @@ Is your Jenkins crazy?
  Jenkins GitHub Poller
 #######################
 
-| |PyPI| |CI|
+| |PyPI| |CI| |Code Climate|
 
 A pure python poller based on GitHub API. This is an alternative solution to
 jenkins poll or GitHub webhook.
@@ -70,6 +70,10 @@ Development
 .. |CI| image:: https://circleci.com/gh/novafloss/jenkins-github-poller.svg?style=shield
    :target: https://circleci.com/gh/novafloss/jenkins-github-poller
    :alt: CI Status
+
+.. |Code Climate| image:: https://img.shields.io/codeclimate/github/novafloss/jenkins-github-poller.svg
+   :target: https://codeclimate.com/github/novafloss/jenkins-github-poller
+   :alt: Code climate
 
 .. |crazy| image:: crazy-cat.gif
    :alt: Crazy cat
