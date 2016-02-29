@@ -30,6 +30,8 @@ GITHUB = LazyGithub()
 
 
 class PullRequest(object):
+    limit_contexts = [p for p in SETTINGS.GHP_LIMIT_JOBS.split(',') if p]
+
     def __init__(self, data, project):
         self.data = data
         self.project = project
@@ -53,6 +55,30 @@ class PullRequest(object):
             .issues(self.data['number']).comments.post(body=body)
         )
 
+    def filter_not_built_contexts(self, contexts, rebuild_failed=None):
+        not_built = []
+        for context in contexts:
+            status = self.get_status_for(context)
+            state = status.get('state')
+            # Skip failed job, unless rebuild asked and old
+            if state in {'error', 'failure'}:
+                failure_date = datetime.datetime.strptime(
+                    status['updated_at'], '%Y-%m-%dT%H:%M:%SZ'
+                )
+                if rebuild_failed and failure_date > rebuild_failed:
+                    continue
+            # Skip `Backed`, `New` and `Queued` jobs
+            elif state == 'pending':
+                if status['description'] not in {'Backed', 'New', 'Queued'}:
+                    continue
+            # Skip other known states
+            elif state:
+                continue
+
+            not_built.append(context)
+
+        return not_built
+
     @retry()
     def get_statuses(self):
         if self._statuses_cache is None:
@@ -60,7 +86,9 @@ class PullRequest(object):
                 logger.debug("Skip GitHub statuses")
                 statuses = {}
             else:
-                logger.info("Fetching statuses for %s", self)
+                logger.info(
+                    "Fetching statuses for %s", self.data['head']['sha'][:8]
+                )
                 url = 'https://api.github.com/repos/%s/%s/status/%s?access_token=%s&per_page=100' % (  # noqa
                     self.project.owner, self.project.repository,
                     self.data['head']['sha'], SETTINGS.GITHUB_TOKEN
@@ -68,14 +96,14 @@ class PullRequest(object):
                 statuses = dict([(x['context'], x) for x in (
                     requests.get(url.encode('utf-8'))
                     .json()['statuses']
-                )])
+                ) if match(x['context'], self.limit_contexts)])
                 logger.debug("Got status for %r", sorted(statuses.keys()))
             self._statuses_cache = statuses
 
         return self._statuses_cache
 
     def get_status_for(self, context):
-        return self.get_statuses()[context]
+        return self.get_statuses().get(context, {})
 
     instruction_re = re.compile(
         '('
@@ -204,7 +232,7 @@ class Project(object):
             else:
                 logger.debug("Skipping %s", pr['html_url'])
 
-    def list_contextes(self):
+    def list_contexts(self):
         for job in self.jobs:
-            for context in job.list_contextes():
+            for context in job.list_contexts():
                 yield context

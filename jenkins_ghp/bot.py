@@ -113,8 +113,9 @@ class Bot(object):
 
     def build(self, pr):
         for job in pr.project.jobs:
-            not_built = job.list_not_built_contextes(
-                pr, rebuild_failed=self.settings['rebuild-failed']
+            not_built = pr.filter_not_built_contexts(
+                job.list_contexts(),
+                rebuild_failed=self.settings['rebuild-failed']
             )
             if not_built and self.queue_empty:
                 job.build(pr, [c for c in not_built if not self.skip(c)])

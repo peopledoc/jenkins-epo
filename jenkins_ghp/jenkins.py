@@ -1,4 +1,3 @@
-import datetime
 import logging
 import json
 from xml.etree import ElementTree as ET
@@ -110,37 +109,12 @@ class Job(object):
             remote_url = remote_e.findtext('.')
             yield Project.from_remote(remote_url)
 
-    def list_not_built_contextes(self, pr, rebuild_failed=None):
-        not_built = []
-        statuses = pr.get_statuses()
-        for context in self.list_contextes():
-            status = statuses.get(context, {})
-            state = status.get('state')
-            # Skip failed job, unless rebuild asked and old
-            if state in {'error', 'failure'}:
-                failure_date = datetime.datetime.strptime(
-                    status['updated_at'], '%Y-%m-%dT%H:%M:%SZ'
-                )
-                if rebuild_failed and failure_date > rebuild_failed:
-                    continue
-            # Skip `Backed`, `New` and `Queued` jobs
-            elif state == 'pending':
-                if status['description'] not in {'Backed', 'New', 'Queued'}:
-                    continue
-            # Skip other known states
-            elif state:
-                continue
-
-            not_built.append(context)
-
-        return not_built
-
 
 class FreestyleJob(Job):
-    def list_contextes(self):
+    def list_contexts(self):
         yield self._instance.name
 
-    def build(self, pr, contextes):
+    def build(self, pr, contexts):
         params = {}
         if self.revision_param:
             params[self.revision_param] = pr.ref
@@ -169,14 +143,14 @@ class MatrixJob(Job):
                         self.configuration_param, self
                     )
 
-    def list_contextes(self):
+    def list_contexts(self):
         if not self._instance._data['activeConfigurations']:
             raise Exception("No active configuration for %s" % self)
 
         for c in self._instance._data['activeConfigurations']:
             yield '%s/%s' % (self._instance.name, c['name'])
 
-    def build(self, pr, contextes):
+    def build(self, pr, contexts):
         data = {'parameter': [], 'statusCode': '303', 'redirectTo': '.'}
 
         if self.revision_param:
@@ -190,7 +164,7 @@ class MatrixJob(Job):
             confs = [
                 c['name'] for c in self._instance._data['activeConfigurations']
             ]
-            not_built = [c[conf_index:] for c in contextes]
+            not_built = [c[conf_index:] for c in contexts]
             data['parameter'].append({
                 'name': self.configuration_param,
                 'values': [
@@ -201,7 +175,7 @@ class MatrixJob(Job):
             })
 
         if SETTINGS.GHP_DRY_RUN:
-            for context in contextes:
+            for context in contexts:
                 logger.info("Would trigger %s", context)
             return
 
@@ -212,5 +186,5 @@ class MatrixJob(Job):
         if res.status_code != 200:
             raise Exception('Failed to trigger build.', res)
 
-        for context in contextes:
+        for context in contexts:
             logger.info("Triggered new build %s/%s", self, context)
