@@ -111,10 +111,10 @@ class Job(object):
 
 
 class FreestyleJob(Job):
-    def list_contextes(self):
+    def list_contexts(self):
         yield self._instance.name
 
-    def build(self, pr, contextes):
+    def build(self, pr, contexts):
         params = {}
         if self.revision_param:
             params[self.revision_param] = pr.ref
@@ -143,14 +143,14 @@ class MatrixJob(Job):
                         self.configuration_param, self
                     )
 
-    def list_contextes(self):
+    def list_contexts(self):
         if not self._instance._data['activeConfigurations']:
             raise Exception("No active configuration for %s" % self)
 
         for c in self._instance._data['activeConfigurations']:
             yield '%s/%s' % (self._instance.name, c['name'])
 
-    def build(self, pr, contextes):
+    def build(self, pr, contexts):
         data = {'parameter': [], 'statusCode': '303', 'redirectTo': '.'}
 
         if self.revision_param:
@@ -164,7 +164,7 @@ class MatrixJob(Job):
             confs = [
                 c['name'] for c in self._instance._data['activeConfigurations']
             ]
-            not_built = [c[conf_index:] for c in contextes]
+            not_built = [c[conf_index:] for c in contexts]
             data['parameter'].append({
                 'name': self.configuration_param,
                 'values': [
@@ -175,7 +175,7 @@ class MatrixJob(Job):
             })
 
         if SETTINGS.GHP_DRY_RUN:
-            for context in contextes:
+            for context in contexts:
                 logger.info("Would trigger %s", context)
             return
 
@@ -186,5 +186,5 @@ class MatrixJob(Job):
         if res.status_code != 200:
             raise Exception('Failed to trigger build.', res)
 
-        for context in contextes:
+        for context in contexts:
             logger.info("Triggered new build %s/%s", self, context)

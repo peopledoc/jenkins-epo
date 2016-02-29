@@ -30,7 +30,7 @@ GITHUB = LazyGithub()
 
 
 class PullRequest(object):
-    limit_contextes = [p for p in SETTINGS.GHP_LIMIT_JOBS.split(',') if p]
+    limit_contexts = [p for p in SETTINGS.GHP_LIMIT_JOBS.split(',') if p]
 
     def __init__(self, data, project):
         self.data = data
@@ -55,9 +55,9 @@ class PullRequest(object):
             .issues(self.data['number']).comments.post(body=body)
         )
 
-    def filter_not_built_contextes(self, contextes, rebuild_failed=None):
+    def filter_not_built_contexts(self, contexts, rebuild_failed=None):
         not_built = []
-        for context in contextes:
+        for context in contexts:
             status = self.get_status_for(context)
             state = status.get('state')
             # Skip failed job, unless rebuild asked and old
@@ -96,7 +96,7 @@ class PullRequest(object):
                 statuses = dict([(x['context'], x) for x in (
                     requests.get(url.encode('utf-8'))
                     .json()['statuses']
-                ) if match(x['context'], self.limit_contextes)])
+                ) if match(x['context'], self.limit_contexts)])
                 logger.debug("Got status for %r", sorted(statuses.keys()))
             self._statuses_cache = statuses
 
@@ -232,7 +232,7 @@ class Project(object):
             else:
                 logger.debug("Skipping %s", pr['html_url'])
 
-    def list_contextes(self):
+    def list_contexts(self):
         for job in self.jobs:
-            for context in job.list_contextes():
+            for context in job.list_contexts():
                 yield context
