@@ -6,7 +6,7 @@ Is your Jenkins crazy?
  Jenkins GitHub Poller
 #######################
 
-| |CI|
+| |PyPI| |CI|
 
 A pure python poller based on GitHub API. This is an alternative solution to
 jenkins poll or GitHub webhook.
@@ -73,3 +73,7 @@ Development
 
 .. |crazy| image:: crazy-cat.gif
    :alt: Crazy cat
+
+.. |PyPI| image:: https://img.shields.io/pypi/v/jenkins-ghp.svg
+   :target: https://pypi.python.org/pypi/jenkins-ghp
+   :alt: Version on PyPI
