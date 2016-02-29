@@ -6,7 +6,7 @@ Is your Jenkins crazy?
  Jenkins GitHub Poller
 #######################
 
-| |PyPI| |CI| |Code Climate|
+| |PyPI| |CI| |Code Climate| |Requires.io|
 
 A pure python poller based on GitHub API. This is an alternative solution to
 jenkins poll or GitHub webhook.
@@ -81,3 +81,7 @@ Development
 .. |PyPI| image:: https://img.shields.io/pypi/v/jenkins-ghp.svg
    :target: https://pypi.python.org/pypi/jenkins-ghp
    :alt: Version on PyPI
+
+.. |Requires.io| image:: https://img.shields.io/requires/github/novafloss/jenkins-github-poller.svg
+   :target: https://requires.io/github/novafloss/jenkins-github-poller/requirements/
+   :alt: Requirements status
