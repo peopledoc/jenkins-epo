@@ -11,7 +11,7 @@ def entrypoint():
         format = '[%(name)-24s %(levelname)8s] %(message)s'
         level = logging.DEBUG
     else:
-        format = '%(asctime)s %(levelname)8s %(message)s'
+        format = '[%(levelname)-8s] %(message)s'
         level = logging.INFO
 
     logging.basicConfig(level=logging.WARNING, format=format)
