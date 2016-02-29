@@ -19,6 +19,11 @@ setup(
     version='0.1',
     entry_points={
         'console_scripts': ['jenkins-ghp=jenkins_ghp.script:entrypoint'],
+        'jenkins_ghp.bot.extensions': [
+            'builder = jenkins_ghp.bot:BuilderExtension',
+            'fix = jenkins_ghp.bot:FixStatusExtension',
+            'help = jenkins_ghp.bot:HelpExtension',
+        ],
     },
     extras_require={
         'release': ['wheel', 'zest.releaser'],

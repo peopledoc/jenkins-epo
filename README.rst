@@ -23,6 +23,7 @@ Features
 - Requeue jobs on queue loss.
 - Retry on network failure.
 - Nice with humans: wait for queue to be empty before queuing new PR jobs.
+- Update GitHub commit status from Jenkins status.
 
 
 Skipping jobs

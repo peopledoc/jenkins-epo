@@ -1,7 +1,9 @@
 import logging
 import json
+import re
 from xml.etree import ElementTree as ET
 
+from jenkinsapi.build import Build
 from jenkinsapi.jenkins import Jenkins
 import requests
 
@@ -15,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 class LazyJenkins(object):
     limit_jobs = [p for p in SETTINGS.GHP_LIMIT_JOBS.split(',') if p]
+    build_url_re = re.compile(r'.*/job/(?P<job>.*?)/.*(?P<buildno>\d+)/?')
 
     def __init__(self):
         self._instance = None
@@ -22,6 +25,18 @@ class LazyJenkins(object):
     def __getattr__(self, name):
         self.load()
         return getattr(self._instance, name)
+
+    @retry()
+    def get_build_from_url(self, url):
+        if not url.startswith(self.baseurl):
+            raise Exception("%s is not on this Jenkins" % url)
+        match = self.build_url_re.match(url)
+        if not match:
+            raise Exception("Failed to parse build URL %s" % url)
+        job_name = match.group('job')
+        job = self.get_job(job_name)
+        buildno = int(match.group('buildno'))
+        return Build(url, buildno, job)
 
     @retry()
     def load(self):

@@ -1,4 +1,3 @@
-import datetime
 import logging
 import re
 
@@ -7,7 +6,7 @@ import requests
 import yaml
 
 from .settings import SETTINGS
-from .utils import match, retry
+from .utils import match, parse_datetime, retry
 
 
 logger = logging.getLogger(__name__)
@@ -62,13 +61,13 @@ class PullRequest(object):
             state = status.get('state')
             # Skip failed job, unless rebuild asked and old
             if state in {'error', 'failure'}:
-                failure_date = datetime.datetime.strptime(
-                    status['updated_at'], '%Y-%m-%dT%H:%M:%SZ'
-                )
+                failure_date = parse_datetime(status['updated_at'])
                 if rebuild_failed and failure_date > rebuild_failed:
                     continue
             # Skip `Backed`, `New` and `Queued` jobs
             elif state == 'pending':
+                # Jenkins deduplicate jobs in the queue. So it's safe to keep
+                # triggering the job in case the queue was flushed.
                 if status['description'] not in {'Backed', 'New', 'Queued'}:
                     continue
             # Skip other known states
@@ -147,21 +146,18 @@ class PullRequest(object):
                     continue
 
                 yield (
-                    datetime.datetime.strptime(
-                        comment['updated_at'],
-                        '%Y-%m-%dT%H:%M:%SZ'
-                    ),
+                    parse_datetime(comment['updated_at']),
                     comment['user']['login'],
                     instruction['jenkins'],
                 )
 
     @retry()
-    def update_statuses(self, context, state, description, url=None):
+    def update_statuses(self, context, state, description, target_url=None):
         current_statuses = self.get_statuses()
 
         new_status = dict(
             context=context, description=description,
-            state=state, target_url=url,
+            state=state, target_url=target_url,
         )
 
         if context in current_statuses:
