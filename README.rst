@@ -47,7 +47,7 @@ Installation
 
 ::
 
-   pip3 install -e git+https://github.com/novafloss/jenkins-github-poller.git#egg=jenkins-ghp
+   pip3 install jenkins-ghp
    # Check with one PR and one JOB
    export GITHUB_TOKEN=XXX GHP_LIMIT_PR=*/7823 GHP_LIMIT_JOBS=app-doc
    jenkins-ghp list-pr
