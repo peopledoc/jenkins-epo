@@ -31,7 +31,7 @@ Skipping jobs
 
 If some jobs are unrelated to your PR, you can skip them with a YAML comment:
 
-.. code-block:: markdown
+::
 
    ```
    jenkins:
