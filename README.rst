@@ -49,7 +49,7 @@ Installation
 
    pip3 install jenkins-ghp
    # Check with one PR and one JOB
-   export GITHUB_TOKEN=XXX GHP_LIMIT_PR=*/7823 GHP_LIMIT_JOBS=app-doc
+   export GITHUB_TOKEN=YOUR_SECRET_TOKEN GHP_LIMIT_PR=*/7823 GHP_LIMIT_JOBS=app-doc
    jenkins-ghp list-pr
    # Trigger a dry run
    GHP_DRY_RUN=1 jenkins-ghp bot

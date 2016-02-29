@@ -120,13 +120,13 @@ class PullRequest(object):
 
     instruction_re = re.compile(
         '('
-        # Case beginning:  jenkins: XXX or `jenkins: XXX`
+        # Case beginning:  jenkins: ... or `jenkins: ...`
         '\A`*jenkins:[^\n]*`*' '|'
-        # Case one middle line:  jenkins: XXX
+        # Case one middle line:  jenkins: ...
         '(?!`)\njenkins:[^\n]*' '|'
-        # Case middle line teletype:  `jenkins: XXX`
+        # Case middle line teletype:  `jenkins: ...`
         '\n`+jenkins:[^\n]*`+' '|'
-        # Case block code: ```\njenkins:\n  XXX```
+        # Case block code: ```\njenkins:\n  ...```
         '```(?:yaml)?\njenkins:[\s\S]*?\n```'
         ')'
     )
