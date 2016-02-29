@@ -6,7 +6,7 @@ Is your Jenkins crazy?
  Jenkins GitHub Poller
 #######################
 
-| |CI|
+| |PyPI| |CI| |Code Climate| |Requires.io|
 
 A pure python poller based on GitHub API. This is an alternative solution to
 jenkins poll or GitHub webhook.
@@ -31,7 +31,7 @@ Skipping jobs
 
 If some jobs are unrelated to your PR, you can skip them with a YAML comment:
 
-.. code-block:: markdown
+::
 
    ```
    jenkins:
@@ -47,9 +47,9 @@ Installation
 
 ::
 
-   pip3 install -e git+https://github.com/novafloss/jenkins-github-poller.git#egg=jenkins-ghp
+   pip3 install jenkins-ghp
    # Check with one PR and one JOB
-   export GITHUB_TOKEN=XXX GHP_LIMIT_PR=*/7823 GHP_LIMIT_JOBS=app-doc
+   export GITHUB_TOKEN=YOUR_SECRET_TOKEN GHP_LIMIT_PR=*/7823 GHP_LIMIT_JOBS=app-doc
    jenkins-ghp list-pr
    # Trigger a dry run
    GHP_DRY_RUN=1 jenkins-ghp bot
@@ -60,9 +60,28 @@ Installation
    systemctl status jenkins-ghp
 
 
+Development
+===========
+
+- For testing, use ``tox``.
+- For releasing, use ``tox -e release fullrelease``.
+
+
 .. |CI| image:: https://circleci.com/gh/novafloss/jenkins-github-poller.svg?style=shield
    :target: https://circleci.com/gh/novafloss/jenkins-github-poller
    :alt: CI Status
 
+.. |Code Climate| image:: https://img.shields.io/codeclimate/github/novafloss/jenkins-github-poller.svg
+   :target: https://codeclimate.com/github/novafloss/jenkins-github-poller
+   :alt: Code climate
+
 .. |crazy| image:: crazy-cat.gif
    :alt: Crazy cat
+
+.. |PyPI| image:: https://img.shields.io/pypi/v/jenkins-ghp.svg
+   :target: https://pypi.python.org/pypi/jenkins-ghp
+   :alt: Version on PyPI
+
+.. |Requires.io| image:: https://img.shields.io/requires/github/novafloss/jenkins-github-poller.svg
+   :target: https://requires.io/github/novafloss/jenkins-github-poller/requirements/
+   :alt: Requirements status
