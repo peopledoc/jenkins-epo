@@ -1,9 +1,10 @@
+import argparse
 import asyncio
 import bdb
+import functools
+import inspect
 import logging
 import sys
-
-import argh
 
 from .bot import Bot
 from .jenkins import JENKINS
@@ -13,6 +14,24 @@ from .settings import SETTINGS
 logger = logging.getLogger('jenkins_ghp')
 
 
+def loop(wrapped):
+    if SETTINGS.GHP_LOOP:
+        @asyncio.coroutine
+        def wrapper(*args, **kwargs):
+            while True:
+                res = wrapped(*args, **kwargs)
+                if asyncio.iscoroutine(res):
+                    yield from res
+
+                logger.info("Looping in %s seconds", SETTINGS.GHP_LOOP)
+                yield from asyncio.sleep(SETTINGS.GHP_LOOP)
+        functools.update_wrapper(wrapper, wrapped)
+        return wrapper
+    else:
+        return wrapped
+
+
+@loop
 def bot():
     """Poll GitHub to find something to do"""
     queue_empty = JENKINS.is_queue_empty()
@@ -46,25 +65,14 @@ def list_projects():
         print(project)
 
 
-class ErrorHandler(object):
-    def __init__(self):
-        self.context = None
-
-    def __call__(self, loop, context):
-        self.context = context
-        loop.stop()
-
-    def exit(self):
-        if not self.context:
-            return 0
-
-        exception = self.context['future'].exception()
-        if isinstance(exception, bdb.BdbQuit):
-            logger.debug('Graceful exit from debugger')
-            return 0
-
-        logger.critical('Unhandled error')
-        self.context['future'].print_stack()
+def command_exitcode(command_func):
+    try:
+        command_func()
+    except bdb.BdbQuit:
+        logger.debug('Graceful exit from debugger')
+        return 0
+    except Exception:
+        logger.exception('Unhandled error')
 
         if not SETTINGS.GHP_DEBUG:
             return 1
@@ -74,30 +82,40 @@ class ErrorHandler(object):
         except ImportError:
             import pdb
 
-        pdb.post_mortem(exception.__traceback__)
+        pdb.post_mortem(sys.exc_info()[2])
+        logger.debug('Graceful exit from debugger')
 
         return 1
 
 
 def main():
-    parser = argh.ArghParser()
-    parser.add_commands([bot, list_jobs, list_projects, list_pr])
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest='command', metavar='COMMAND')
+    for command in [bot, list_jobs, list_projects, list_pr]:
+        subparser = subparsers.add_parser(
+            command.__name__.replace('_', '-'),
+            help=inspect.cleandoc(command.__doc__ or '').split('\n')[0],
+        )
+        subparser.set_defaults(command_func=command)
 
-    loop = asyncio.get_event_loop()
-    error_handler = ErrorHandler()
-    loop.set_exception_handler(error_handler)
+    args = parser.parse_args()
+    try:
+        command_func = args.command_func
+    except AttributeError:
+        command_func = parser.print_usage
 
-    @asyncio.coroutine
-    def main_iteration(loop):
-        parser.dispatch(raw_output=True)
+    if asyncio.iscoroutinefunction(command_func):
+        def run_async():
+            loop = asyncio.get_event_loop()
+            task = loop.create_task(command_func())
+            try:
+                loop.run_until_complete(task)
+            except BaseException:
+                task.exception()  # Consume task exception
+                raise
+            finally:
+                loop.close()
 
-        if SETTINGS.GHP_LOOP:
-            logger.debug("Looping in %s seconds", SETTINGS.GHP_LOOP)
-            loop.call_later(SETTINGS.GHP_LOOP, main_iteration, loop)
-        else:
-            loop.stop()
-
-    asyncio.async(main_iteration(loop))
-    loop.run_forever()
-    loop.close()
-    sys.exit(error_handler.exit())
+        sys.exit(command_exitcode(run_async))
+    else:
+        sys.exit(command_exitcode(command_func))
