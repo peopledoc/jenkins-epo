@@ -20,17 +20,17 @@ class EnvironmentSettings(object):
 
 SETTINGS = EnvironmentSettings(defaults={
     # Drop into Pdb on unhandled exception
-    'GHIB_DEBUG': False,
+    'GHP_DEBUG': False,
     # Do not trigger jobs nor touch GitHub statuses.
-    'GHIB_DRY_RUN': False,
-    'GHIB_IGNORE_STATUSES': '',
-    'GHIB_LIMIT_JOBS': '',
-    'GHIB_LIMIT_PR': '',
+    'GHP_DRY_RUN': False,
+    'GHP_IGNORE_STATUSES': '',
+    'GHP_LIMIT_JOBS': '',
+    'GHP_LIMIT_PR': '',
     # Trigger loop
-    'GHIB_LOOP': 0,
+    'GHP_LOOP': 0,
     # When commenting on PR
-    'GHIB_NAME': 'Jenkins GitHub Builder',
-    'GHIB_VERBOSE': '',
+    'GHP_NAME': 'Jenkins GitHub Builder',
+    'GHP_VERBOSE': '',
     'GITHUB_TOKEN': None,
     'JENKINS_URL': 'http://localhost:8080',
 })

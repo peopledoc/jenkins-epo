@@ -1,0 +1,13 @@
+[Unit]
+Description=Jenkins GitHub poller
+
+[Service]
+EnvironmentFile=/etc/jenkins-ghp.conf
+WorkingDirectory=/var/lib/jenkins/ghp
+ExecStart=/usr/local/bin/jenkins-ghp bot
+User=jenkins
+Restart=always
+RestartSec=120
+
+[Install]
+WantedBy=multi-user.target

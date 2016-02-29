@@ -44,7 +44,7 @@ class PullRequest(object):
 
     @retry()
     def comment(self, body):
-        if SETTINGS.GHIB_DRY_RUN:
+        if SETTINGS.GHP_DRY_RUN:
             return logger.info("Would comment on %s", self)
 
         logger.info("Commenting on %s", self)
@@ -56,7 +56,7 @@ class PullRequest(object):
     @retry()
     def get_statuses(self):
         if self._statuses_cache is None:
-            if SETTINGS.GHIB_IGNORE_STATUSES:
+            if SETTINGS.GHP_IGNORE_STATUSES:
                 logger.debug("Skip GitHub statuses")
                 statuses = {}
             else:
@@ -142,7 +142,7 @@ class PullRequest(object):
             if new_status == current_status:
                 return
 
-        if SETTINGS.GHIB_DRY_RUN:
+        if SETTINGS.GHP_DRY_RUN:
             return logger.info(
                 "Would update status %s to %s/%s", context, state, description,
             )
@@ -166,7 +166,7 @@ class Project(object):
     remote_re = re.compile(
         r'.*github.com[:/](?P<owner>[\w-]+)/(?P<repository>[\w-]+).*'
     )
-    pr_limit = [p for p in SETTINGS.GHIB_LIMIT_PR.split(',') if p]
+    pr_limit = [p for p in SETTINGS.GHP_LIMIT_PR.split(',') if p]
 
     @classmethod
     def from_remote(cls, remote_url):

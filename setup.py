@@ -9,16 +9,16 @@ setup_kwargs = dict()
 if 0 == os.getuid():
     setup_kwargs.update(dict(
         data_files=[
-            ('lib/systemd/system', ['jenkins-ghb.service']),
-            ('/etc', ['jenkins-ghb.conf']),
+            ('lib/systemd/system', ['jenkins-ghp.service']),
+            ('/etc', ['jenkins-ghp.conf']),
         ],
     ))
 
 setup(
-    name='jenkins-ghb',
+    name='jenkins-ghp',
     version='0.1',
     entry_points={
-        'console_scripts': ['jenkins-ghb=jenkins_ghb.script:entrypoint'],
+        'console_scripts': ['jenkins-ghp=jenkins_ghp.script:entrypoint'],
     },
     extras_require={
         'release': ['wheel', 'zest.releaser'],
@@ -32,8 +32,8 @@ setup(
         'requests',
         'retrying',
     ],
-    packages=['jenkins_ghb'],
-    description='GitHub independant builder for Jenkins',
+    packages=['jenkins_ghp'],
+    description='Jenkins GitHub Poller',
     author=', '.join([
         'James Pic <james.pic@people-doc.com>',
         'Étienne BERSAC <etienne.bersac@people-doc.com>',
@@ -48,6 +48,6 @@ setup(
     ],
     keywords=['jenkins', 'github'],
     license='MIT',
-    url='https://github.com/novafloss/jenkins-ghb',
+    url='https://github.com/novafloss/jenkins-github-poller',
     **setup_kwargs
 )

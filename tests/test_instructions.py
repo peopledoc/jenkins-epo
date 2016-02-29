@@ -1,10 +1,10 @@
 from mock import Mock, patch
 
 
-@patch('jenkins_ghb.project.GITHUB')
+@patch('jenkins_ghp.project.GITHUB')
 def test_parse(GITHUB):
     updated_at = '2016-02-12T16:32:34Z'
-    from jenkins_ghb.project import PullRequest
+    from jenkins_ghp.project import PullRequest
 
     pr = PullRequest({'number': '123'}, Mock())
     # GITHUB.repos(owner)(repository).issues(id).comments

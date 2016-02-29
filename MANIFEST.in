@@ -1,2 +1,2 @@
-include jenkins-ghb.service
-include jenkins-ghb.conf
+include jenkins-ghp.service
+include jenkins-ghp.conf

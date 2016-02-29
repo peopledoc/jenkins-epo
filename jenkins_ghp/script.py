@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 def entrypoint():
-    debug = os.environ.get('GHIB_VERBOSE') or os.environ.get('GHIB_DEBUG')
+    debug = os.environ.get('GHP_VERBOSE') or os.environ.get('GHP_DEBUG')
     if debug:
         format = '[%(name)-24s %(levelname)8s] %(message)s'
         level = logging.DEBUG
@@ -15,12 +15,12 @@ def entrypoint():
         level = logging.INFO
 
     logging.basicConfig(level=logging.WARNING, format=format)
-    logging.getLogger('jenkins_ghb').setLevel(level)
+    logging.getLogger('jenkins_ghp').setLevel(level)
 
-    logger.info("Starting jenkins-ghb")
+    logger.info("Starting jenkins-ghp")
     logger.debug("Debug mode enabled")
 
-    # Import GHB modules after logging is setup
+    # Import modules after logging is setup
     from .main import main
 
     try:
