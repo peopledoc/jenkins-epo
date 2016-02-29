@@ -59,6 +59,13 @@ Installation
    systemctl status jenkins-ghp
 
 
+Development
+===========
+
+- For testing, use ``tox``.
+- For releasing, use ``tox -e release fullrelease``.
+
+
 .. |CI| image:: https://circleci.com/gh/novafloss/jenkins-github-poller.svg?style=shield
    :target: https://circleci.com/gh/novafloss/jenkins-github-poller
    :alt: CI Status
