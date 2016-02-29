@@ -31,7 +31,7 @@ if 0 == os.getuid():
 
 setup(
     name='jenkins-ghp',
-    version='0.2.dev0',
+    version='1.0',
     entry_points={
         'console_scripts': ['jenkins-ghp=jenkins_ghp.script:entrypoint'],
         'jenkins_ghp.bot.extensions': [
