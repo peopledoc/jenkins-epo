@@ -30,11 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 class Bot(object):
-    DEFAULTS = {
-        'help-mentions': set(),
-        'skip': (),
-        'rebuild-failed': None,
-    }
+    DEFAULTS = {}
 
     def __init__(self, queue_empty=True):
         self.queue_empty = queue_empty
@@ -49,6 +45,8 @@ class Bot(object):
         logger.info("Working on %s", pr)
         self.pr = pr
         self.settings = copy.deepcopy(self.DEFAULTS)
+        for ext in self.extensions.values():
+            self.settings.update(copy.deepcopy(ext.DEFAULTS))
         return self
 
     def run(self, pr):
