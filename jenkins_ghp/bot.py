@@ -152,14 +152,15 @@ class BuilderExtension(Extension):
                 job.list_contexts(),
                 rebuild_failed=self.bot.settings['rebuild-failed']
             )
-            if not_built and self.bot.queue_empty:
-                job.build(
-                    self.bot.pr, [c for c in not_built if not self.skip(c)]
-                )
 
             for context in not_built:
                 self.bot.pr.update_statuses(
                     **self.status_for_new_context(context)
+                )
+
+            if not_built and self.bot.queue_empty:
+                job.build(
+                    self.bot.pr, [c for c in not_built if not self.skip(c)]
                 )
 
     def skip(self, context):
