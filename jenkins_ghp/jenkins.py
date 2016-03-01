@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 class LazyJenkins(object):
-    limit_jobs = [p for p in SETTINGS.GHP_LIMIT_JOBS.split(',') if p]
+    jobs_filter = [p for p in SETTINGS.GHP_JOBS.split(',') if p]
     build_url_re = re.compile(r'.*/job/(?P<job>.*?)/.*(?P<buildno>\d+)/?')
 
     def __init__(self):
@@ -69,7 +69,7 @@ class LazyJenkins(object):
         projects = {}
 
         for name, job in self.get_jobs():
-            if not match(name, self.limit_jobs):
+            if not match(name, self.jobs_filter):
                 logger.debug("Skipping %s", name)
                 continue
 
