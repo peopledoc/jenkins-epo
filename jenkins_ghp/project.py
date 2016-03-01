@@ -76,8 +76,15 @@ class PullRequest(object):
             # Skip failed job, unless rebuild asked and old
             if state in {'error', 'failure'}:
                 failure_date = parse_datetime(status['updated_at'])
-                if rebuild_failed and failure_date > rebuild_failed:
+                if not rebuild_failed:
                     continue
+                elif failure_date > rebuild_failed:
+                    continue
+                else:
+                    logger.debug(
+                        "Requeue failed context %s younger than %s",
+                        context, rebuild_failed.strftime('%Y-%m-%d %H:%M:%S')
+                    )
             # Skip `Backed`, `New` and `Queued` jobs
             elif state == 'pending':
                 # Jenkins deduplicate jobs in the queue. So it's safe to keep
