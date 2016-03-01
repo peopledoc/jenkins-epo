@@ -136,7 +136,7 @@ class Job(object):
                     )
                 break
         else:
-            logger.warn("Can't find a parameterized refspec")
+            logger.warn("Can't find a revision param in %s", self)
 
     @staticmethod
     def factory(instance):
