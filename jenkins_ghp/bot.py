@@ -269,7 +269,7 @@ class FixStatusExtension(Extension):
                 build = JENKINS.get_build_from_url(status['target_url'])
             except Exception as e:
                 logger.warn(
-                    "Failed to get pending build status: %s: %s",
+                    "Failed to get actual build status: %s: %s",
                     e.__class__.__name__, e,
                 )
                 continue
