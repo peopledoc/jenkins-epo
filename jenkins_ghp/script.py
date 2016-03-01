@@ -14,6 +14,8 @@
 
 import os
 import logging
+import traceback
+import sys
 
 
 logger = logging.getLogger(__name__)
@@ -40,6 +42,8 @@ def entrypoint():
     try:
         main()
     except KeyboardInterrupt:
+        tb = sys.exc_info()[-1]
+        logger.debug("Interrupted at:\n%s", traceback.format_tb(tb)[-1])
         logger.info("Done")
 
 
