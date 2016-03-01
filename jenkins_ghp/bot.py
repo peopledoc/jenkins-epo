@@ -131,20 +131,45 @@ class BuilderExtension(Extension):
 
     DEFAULTS = {
         'skip': [],
+        'skip-errors': [],
         'rebuild-failed': None,
     }
     SKIP_ALL = ('.*',)
+    ERROR_COMMENT = """
+Sorry %(mention)s, I don't understand your pattern `%(pattern)r`: `%(error)s`.
+
+<!--
+jenkins: reset-skip-errors
+-->
+"""
 
     def process_instruction(self, instruction):
         if instruction == 'skip':
             patterns = instruction.args
             if isinstance(patterns, str):
                 patterns = [patterns]
-            self.bot.settings['skip'] = patterns or self.SKIP_ALL
+            patterns = patterns or self.SKIP_ALL
+            self.bot.settings['skip'] = skip = []
+            self.bot.settings['skip-errors'] = errors = []
+            for pattern in patterns:
+                try:
+                    skip.append(re.compile(pattern))
+                except re.error as e:
+                    logger.warn("Bad pattern for skip: %s", e)
+                    errors.append((instruction, pattern, e))
+        if instruction == 'reset-skip-errors':
+            self.bot.settings['skip-errors'] = []
         elif instruction == 'rebuild':
             self.bot.settings['rebuild-failed'] = instruction.date
 
     def end(self):
+        for instruction, pattern, error in self.bot.settings['skip-errors']:
+            self.bot.pr.comment(self.ERROR_COMMENT % dict(
+                mention='@' + instruction.author,
+                pattern=pattern,
+                error=str(error),
+            ))
+
         for job in self.bot.pr.project.jobs:
             not_built = self.bot.pr.filter_not_built_contexts(
                 job.list_contexts(),
@@ -173,11 +198,8 @@ class BuilderExtension(Extension):
 
     def skip(self, context):
         for pattern in self.bot.settings['skip']:
-            try:
-                if re.match(pattern, context):
-                    return True
-            except re.error as e:
-                logger.warn("Bad pattern for skip: %s", e)
+            if pattern.match(context):
+                return True
 
     def status_for_new_context(self, context):
         new_status = {'context': context}
