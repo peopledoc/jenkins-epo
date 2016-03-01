@@ -18,9 +18,10 @@ Features
 - Query GitHub API to poll open PR instead of cloning repository.
 - Query Jenkins API without jar nor JRE.
 - Set commit status as soon as job is in the queue.
-- Skip jobs in PR comments.
-- Rebuild jobs failed jobs on demand.
+- Skip jobs from PR comments.
+- Rebuild failed jobs from PR comments.
 - Requeue jobs on queue loss.
+- Requeue aborted jobs.
 - Retry on network failure.
 - Nice with humans: wait for queue to be empty before queuing new PR jobs.
 - Update GitHub commit status from Jenkins status.
