@@ -80,7 +80,7 @@ Development
    :target: https://codeclimate.com/github/novafloss/jenkins-github-poller
    :alt: Code climate
 
-.. |crazy| image:: crazy-cat.gif
+.. |crazy| image:: https://github.com/novafloss/jenkins-github-poller/raw/master/crazy-cat.gif
    :alt: Crazy cat
 
 .. |PyPI| image:: https://img.shields.io/pypi/v/jenkins-ghp.svg
