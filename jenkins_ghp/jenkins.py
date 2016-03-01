@@ -51,7 +51,12 @@ class LazyJenkins(object):
         job_name = match.group('job')
         job = self.get_job(job_name)
         buildno = int(match.group('buildno'))
-        return Build(url, buildno, job)
+        try:
+            return Build(url, buildno, job)
+        except requests.exceptions.HTTPError as e:
+            if 404 == e.response.status_code:
+                raise Exception("Build %s not found. Lost ?" % url)
+            raise
 
     @retry()
     def load(self):
