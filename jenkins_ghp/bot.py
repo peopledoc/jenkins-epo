@@ -339,7 +339,7 @@ Extensions: %(extensions)s
             extensions=','.join(sorted(self.bot.extensions.keys())),
             help=help_,
             host=socket.getfqdn(),
-            me='Jenkins GitHub Builder',
+            me=SETTINGS.GHP_NAME,
             mentions=', '.join(sorted([
                 '@' + m for m in self.bot.settings['help-mentions']
             ])),
