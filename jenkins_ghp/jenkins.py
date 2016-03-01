@@ -74,6 +74,16 @@ class LazyJenkins(object):
                 continue
 
             job = Job.factory(job)
+            if job.polled_by_jenkins:
+                logger.debug("Skipping %s, polled by Jenkins", name)
+                continue
+
+            # This option works only with webhook, so we can safely use it to
+            # mark a job for jenkins-ghp.
+            if not job.push_trigger:
+                logger.debug("Skipping %s, trigger on push disabled", name)
+                continue
+
             for project in job.get_projects():
                 logger.info("Managing %s", name)
                 project = projects.setdefault(str(project), project)
@@ -92,6 +102,11 @@ class Job(object):
     def __init__(self, api_instance):
         self._instance = api_instance
         self.config = ET.fromstring(self._instance.get_config())
+
+        xpath_query = './/triggers/com.cloudbees.jenkins.GitHubPushTrigger'
+        self.push_trigger = bool(self.config.findall(xpath_query))
+        xpath_query = './/triggers/hudson.triggers.SCMTrigger'
+        self.polled_by_jenkins = bool(self.config.findall(xpath_query))
 
         self.revision_param = None
         xpath_query = './/hudson.plugins.git.BranchSpec/name'

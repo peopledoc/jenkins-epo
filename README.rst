@@ -45,12 +45,17 @@ help`` in an open PR!
 Installation
 ============
 
+In your Jenkins, for each job :
+
+- Tick the *Build when a change is pushed on GitHub*.
+- **Untick** *SCM polling*. jenkins-ghp actually replaces this feature.
+
 ::
 
    pip3 install jenkins-ghp
-   # Check with one PR and one JOB
-   export GITHUB_TOKEN=YOUR_SECRET_TOKEN GHP_LIMIT_PR=*/7823 GHP_LIMIT_JOBS=app-doc
-   jenkins-ghp list-pr
+   # Check jobs managed
+   export GITHUB_TOKEN=YOUR_SECRET_TOKEN JENKINS_URL=http://myjenkins.lan
+   jenkins-ghp list-jobs
    # Trigger a dry run
    GHP_DRY_RUN=1 jenkins-ghp bot
 
