@@ -40,6 +40,8 @@ SETTINGS = EnvironmentSettings(defaults={
     'GHP_DEBUG': False,
     # Do not trigger jobs nor touch GitHub statuses.
     'GHP_DRY_RUN': False,
+    # Whether to touch GitHub statuses or not
+    'GHP_GITHUB_RO': False,
     'GHP_IGNORE_STATUSES': '',
     'GHP_JOBS': '',
     # Trigger loop

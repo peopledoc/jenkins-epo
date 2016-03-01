@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 class LazyGithub(object):
     def __init__(self):
         self._instance = None
+        self.dry = SETTINGS.GHP_DRY_RUN or SETTINGS.GHP_GITHUB_RO
 
     def __getattr__(self, name):
         self.load()
@@ -59,7 +60,7 @@ class PullRequest(object):
 
     @retry()
     def comment(self, body):
-        if SETTINGS.GHP_DRY_RUN:
+        if GITHUB.dry:
             return logger.info("Would comment on %s", self)
 
         logger.info("Commenting on %s", self)
@@ -187,7 +188,7 @@ class PullRequest(object):
             if new_status == current_status:
                 return
 
-        if SETTINGS.GHP_DRY_RUN:
+        if GITHUB.dry:
             return logger.info(
                 "Would update status %s to %s/%s", context, state, description,
             )
