@@ -155,6 +155,7 @@ class BuilderExtension(Extension):
 
             for context in not_built:
                 self.bot.pr.update_statuses(
+                    target_url=job.baseurl,
                     **self.status_for_new_context(context)
                 )
 
