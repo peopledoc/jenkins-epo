@@ -113,30 +113,38 @@ class Job(object):
         xpath_query = './/triggers/hudson.triggers.SCMTrigger'
         self.polled_by_jenkins = bool(self.config.findall(xpath_query))
 
-        self.revision_param = None
-        xpath_query = './/hudson.plugins.git.BranchSpec/name'
-        refspecs = [e.findtext('.') for e in self.config.findall(xpath_query)]
-        refspecs = [r for r in refspecs if '$' in r]
-        if refspecs:
-            for prop in self._instance._data['property']:
-                if 'parameterDefinitions' not in prop:
-                    continue
+    @property
+    def revision_param(self):
+        if not hasattr(self, '_revision_param'):
+            self._revision_param = None
+            xpath_query = './/hudson.plugins.git.BranchSpec/name'
+            refspecs = [
+                e.findtext('.') for e in self.config.findall(xpath_query)
+            ]
+            refspecs = [r for r in refspecs if '$' in r]
+            if refspecs:
+                for prop in self._instance._data['property']:
+                    if 'parameterDefinitions' not in prop:
+                        continue
 
-                for param in prop['parameterDefinitions']:
-                    if [param['name'] in r for r in refspecs]:
-                        self.revision_param = param['name']
-                        logger.debug(
-                            "Using %s param to specify revision for %s",
-                            self.revision_param, self
+                    for param in prop['parameterDefinitions']:
+                        if [param['name'] in r for r in refspecs]:
+                            self._revision_param = param['name']
+                            logger.debug(
+                                "Using %s param to specify revision for %s",
+                                self._revision_param, self
+                            )
+                            break
+                    else:
+                        logger.warn(
+                            "Can't find a parameter for %s",
+                            ', '.join(refspecs)
                         )
-                        break
-                else:
-                    logger.warn(
-                        "Can't find a parameter for %s", ', '.join(refspecs)
-                    )
-                break
-        else:
-            logger.warn("Can't find a revision param in %s", self)
+                    break
+            else:
+                logger.warn("Can't find a revision param in %s", self)
+
+        return self._revision_param
 
     @staticmethod
     def factory(instance):
