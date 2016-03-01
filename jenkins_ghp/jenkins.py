@@ -178,14 +178,16 @@ class FreestyleJob(Job):
 
     def build(self, pr, contexts):
         params = {}
+        log = str(self)
         if self.revision_param:
             params[self.revision_param] = pr.ref
+            log += ' for %s' % pr.ref
 
         if SETTINGS.GHP_DRY_RUN:
-            return logger.info("Would trigger %s", self)
+            return logger.info("Would queue %s", log)
 
         self._instance.invoke(build_params=params)
-        logger.info("Triggered new build %s", self)
+        logger.info("Queued new build %s", log)
 
 
 class MatrixJob(Job):
@@ -238,7 +240,7 @@ class MatrixJob(Job):
 
         if SETTINGS.GHP_DRY_RUN:
             for context in contexts:
-                logger.info("Would trigger %s", context)
+                logger.info("Would trigger %s for %s", context, pr.ref)
             return
 
         res = requests.post(
@@ -249,4 +251,7 @@ class MatrixJob(Job):
             raise Exception('Failed to trigger build.', res)
 
         for context in contexts:
-            logger.info("Triggered new build %s/%s", self, context)
+            log = '%s/%s' % (self, context)
+            if self.revision_param:
+                log += ' for %s' % pr.ref
+            logger.info("Triggered new build %s", log)
