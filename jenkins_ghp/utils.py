@@ -44,7 +44,22 @@ retry = functools.partial(
 
 
 def match(item, patterns):
-    return not patterns or [p for p in patterns if fnmatch.fnmatch(item, p)]
+    matched = not patterns
+    for pattern in patterns:
+        negate = False
+        if pattern.startswith('-'):
+            negate = True
+            pattern = pattern[1:]
+        if pattern.startswith('+'):
+            pattern = pattern[1:]
+
+        local_matched = fnmatch.fnmatch(item, pattern)
+        if negate:
+            matched = matched and not local_matched
+        else:
+            matched = matched or local_matched
+
+    return matched
 
 
 def parse_datetime(formatted):

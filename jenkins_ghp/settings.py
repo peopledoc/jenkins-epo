@@ -41,12 +41,13 @@ SETTINGS = EnvironmentSettings(defaults={
     # Do not trigger jobs nor touch GitHub statuses.
     'GHP_DRY_RUN': False,
     'GHP_IGNORE_STATUSES': '',
-    'GHP_LIMIT_JOBS': '',
-    'GHP_LIMIT_PR': '',
+    'GHP_JOBS': '',
     # Trigger loop
     'GHP_LOOP': 0,
     # When commenting on PR
     'GHP_NAME': 'Jenkins GitHub Builder',
+    'GHP_PR': '',
+    'GHP_PROJECTS': '',
     'GHP_VERBOSE': '',
     'GITHUB_TOKEN': None,
     'JENKINS_URL': 'http://localhost:8080',

@@ -43,7 +43,7 @@ GITHUB = LazyGithub()
 
 
 class PullRequest(object):
-    limit_contexts = [p for p in SETTINGS.GHP_LIMIT_JOBS.split(',') if p]
+    contexts_filter = [p for p in SETTINGS.GHP_JOBS.split(',') if p]
 
     def __init__(self, data, project):
         self.data = data
@@ -204,7 +204,7 @@ class Project(object):
     remote_re = re.compile(
         r'.*github.com[:/](?P<owner>[\w-]+)/(?P<repository>[\w-]+).*'
     )
-    pr_limit = [p for p in SETTINGS.GHP_LIMIT_PR.split(',') if p]
+    pr_filter = [p for p in SETTINGS.GHP_PR.split(',') if p]
 
     @classmethod
     def from_remote(cls, remote_url):
@@ -219,7 +219,7 @@ class Project(object):
         self.jobs = jobs or []
 
     def __str__(self):
-        return self.url
+        return '%s/%s' % (self.owner, self.repository)
 
     @property
     def url(self):
@@ -237,7 +237,7 @@ class Project(object):
         )
 
         for pr in pulls:
-            if match(pr['html_url'], self.pr_limit):
+            if match(pr['html_url'], self.pr_filter):
                 yield PullRequest(pr, project=self)
             else:
                 logger.debug("Skipping %s", pr['html_url'])
