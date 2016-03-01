@@ -109,7 +109,7 @@ class PullRequest(object):
                 statuses = dict([(x['context'], x) for x in (
                     requests.get(url.encode('utf-8'))
                     .json()['statuses']
-                ) if match(x['context'], self.limit_contexts)])
+                ) if match(x['context'], self.contexts_filter)])
                 logger.debug("Got status for %r", sorted(statuses.keys()))
             self._statuses_cache = statuses
 
