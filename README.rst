@@ -50,6 +50,9 @@ In your Jenkins, for each job :
 - Tick *Build when a change is pushed on GitHub*.
 - **Untick** *SCM polling*. jenkins-ghp actually replaces this feature.
 
+
+On poller host:
+
 ::
 
    pip3 install jenkins-ghp
