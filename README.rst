@@ -47,7 +47,7 @@ Installation
 
 In your Jenkins, for each job :
 
-- Tick the *Build when a change is pushed on GitHub*.
+- Tick *Build when a change is pushed on GitHub*.
 - **Untick** *SCM polling*. jenkins-ghp actually replaces this feature.
 
 ::

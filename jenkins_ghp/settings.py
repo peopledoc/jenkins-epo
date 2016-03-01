@@ -47,6 +47,7 @@ SETTINGS = EnvironmentSettings(defaults={
     # When commenting on PR
     'GHP_NAME': 'Jenkins GitHub Builder',
     'GHP_PR': '',
+    'GHP_PROJECTS': '',
     'GHP_VERBOSE': '',
     'GITHUB_TOKEN': None,
     'JENKINS_URL': 'http://localhost:8080',

@@ -219,7 +219,7 @@ class Project(object):
         self.jobs = jobs or []
 
     def __str__(self):
-        return self.url
+        return '%s/%s' % (self.owner, self.repository)
 
     @property
     def url(self):
