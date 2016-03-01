@@ -152,14 +152,15 @@ class BuilderExtension(Extension):
                 job.list_contexts(),
                 rebuild_failed=self.bot.settings['rebuild-failed']
             )
-            if not_built and self.bot.queue_empty:
-                job.build(
-                    self.bot.pr, [c for c in not_built if not self.skip(c)]
-                )
 
             for context in not_built:
                 self.bot.pr.update_statuses(
                     **self.status_for_new_context(context)
+                )
+
+            if not_built and self.bot.queue_empty:
+                job.build(
+                    self.bot.pr, [c for c in not_built if not self.skip(c)]
                 )
 
     def skip(self, context):
@@ -214,20 +215,22 @@ class FixStatusExtension(Extension):
 
     def compute_actual_status(self, build, current_status):
         target_url = current_status['target_url']
-        jenkins_status = build.get_status()
+        # If no build found, this may be an old CI build, or any other
+        # unconfirmed build. Retrigger.
+        jenkins_status = build.get_status() if build else 'ABORTED'
         if jenkins_status:
             state, description = self.status_map[jenkins_status]
-            duration = format_duration(build._data['duration'])
-            try:
-                description = description % dict(
-                    name=build._data['displayName'],
-                    duration=duration,
-                )
-            except TypeError:
-                pass
-
             if description == 'Backed':
                 target_url = None
+            else:
+                duration = format_duration(build._data['duration'])
+                try:
+                    description = description % dict(
+                        name=build._data['displayName'],
+                        duration=duration,
+                    )
+                except TypeError:
+                    pass
         else:
             # Touch the commit status to avoid polling it for the next 5
             # minutes.
@@ -269,10 +272,10 @@ class FixStatusExtension(Extension):
                 build = JENKINS.get_build_from_url(status['target_url'])
             except Exception as e:
                 logger.warn(
-                    "Failed to get pending build status: %s: %s",
+                    "Failed to get actual build status: %s: %s",
                     e.__class__.__name__, e,
                 )
-                continue
+                build = None
 
             self.bot.pr.update_statuses(
                 context=context, **self.compute_actual_status(build, status)

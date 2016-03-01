@@ -51,7 +51,12 @@ class LazyJenkins(object):
         job_name = match.group('job')
         job = self.get_job(job_name)
         buildno = int(match.group('buildno'))
-        return Build(url, buildno, job)
+        try:
+            return Build(url, buildno, job)
+        except requests.exceptions.HTTPError as e:
+            if 404 == e.response.status_code:
+                raise Exception("Build %s not found. Lost ?" % url)
+            raise
 
     @retry()
     def load(self):
@@ -113,30 +118,38 @@ class Job(object):
         xpath_query = './/triggers/hudson.triggers.SCMTrigger'
         self.polled_by_jenkins = bool(self.config.findall(xpath_query))
 
-        self.revision_param = None
-        xpath_query = './/hudson.plugins.git.BranchSpec/name'
-        refspecs = [e.findtext('.') for e in self.config.findall(xpath_query)]
-        refspecs = [r for r in refspecs if '$' in r]
-        if refspecs:
-            for prop in self._instance._data['property']:
-                if 'parameterDefinitions' not in prop:
-                    continue
+    @property
+    def revision_param(self):
+        if not hasattr(self, '_revision_param'):
+            self._revision_param = None
+            xpath_query = './/hudson.plugins.git.BranchSpec/name'
+            refspecs = [
+                e.findtext('.') for e in self.config.findall(xpath_query)
+            ]
+            refspecs = [r for r in refspecs if '$' in r]
+            if refspecs:
+                for prop in self._instance._data['property']:
+                    if 'parameterDefinitions' not in prop:
+                        continue
 
-                for param in prop['parameterDefinitions']:
-                    if [param['name'] in r for r in refspecs]:
-                        self.revision_param = param['name']
-                        logger.debug(
-                            "Using %s param to specify revision for %s",
-                            self.revision_param, self
+                    for param in prop['parameterDefinitions']:
+                        if [param['name'] in r for r in refspecs]:
+                            self._revision_param = param['name']
+                            logger.debug(
+                                "Using %s param to specify revision for %s",
+                                self._revision_param, self
+                            )
+                            break
+                    else:
+                        logger.warn(
+                            "Can't find a parameter for %s",
+                            ', '.join(refspecs)
                         )
-                        break
-                else:
-                    logger.warn(
-                        "Can't find a parameter for %s", ', '.join(refspecs)
-                    )
-                break
-        else:
-            logger.warn("Can't find a parameterized refspec")
+                    break
+            else:
+                logger.warn("Can't find a revision param in %s", self)
+
+        return self._revision_param
 
     @staticmethod
     def factory(instance):
@@ -165,14 +178,16 @@ class FreestyleJob(Job):
 
     def build(self, pr, contexts):
         params = {}
+        log = str(self)
         if self.revision_param:
             params[self.revision_param] = pr.ref
+            log += ' for %s' % pr.ref
 
         if SETTINGS.GHP_DRY_RUN:
-            return logger.info("Would trigger %s", self)
+            return logger.info("Would queue %s", log)
 
         self._instance.invoke(build_params=params)
-        logger.info("Triggered new build %s", self)
+        logger.info("Queued new build %s", log)
 
 
 class MatrixJob(Job):
@@ -225,7 +240,7 @@ class MatrixJob(Job):
 
         if SETTINGS.GHP_DRY_RUN:
             for context in contexts:
-                logger.info("Would trigger %s", context)
+                logger.info("Would trigger %s for %s", context, pr.ref)
             return
 
         res = requests.post(
@@ -236,4 +251,7 @@ class MatrixJob(Job):
             raise Exception('Failed to trigger build.', res)
 
         for context in contexts:
-            logger.info("Triggered new build %s/%s", self, context)
+            log = '%s/%s' % (self, context)
+            if self.revision_param:
+                log += ' for %s' % pr.ref
+            logger.info("Triggered new build %s", log)
