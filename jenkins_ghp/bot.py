@@ -20,6 +20,7 @@ import logging
 import pkg_resources
 import re
 import socket
+import yaml
 
 from .jenkins import JENKINS
 from .utils import parse_datetime
@@ -30,7 +31,9 @@ logger = logging.getLogger(__name__)
 
 
 class Bot(object):
-    DEFAULTS = {}
+    DEFAULTS = {
+        'errors': [],
+    }
 
     def __init__(self, queue_empty=True):
         self.queue_empty = queue_empty
@@ -64,6 +67,15 @@ class Bot(object):
     def process_instructions(self):
         process = True
         for date, author, data in self.pr.list_instructions():
+            try:
+                data = yaml.load(data)
+            except yaml.error.YAMLError as e:
+                self.settings['errors'].append((author, data, e))
+                continue
+
+            data = data['jenkins']
+            if not data:
+                continue
             if isinstance(data, str):
                 data = {data: None}
             if isinstance(data, list):
@@ -373,3 +385,27 @@ Extensions: %(extensions)s
     def end(self):
         if self.bot.settings['help-mentions']:
             self.answer_help()
+
+
+class ErrorExtension(Extension):
+    ERROR_COMMENT = """
+Sorry %(mention)s, I don't understand what you mean by `%(instruction)s`: `%(error)s`.
+
+See `jenkins: help` for documentation.
+
+<!--
+jenkins: reset-errors
+-->
+"""  # noqa
+
+    def process_instruction(self, instruction):
+        if instruction == 'reset-errors':
+            self.bot.settings['errors'] = []
+
+    def end(self):
+        for author, instruction, error in self.bot.settings['errors']:
+            self.bot.pr.comment(self.ERROR_COMMENT % dict(
+                mention='@' + author,
+                instruction=repr(instruction),
+                error=str(error),
+            ))

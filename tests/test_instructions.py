@@ -65,20 +65,18 @@ jenkins: unix_eof
     ]
 
     instructions = [i for d, u, i in pr.list_instructions()]
+    haystack = '\n\n----\n\n'.join(instructions)
 
-    assert 'issue' in instructions
-    assert None not in instructions
-    assert '' not in instructions
-    assert 'start_line' in instructions
-    assert [] not in instructions
-    assert ['inline', 'list'] in instructions
-    assert dict(empty=[]) in instructions
-    assert 'citation' not in instructions
-    assert 'hidden' in instructions
-    assert dict(key_none=None) in instructions
-    assert dict(tick=None) in instructions
-    assert dict(ticks_inline=None) in instructions
-    assert dict(ticks_one=None) in instructions
-    assert dict(indent=[]) in instructions
-    assert dict(colored=['toto']) in instructions
-    assert 'unix_eof' in instructions
+    assert 'issue' in haystack
+    assert 'start_line' in haystack
+    assert '[inline, list]' in haystack
+    assert 'empty' in haystack
+    assert 'citation' not in haystack
+    assert 'hidden' in haystack
+    assert 'key_none' in haystack
+    assert 'tick:' in haystack
+    assert 'ticks_inline:' in haystack
+    assert 'ticks_one:' in haystack
+    assert 'indent:' in haystack
+    assert 'colored:' in haystack
+    assert 'unix_eof' in haystack

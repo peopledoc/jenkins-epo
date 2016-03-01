@@ -6,12 +6,13 @@ def test_compute_skip_null():
 
     pr = Mock()
     pr.list_instructions.return_value = [
-        (0, 0, {'skip': None}),
+        (0, 0, 'jenkins: {skip: }'),
     ]
 
     bot = Bot().workon(pr)
     bot.process_instructions()
-    assert bot.settings['skip'] == BuilderExtension.SKIP_ALL
+    skip = [re.pattern for re in bot.settings['skip']]
+    assert skip == list(BuilderExtension.SKIP_ALL)
 
 
 def test_compute_skip():
@@ -20,16 +21,18 @@ def test_compute_skip():
     pr = Mock()
     bot = Bot().workon(pr)
 
-    pr.list_instructions.return_value = [(0, 0, 'skip')]
+    pr.list_instructions.return_value = [(0, 0, 'jenkins: skip')]
     bot.process_instructions()
-    assert bot.settings['skip'] == BuilderExtension.SKIP_ALL
+    skip = [re.pattern for re in bot.settings['skip']]
+    assert skip == list(BuilderExtension.SKIP_ALL)
 
     pr.list_instructions.return_value = [
-        (0, 0, {'skip': None}),
-        (0, 0, {'skip': ['this']}),
+        (0, 0, 'jenkins: {skip: }'),
+        (0, 0, 'jenkins: {skip: [this]}'),
     ]
     bot.process_instructions()
-    assert bot.settings['skip'] == ['this']
+    skip = [re.pattern for re in bot.settings['skip']]
+    assert skip == ['this']
 
 
 def test_compute_rebuild():
@@ -38,7 +41,7 @@ def test_compute_rebuild():
     pr = Mock()
     bot = Bot().workon(pr)
 
-    pr.list_instructions.return_value = [('DATE', 0, 'rebuild')]
+    pr.list_instructions.return_value = [('DATE', 0, 'jenkins: rebuild')]
     bot.process_instructions()
     assert bot.settings['rebuild-failed'] == 'DATE'
 
@@ -49,20 +52,20 @@ def test_compute_help():
     pr = Mock()
     bot = Bot().workon(pr)
 
-    pr.list_instructions.return_value = [(0, 'asker', 'help')]
+    pr.list_instructions.return_value = [(0, 'asker', 'jenkins: help')]
     bot.process_instructions()
     assert 'asker' in bot.settings['help-mentions']
 
     pr.list_instructions.return_value = [
-        (0, 'asker1', 'help'),
-        (0, 'bot', 'help-reset'),
+        (0, 'asker1', 'jenkins: help'),
+        (0, 'bot', 'jenkins: help-reset'),
     ]
     bot.process_instructions()
     assert not bot.settings['help-mentions']
 
     pr.list_instructions.return_value = [
-        (0, 'asker1', 'help'),
-        (0, 'asker2', 'help'),
+        (0, 'asker1', 'jenkins: help'),
+        (0, 'asker2', 'jenkins: help'),
     ]
     bot.process_instructions()
     assert 'asker1' in bot.settings['help-mentions']
@@ -78,7 +81,7 @@ def test_skip_re():
 
     pr = Mock()
     pr.list_instructions.return_value = [
-        (None, None, {'skip': ['toto.*', '(?!notthis)']}),
+        (None, None, """jenkins: {skip: ['toto.*', '(?!notthis)']}"""),
     ]
 
     bot = Bot().workon(pr)
@@ -92,7 +95,7 @@ def test_skip_re_wrong():
 
     pr = Mock()
     pr.list_instructions.return_value = [
-        (None, None, {'skip': ['*toto)']}),
+        (None, None, '''jenkins: {skip: ['*toto)']}'''),
     ]
 
     bot = Bot().workon(pr)
