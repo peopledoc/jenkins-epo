@@ -160,9 +160,18 @@ class BuilderExtension(Extension):
                 )
 
             if not_built and self.bot.queue_empty:
-                job.build(
-                    self.bot.pr, [c for c in not_built if not self.skip(c)]
-                )
+                queued_contexts = [c for c in not_built if not self.skip(c)]
+                try:
+                    job.build(self.bot.pr, queued_contexts)
+                except Exception as e:
+                    logger.warn("Failed to queue job %s: %s", job, e)
+                    for context in queued_contexts:
+                        self.bot.pr.update_statuses(
+                            context=context,
+                            state='failure',
+                            description='Failed to queue job',
+                            target_url=job.baseurl,
+                        )
 
     def skip(self, context):
         for pattern in self.bot.settings['skip']:
