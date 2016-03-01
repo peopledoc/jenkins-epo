@@ -20,6 +20,7 @@ import logging
 import pkg_resources
 import re
 import socket
+import yaml
 
 from .jenkins import JENKINS
 from .utils import parse_datetime
@@ -31,9 +32,7 @@ logger = logging.getLogger(__name__)
 
 class Bot(object):
     DEFAULTS = {
-        'help-mentions': set(),
-        'skip': (),
-        'rebuild-failed': None,
+        'errors': [],
     }
 
     def __init__(self, queue_empty=True):
@@ -49,6 +48,8 @@ class Bot(object):
         logger.info("Working on %s", pr)
         self.pr = pr
         self.settings = copy.deepcopy(self.DEFAULTS)
+        for ext in self.extensions.values():
+            self.settings.update(copy.deepcopy(ext.DEFAULTS))
         return self
 
     def run(self, pr):
@@ -66,6 +67,15 @@ class Bot(object):
     def process_instructions(self):
         process = True
         for date, author, data in self.pr.list_instructions():
+            try:
+                data = yaml.load(data)
+            except yaml.error.YAMLError as e:
+                self.settings['errors'].append((author, data, e))
+                continue
+
+            data = data['jenkins']
+            if not data:
+                continue
             if isinstance(data, str):
                 data = {data: None}
             if isinstance(data, list):
@@ -133,20 +143,45 @@ class BuilderExtension(Extension):
 
     DEFAULTS = {
         'skip': [],
+        'skip-errors': [],
         'rebuild-failed': None,
     }
     SKIP_ALL = ('.*',)
+    ERROR_COMMENT = """
+Sorry %(mention)s, I don't understand your pattern `%(pattern)r`: `%(error)s`.
+
+<!--
+jenkins: reset-skip-errors
+-->
+"""
 
     def process_instruction(self, instruction):
         if instruction == 'skip':
             patterns = instruction.args
             if isinstance(patterns, str):
                 patterns = [patterns]
-            self.bot.settings['skip'] = patterns or self.SKIP_ALL
+            patterns = patterns or self.SKIP_ALL
+            self.bot.settings['skip'] = skip = []
+            self.bot.settings['skip-errors'] = errors = []
+            for pattern in patterns:
+                try:
+                    skip.append(re.compile(pattern))
+                except re.error as e:
+                    logger.warn("Bad pattern for skip: %s", e)
+                    errors.append((instruction, pattern, e))
+        if instruction == 'reset-skip-errors':
+            self.bot.settings['skip-errors'] = []
         elif instruction == 'rebuild':
             self.bot.settings['rebuild-failed'] = instruction.date
 
     def end(self):
+        for instruction, pattern, error in self.bot.settings['skip-errors']:
+            self.bot.pr.comment(self.ERROR_COMMENT % dict(
+                mention='@' + instruction.author,
+                pattern=pattern,
+                error=str(error),
+            ))
+
         for job in self.bot.pr.project.jobs:
             not_built = self.bot.pr.filter_not_built_contexts(
                 job.list_contexts(),
@@ -155,21 +190,28 @@ class BuilderExtension(Extension):
 
             for context in not_built:
                 self.bot.pr.update_statuses(
+                    target_url=job.baseurl,
                     **self.status_for_new_context(context)
                 )
 
             if not_built and self.bot.queue_empty:
-                job.build(
-                    self.bot.pr, [c for c in not_built if not self.skip(c)]
-                )
+                queued_contexts = [c for c in not_built if not self.skip(c)]
+                try:
+                    job.build(self.bot.pr, queued_contexts)
+                except Exception as e:
+                    logger.warn("Failed to queue job %s: %s", job, e)
+                    for context in queued_contexts:
+                        self.bot.pr.update_statuses(
+                            context=context,
+                            state='failure',
+                            description='Failed to queue job',
+                            target_url=job.baseurl,
+                        )
 
     def skip(self, context):
         for pattern in self.bot.settings['skip']:
-            try:
-                if re.match(pattern, context):
-                    return True
-            except re.error as e:
-                logger.warn("Bad pattern for skip: %s", e)
+            if pattern.match(context):
+                return True
 
     def status_for_new_context(self, context):
         new_status = {'context': context}
@@ -329,7 +371,7 @@ Extensions: %(extensions)s
             extensions=','.join(sorted(self.bot.extensions.keys())),
             help=help_,
             host=socket.getfqdn(),
-            me='Jenkins GitHub Builder',
+            me=SETTINGS.GHP_NAME,
             mentions=', '.join(sorted([
                 '@' + m for m in self.bot.settings['help-mentions']
             ])),
@@ -343,3 +385,27 @@ Extensions: %(extensions)s
     def end(self):
         if self.bot.settings['help-mentions']:
             self.answer_help()
+
+
+class ErrorExtension(Extension):
+    ERROR_COMMENT = """
+Sorry %(mention)s, I don't understand what you mean by `%(instruction)s`: `%(error)s`.
+
+See `jenkins: help` for documentation.
+
+<!--
+jenkins: reset-errors
+-->
+"""  # noqa
+
+    def process_instruction(self, instruction):
+        if instruction == 'reset-errors':
+            self.bot.settings['errors'] = []
+
+    def end(self):
+        for author, instruction, error in self.bot.settings['errors']:
+            self.bot.pr.comment(self.ERROR_COMMENT % dict(
+                mention='@' + author,
+                instruction=repr(instruction),
+                error=str(error),
+            ))

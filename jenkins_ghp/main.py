@@ -125,10 +125,12 @@ def main():
             try:
                 loop.run_until_complete(task)
             except BaseException:
-                task.exception()  # Consume task exception
-                raise
-            finally:
+                if task.done():
+                    task.exception()  # Consume task exception
+                else:
+                    task.cancel()
                 loop.close()
+                raise
 
         sys.exit(command_exitcode(run_async))
     else:

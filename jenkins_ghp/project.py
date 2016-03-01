@@ -17,7 +17,6 @@ import re
 
 from github import GitHub, ApiError
 import requests
-import yaml
 
 from .settings import SETTINGS
 from .utils import match, parse_datetime, retry
@@ -151,26 +150,14 @@ class PullRequest(object):
             body = comment['body'].replace('\r', '')
 
             for instruction in self.instruction_re.findall(body):
-                try:
-                    instruction = instruction.strip().strip('`')
-                    if instruction.startswith('yaml\n'):
-                        instruction = instruction[4:].strip()
-                    instruction = yaml.load(instruction)
-                except yaml.error.YAMLError as e:
-                    logger.warn(
-                        "Invalid YAML instruction in %s", comment['html_url']
-                    )
-                    logger.debug("%s", e)
-                    continue
-
-                if not instruction['jenkins']:
-                    # Just skip empty or null instructions.
-                    continue
+                instruction = instruction.strip().strip('`')
+                if instruction.startswith('yaml\n'):
+                    instruction = instruction[4:].strip()
 
                 yield (
                     parse_datetime(comment['updated_at']),
                     comment['user']['login'],
-                    instruction['jenkins'],
+                    instruction,
                 )
 
     @retry()

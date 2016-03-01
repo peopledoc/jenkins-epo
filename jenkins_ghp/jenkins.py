@@ -166,9 +166,7 @@ class Job(object):
         return self._instance.name
 
     def get_projects(self):
-        remote_xpath_query = './/hudson.plugins.git.UserRemoteConfig/url'
-        for remote_e in self.config.findall(remote_xpath_query):
-            remote_url = remote_e.findtext('.')
+        for remote_url in self.get_scm_url():
             yield Project.from_remote(remote_url)
 
 
