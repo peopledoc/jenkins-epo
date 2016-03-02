@@ -44,6 +44,7 @@ SETTINGS = EnvironmentSettings(defaults={
     'GHP_GITHUB_RO': False,
     'GHP_IGNORE_STATUSES': '',
     'GHP_JOBS': '',
+    'GHP_JOBS_AUTO': True,
     # Trigger loop
     'GHP_LOOP': 0,
     # When commenting on PR
