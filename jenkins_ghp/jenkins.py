@@ -94,7 +94,12 @@ class LazyJenkins(object):
                 logger.info("Skipping %s, trigger on push disabled", name)
                 continue
 
-            for project in job.get_projects():
+            job_projects = [x for x in job.get_projects()]
+            if not job_projects:
+                logger.info("Skipping %s, no GitHub project to poll", name)
+                continue
+
+            for project in job_projects:
                 project_match = match(str(project), self.projects_filter)
                 if SETTINGS.GHP_JOBS_AUTO and not project_match:
                     logger.info("Skipping %s", project)
@@ -171,8 +176,12 @@ class Job(object):
         return self._instance.name
 
     def get_projects(self):
-        for remote_url in self.get_scm_url():
-            yield Project.from_remote(remote_url)
+        try:
+            for remote_url in self.get_scm_url():
+                yield Project.from_remote(remote_url)
+        except Exception as e:
+            logger.debug("No project found: %s", e)
+            return []
 
 
 class FreestyleJob(Job):
