@@ -74,25 +74,35 @@ class LazyJenkins(object):
 
         projects = {}
 
+        if not SETTINGS.GHP_JOBS_AUTO and not self.jobs_filter:
+            logger.warn("Use GHP_JOBS env var to list jobs to managed")
+            return []
+
         for name, job in self.get_jobs():
             if not match(name, self.jobs_filter):
-                logger.debug("Skipping %s", name)
+                logger.info("Skipping %s", name)
                 continue
 
             job = Job.factory(job)
-            if job.polled_by_jenkins:
-                logger.debug("Skipping %s, polled by Jenkins", name)
+            if SETTINGS.GHP_JOBS_AUTO and job.polled_by_jenkins:
+                logger.info("Skipping %s, polled by Jenkins", name)
                 continue
 
             # This option works only with webhook, so we can safely use it to
             # mark a job for jenkins-ghp.
-            if not job.push_trigger:
-                logger.debug("Skipping %s, trigger on push disabled", name)
+            if SETTINGS.GHP_JOBS_AUTO and not job.push_trigger:
+                logger.info("Skipping %s, trigger on push disabled", name)
                 continue
 
-            for project in job.get_projects():
-                if not match(str(project), self.projects_filter):
-                    logger.debug("Skipping %s", project)
+            job_projects = [x for x in job.get_projects()]
+            if not job_projects:
+                logger.info("Skipping %s, no GitHub project to poll", name)
+                continue
+
+            for project in job_projects:
+                project_match = match(str(project), self.projects_filter)
+                if SETTINGS.GHP_JOBS_AUTO and not project_match:
+                    logger.info("Skipping %s", project)
                     continue
 
                 logger.info("Managing %s", name)
@@ -166,8 +176,12 @@ class Job(object):
         return self._instance.name
 
     def get_projects(self):
-        for remote_url in self.get_scm_url():
-            yield Project.from_remote(remote_url)
+        try:
+            for remote_url in self.get_scm_url():
+                yield Project.from_remote(remote_url)
+        except Exception as e:
+            logger.debug("No project found: %s", e)
+            return []
 
 
 class FreestyleJob(Job):
