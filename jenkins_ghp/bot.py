@@ -291,6 +291,7 @@ class FixStatusExtension(Extension):
             datetime.timedelta(seconds=SETTINGS.GHP_STATUS_LOOP)
         )
 
+        failed_contexts = []
         for context, status in sorted(self.bot.pr.get_statuses().items()):
             if status['state'] == 'success':
                 continue
@@ -313,14 +314,21 @@ class FixStatusExtension(Extension):
             try:
                 build = JENKINS.get_build_from_url(status['target_url'])
             except Exception as e:
-                logger.warn(
-                    "Failed to get actual build status: %s: %s",
+                logger.debug(
+                    "Failed to get actual build status for contexts: %s: %s",
                     e.__class__.__name__, e,
                 )
                 build = None
+                failed_contexts.append(context)
 
             self.bot.pr.update_statuses(
                 context=context, **self.compute_actual_status(build, status)
+            )
+
+        if failed_contexts:
+            logger.warn(
+                "Failed to get actual build status for contexts: %s",
+                failed_contexts
             )
 
 
