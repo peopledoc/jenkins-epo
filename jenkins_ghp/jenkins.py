@@ -74,6 +74,10 @@ class LazyJenkins(object):
 
         projects = {}
 
+        if not SETTINGS.GHP_JOBS_AUTO and not self.jobs_filter:
+            logger.warn("Use GHP_JOBS env var to list jobs to managed")
+            return []
+
         for name, job in self.get_jobs():
             if not match(name, self.jobs_filter):
                 logger.info("Skipping %s", name)
