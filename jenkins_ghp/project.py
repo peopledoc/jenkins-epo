@@ -106,7 +106,7 @@ class PullRequest(object):
                 logger.debug("Skip GitHub statuses")
                 statuses = {}
             else:
-                logger.info(
+                logger.debug(
                     "Fetching statuses for %s", self.data['head']['sha'][:8]
                 )
                 url = 'https://api.github.com/repos/%s/%s/status/%s?access_token=%s&per_page=100' % (  # noqa
@@ -140,7 +140,7 @@ class PullRequest(object):
 
     @retry(wait_fixed=15000)
     def list_instructions(self):
-        logger.info("Queyring comments for instructions")
+        logger.debug("Queyring comments for instructions")
         issue = (
             GITHUB.repos(self.project.owner)(self.project.repository)
             .issues(self.data['number'])
@@ -225,7 +225,7 @@ class Project(object):
 
     @retry(wait_fixed=15000)
     def list_pull_requests(self):
-        logger.info(
+        logger.debug(
             "Querying GitHub for %s/%s PR", self.owner, self.repository,
         )
 

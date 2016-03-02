@@ -310,7 +310,7 @@ class FixStatusExtension(Extension):
             if status['description'].endswith('!'):
                 continue
 
-            logger.info("Query %s status on Jenkins", context)
+            logger.debug("Query %s status on Jenkins", context)
             try:
                 build = JENKINS.get_build_from_url(status['target_url'])
             except Exception as e:
