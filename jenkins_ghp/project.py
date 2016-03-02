@@ -147,6 +147,9 @@ class PullRequest(object):
         )
         comments = [issue.get()] + issue.comments.get()
         for comment in comments:
+            if comment['body'] is None:
+                continue
+
             body = comment['body'].replace('\r', '')
 
             for instruction in self.instruction_re.findall(body):
