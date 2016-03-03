@@ -57,7 +57,7 @@ class PullRequest(object):
     def ref(self):
         return self.data['head']['ref']
 
-    @retry()
+    @retry(wait_fixed=15000)
     def comment(self, body):
         if GITHUB.dry:
             return logger.info("Would comment on %s", self)
@@ -99,7 +99,7 @@ class PullRequest(object):
 
         return not_built
 
-    @retry()
+    @retry(wait_fixed=15000)
     def get_statuses(self):
         if self._statuses_cache is None:
             if SETTINGS.GHP_IGNORE_STATUSES:
@@ -138,7 +138,7 @@ class PullRequest(object):
         ')'
     )
 
-    @retry()
+    @retry(wait_fixed=15000)
     def list_instructions(self):
         logger.info("Queyring comments for instructions")
         issue = (
@@ -163,7 +163,7 @@ class PullRequest(object):
                     instruction,
                 )
 
-    @retry()
+    @retry(wait_fixed=15000)
     def update_statuses(self, context, state, description, target_url=None):
         current_statuses = self.get_statuses()
 
@@ -223,7 +223,7 @@ class Project(object):
     def url(self):
         return 'https://github.com/%s/%s' % (self.owner, self.repository)
 
-    @retry()
+    @retry(wait_fixed=15000)
     def list_pull_requests(self):
         logger.info(
             "Querying GitHub for %s/%s PR", self.owner, self.repository,
@@ -234,11 +234,13 @@ class Project(object):
             .pulls.get(per_page=b'100')
         )
 
+        pulls_o = []
         for pr in pulls:
             if match(pr['html_url'], self.pr_filter):
-                yield PullRequest(pr, project=self)
+                pulls_o.append(PullRequest(pr, project=self))
             else:
                 logger.debug("Skipping %s", pr['html_url'])
+        return pulls_o
 
     def list_contexts(self):
         for job in self.jobs:

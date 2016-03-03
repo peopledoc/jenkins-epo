@@ -14,16 +14,29 @@
 
 import datetime
 import fnmatch
-import functools
 import logging
 
-from retrying import retry
+import retrying
+from github import ApiError
 
 
 logger = logging.getLogger(__name__)
 
 
-def retry_blacklist(exception):
+def retry_filter(exception):
+    if isinstance(exception, ApiError):
+        try:
+            message = exception.response['json']['message']
+        except KeyError:
+            # Don't retry on ApiError by default. Things like 1000 status
+            # update must be managed by code.
+            return False
+        if 'API rate limit exceeded for' in message:
+            logger.warn("Retrying on rate GitHub limit")
+            return True
+        # If not a rate limit error, don't retry.
+        return False
+
     if not isinstance(exception, IOError):
         return False
 
@@ -35,12 +48,18 @@ def retry_blacklist(exception):
     return True
 
 
-retry = functools.partial(
-    retry,
-    retry_on_exception=retry_blacklist,
-    wait_exponential_multiplier=500,
-    wait_exponential_max=10000,
-)
+def retry(*dargs, **dkw):
+    defaults = dict(
+        retry_on_exception=retry_filter,
+        wait_exponential_multiplier=500,
+        wait_exponential_max=15000,
+    )
+
+    if len(dargs) == 1 and callable(dargs[0]):
+        return retrying.retry(**defaults)(dargs[0])
+    else:
+        dkw = dict(defaults, **dkw)
+        return retrying.retry(*dargs, **dkw)
 
 
 def match(item, patterns):

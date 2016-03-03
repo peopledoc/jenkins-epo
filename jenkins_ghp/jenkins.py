@@ -41,7 +41,7 @@ class LazyJenkins(object):
         self.load()
         return getattr(self._instance, name)
 
-    @retry()
+    @retry
     def get_build_from_url(self, url):
         if not url.startswith(self.baseurl):
             raise Exception("%s is not on this Jenkins" % url)
@@ -58,7 +58,7 @@ class LazyJenkins(object):
                 raise Exception("Build %s not found. Lost ?" % url)
             raise
 
-    @retry()
+    @retry
     def load(self):
         if not self._instance:
             logger.info("Connecting to Jenkins %s", SETTINGS.JENKINS_URL)
