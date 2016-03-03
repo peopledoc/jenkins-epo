@@ -80,29 +80,29 @@ class LazyJenkins(object):
 
         for name, job in self.get_jobs():
             if not match(name, self.jobs_filter):
-                logger.info("Skipping %s", name)
+                logger.debug("Skipping %s", name)
                 continue
 
             job = Job.factory(job)
             if SETTINGS.GHP_JOBS_AUTO and job.polled_by_jenkins:
-                logger.info("Skipping %s, polled by Jenkins", name)
+                logger.debug("Skipping %s, polled by Jenkins", name)
                 continue
 
             # This option works only with webhook, so we can safely use it to
             # mark a job for jenkins-ghp.
             if SETTINGS.GHP_JOBS_AUTO and not job.push_trigger:
-                logger.info("Skipping %s, trigger on push disabled", name)
+                logger.debug("Skipping %s, trigger on push disabled", name)
                 continue
 
             job_projects = [x for x in job.get_projects()]
             if not job_projects:
-                logger.info("Skipping %s, no GitHub project to poll", name)
+                logger.debug("Skipping %s, no GitHub project to poll", name)
                 continue
 
             for project in job_projects:
                 project_match = match(str(project), self.projects_filter)
                 if SETTINGS.GHP_JOBS_AUTO and not project_match:
-                    logger.info("Skipping %s", project)
+                    logger.debug("Skipping %s", project)
                     continue
 
                 logger.info("Managing %s", name)

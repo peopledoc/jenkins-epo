@@ -42,7 +42,7 @@ class Bot(object):
             cls = ep.load()
             self.extensions[ep.name] = ext = cls(ep.name, self)
             SETTINGS.load(ext.SETTINGS)
-            logger.info("Loaded extension %s", ep.name)
+            logger.debug("Loaded extension %s", ep.name)
 
     def workon(self, pr):
         logger.info("Working on %s", pr)
