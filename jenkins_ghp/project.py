@@ -12,6 +12,7 @@
 # You should have received a copy of the GNU General Public License along with
 # jenkins-ghp.  If not, see <http://www.gnu.org/licenses/>.
 
+import datetime
 import logging
 import re
 
@@ -49,6 +50,7 @@ class PullRequest(object):
         self.data = data
         self.project = project
         self._statuses_cache = None
+        self._commit_cache = None
 
     def __str__(self):
         return self.data['html_url']
@@ -98,6 +100,27 @@ class PullRequest(object):
             not_built.append(context)
 
         return not_built
+
+    @retry(wait_fixed=15000)
+    def get_commit(self):
+        if self._commit_cache is None:
+            logger.debug(
+                "Fetching commit %s", self.data['head']['sha'][:8]
+            )
+            url = 'https://api.github.com/repos/%s/%s/commits/%s?access_token=%s' % (  # noqa
+                self.project.owner, self.project.repository,
+                self.data['head']['sha'], SETTINGS.GITHUB_TOKEN
+            )
+            data = requests.get(url.encode('utf-8')).json()
+
+            if 'commit' not in data:
+                raise Exception('No commit data')
+
+            commit = data['commit']
+            logger.debug("Got commit for %r", self.data['head']['sha'][:8])
+            self._commit_cache = commit
+
+        return self._commit_cache
 
     @retry(wait_fixed=15000)
     def get_statuses(self):
@@ -225,6 +248,7 @@ class Project(object):
 
     @retry(wait_fixed=15000)
     def list_pull_requests(self):
+        now = datetime.datetime.utcnow()
         logger.debug(
             "Querying GitHub for %s/%s PR", self.owner, self.repository,
         )
@@ -236,6 +260,17 @@ class Project(object):
 
         pulls_o = []
         for pr in pulls:
+            if SETTINGS.GHP_PR_MAX_WEEKS:
+                commit = pr.get_commit()
+                age = now - parse_datetime(commit['author']['date'])
+
+                if age > datetime.timedelta(weeks=SETTINGS.GHP_PR_MAX_WEEKS):
+                    logger.debug(
+                        'Skipping PR %s because older than %s weeks' %
+                        (self.bot.pr.data['url'], SETTINGS.GHP_PR_MAX_WEEKS)
+                    )
+                    continue
+
             if match(pr['html_url'], self.pr_filter):
                 pulls_o.append(PullRequest(pr, project=self))
             else:
