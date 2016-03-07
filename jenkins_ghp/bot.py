@@ -296,13 +296,13 @@ class FixStatusExtension(Extension):
             if status['state'] == 'success':
                 continue
 
-            # Jenkins did not assign a build to this SHA1
-            if not status['target_url']:
-                continue
-
             updated_at = parse_datetime(status['updated_at'])
             # Don't poll Jenkins more than each 5 min.
             if status['state'] == 'pending' and updated_at > fivemin_ago:
+                continue
+
+            # There is no build URL.
+            if status['description'] in {'Backed', 'New', 'Queued'}:
                 continue
 
             # We mark actual failed with a bang to avoid rechecking it is
