@@ -12,6 +12,7 @@
 # You should have received a copy of the GNU General Public License along with
 # jenkins-ghp.  If not, see <http://www.gnu.org/licenses/>.
 
+import datetime
 import logging
 import re
 
@@ -49,6 +50,7 @@ class PullRequest(object):
         self.data = data
         self.project = project
         self._statuses_cache = None
+        self._commit_cache = None
 
     def __str__(self):
         return self.data['html_url']
@@ -100,13 +102,34 @@ class PullRequest(object):
         return not_built
 
     @retry(wait_fixed=15000)
+    def get_commit(self):
+        if self._commit_cache is None:
+            logger.debug(
+                "Fetching commit %s", self.data['head']['sha'][:8]
+            )
+            url = 'https://api.github.com/repos/%s/%s/commits/%s?access_token=%s' % (  # noqa
+                self.project.owner, self.project.repository,
+                self.data['head']['sha'], SETTINGS.GITHUB_TOKEN
+            )
+            data = requests.get(url.encode('utf-8')).json()
+
+            if 'commit' not in data:
+                raise Exception('No commit data')
+
+            commit = data['commit']
+            logger.debug("Got commit for %r", self.data['head']['sha'][:8])
+            self._commit_cache = commit
+
+        return self._commit_cache
+
+    @retry(wait_fixed=15000)
     def get_statuses(self):
         if self._statuses_cache is None:
             if SETTINGS.GHP_IGNORE_STATUSES:
                 logger.debug("Skip GitHub statuses")
                 statuses = {}
             else:
-                logger.info(
+                logger.debug(
                     "Fetching statuses for %s", self.data['head']['sha'][:8]
                 )
                 url = 'https://api.github.com/repos/%s/%s/status/%s?access_token=%s&per_page=100' % (  # noqa
@@ -148,12 +171,13 @@ class PullRequest(object):
 
     @retry(wait_fixed=15000)
     def list_instructions(self):
-        logger.info("Queyring comments for instructions")
+        logger.debug("Queyring comments for instructions")
         issue = (
             GITHUB.repos(self.project.owner)(self.project.repository)
             .issues(self.data['number'])
         )
         comments = [issue.get()] + issue.comments.get()
+        instructions = []
         for comment in comments:
             if comment['body'] is None:
                 continue
@@ -165,11 +189,12 @@ class PullRequest(object):
                 if instruction.startswith('yaml\n'):
                     instruction = instruction[4:].strip()
 
-                yield (
+                instructions.append((
                     parse_datetime(comment['updated_at']),
                     comment['user']['login'],
                     instruction,
-                )
+                ))
+        return instructions
 
     @retry(wait_fixed=15000)
     def update_statuses(self, context, state, description, target_url=None):
@@ -233,7 +258,8 @@ class Project(object):
 
     @retry(wait_fixed=15000)
     def list_pull_requests(self):
-        logger.info(
+        now = datetime.datetime.utcnow()
+        logger.debug(
             "Querying GitHub for %s/%s PR", self.owner, self.repository,
         )
 
@@ -244,6 +270,17 @@ class Project(object):
 
         pulls_o = []
         for pr in pulls:
+            if SETTINGS.GHP_PR_MAX_WEEKS:
+                commit = pr.get_commit()
+                age = now - parse_datetime(commit['author']['date'])
+
+                if age > datetime.timedelta(weeks=SETTINGS.GHP_PR_MAX_WEEKS):
+                    logger.debug(
+                        'Skipping PR %s because older than %s weeks' %
+                        (self.bot.pr.data['url'], SETTINGS.GHP_PR_MAX_WEEKS)
+                    )
+                    continue
+
             if match(pr['html_url'], self.pr_filter):
                 pulls_o.append(PullRequest(pr, project=self))
             else:

@@ -42,7 +42,7 @@ class Bot(object):
             cls = ep.load()
             self.extensions[ep.name] = ext = cls(ep.name, self)
             SETTINGS.load(ext.SETTINGS)
-            logger.info("Loaded extension %s", ep.name)
+            logger.debug("Loaded extension %s", ep.name)
 
     def workon(self, pr):
         logger.info("Working on %s", pr)
@@ -291,12 +291,9 @@ class FixStatusExtension(Extension):
             datetime.timedelta(seconds=SETTINGS.GHP_STATUS_LOOP)
         )
 
+        failed_contexts = []
         for context, status in sorted(self.bot.pr.get_statuses().items()):
             if status['state'] == 'success':
-                continue
-
-            # Jenkins did not assign a build to this SHA1
-            if not status['target_url']:
                 continue
 
             updated_at = parse_datetime(status['updated_at'])
@@ -304,23 +301,34 @@ class FixStatusExtension(Extension):
             if status['state'] == 'pending' and updated_at > fivemin_ago:
                 continue
 
+            # There is no build URL.
+            if status['description'] in {'Backed', 'New', 'Queued'}:
+                continue
+
             # We mark actual failed with a bang to avoid rechecking it is
             # aborted.
             if status['description'].endswith('!'):
                 continue
 
-            logger.info("Query %s status on Jenkins", context)
+            logger.debug("Query %s status on Jenkins", context)
             try:
                 build = JENKINS.get_build_from_url(status['target_url'])
             except Exception as e:
-                logger.warn(
-                    "Failed to get actual build status: %s: %s",
+                logger.debug(
+                    "Failed to get actual build status for contexts: %s: %s",
                     e.__class__.__name__, e,
                 )
                 build = None
+                failed_contexts.append(context)
 
             self.bot.pr.update_statuses(
                 context=context, **self.compute_actual_status(build, status)
+            )
+
+        if failed_contexts:
+            logger.warn(
+                "Failed to get actual build status for contexts: %s",
+                failed_contexts
             )
 
 
