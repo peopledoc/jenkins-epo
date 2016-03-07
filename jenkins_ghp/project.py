@@ -169,6 +169,7 @@ class PullRequest(object):
             .issues(self.data['number'])
         )
         comments = [issue.get()] + issue.comments.get()
+        instructions = []
         for comment in comments:
             if comment['body'] is None:
                 continue
@@ -180,11 +181,12 @@ class PullRequest(object):
                 if instruction.startswith('yaml\n'):
                     instruction = instruction[4:].strip()
 
-                yield (
+                instructions.append((
                     parse_datetime(comment['updated_at']),
                     comment['user']['login'],
                     instruction,
-                )
+                ))
+        return instructions
 
     @retry(wait_fixed=15000)
     def update_statuses(self, context, state, description, target_url=None):
