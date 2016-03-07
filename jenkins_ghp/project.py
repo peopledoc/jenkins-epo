@@ -113,10 +113,18 @@ class PullRequest(object):
                     self.project.owner, self.project.repository,
                     self.data['head']['sha'], SETTINGS.GITHUB_TOKEN
                 )
-                statuses = dict([(x['context'], x) for x in (
-                    requests.get(url.encode('utf-8'))
-                    .json()['statuses']
-                ) if match(x['context'], self.contexts_filter)])
+                response = requests.get(url.encode('utf-8'))
+                if 403 == response.status_code:
+                    # Fake a regular githubpy ApiError. Actually to trigger
+                    # retry on rate limit.
+                    raise ApiError(url, {}, dict(json=response.json()))
+                elif 200 != response.status_code:
+                    response.raise_for_status()
+                statuses = {
+                    x['context']: x
+                    for x in response.json()['statuses']
+                    if match(x['context'], self.contexts_filter)
+                }
                 logger.debug("Got status for %r", sorted(statuses.keys()))
             self._statuses_cache = statuses
 
