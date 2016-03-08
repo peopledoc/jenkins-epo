@@ -43,32 +43,196 @@ class LazyGithub(object):
 GITHUB = LazyGithub()
 
 
-class PullRequest(object):
+class Project(object):
+    remote_re = re.compile(
+        r'.*github.com[:/](?P<owner>[\w-]+)/(?P<repository>[\w-]+).*'
+    )
+    pr_filter = [p for p in SETTINGS.GHP_PR.split(',') if p]
+    _branches_settings = None
+
+    @classmethod
+    def from_remote(cls, remote_url):
+        match = cls.remote_re.match(remote_url)
+        if not match:
+            raise ValueError('%r is not github' % (remote_url,))
+        return cls(**match.groupdict())
+
+    def __init__(self, owner, repository, jobs=None):
+        self.owner = owner
+        self.repository = repository
+        self.jobs = jobs or []
+
+    def __str__(self):
+        return '%s/%s' % (self.owner, self.repository)
+
+    @property
+    def url(self):
+        return 'https://github.com/%s/%s' % (self.owner, self.repository)
+
+    def branches_settings(self):
+        if self._branches_settings is None:
+            # Parse GHP_BRANCHES
+            Project._branches_settings = {}
+            for project in SETTINGS.GHP_BRANCHES.split(' '):
+                if not project.strip():
+                    continue
+                project, branches = project.split(':')
+                Project._branches_settings[project] = [
+                    'refs/heads/' + b for b in branches.split(',')
+                ]
+        return self._branches_settings.get(str(self), [])
+
+    @retry(wait_fixed=15000)
+    def list_branches(self):
+        settings = self.branches_settings()
+
+        if not settings:
+            logger.debug("No explicit branches configured for %s", self)
+            return []
+
+        logger.debug("Search remote branches matching %s", ', '.join(settings))
+        branches = []
+        refs = (
+            GITHUB.repos(self.owner)(self.repository)
+            .git.refs.get(per_page=b'100')
+        )
+        for ref in refs:
+            if not ref['ref'].startswith('refs/heads/'):
+                continue
+
+            if not match(ref['ref'], settings):
+                logger.debug("Ignoring branch %s", ref['ref'])
+                continue
+
+            branch = Branch.from_github_payload(self, ref)
+            if branch.is_outdated:
+                logger.debug(
+                    'Skipping branch %s because older than %s weeks',
+                    branch, SETTINGS.GHP_COMMIT_MAX_WEEKS
+                )
+                continue
+            branches.append(branch)
+        return branches
+
+    @retry(wait_fixed=15000)
+    def list_pull_requests(self):
+        logger.debug(
+            "Querying GitHub for %s/%s PR", self.owner, self.repository,
+        )
+
+        pulls = (
+            GITHUB.repos(self.owner)(self.repository)
+            .pulls.get(per_page=b'100')
+        )
+
+        pulls_o = []
+        for data in pulls:
+            pr = PullRequest(data, project=self)
+            if pr.is_outdated:
+                logger.debug(
+                    'Skipping PR %s because older than %s weeks',
+                    pr, SETTINGS.GHP_COMMIT_MAX_WEEKS
+                )
+                continue
+
+            if match(data['html_url'], self.pr_filter):
+                pulls_o.append(pr)
+            else:
+                logger.debug("Skipping %s", pr)
+        return pulls_o
+
+    def list_contexts(self):
+        for job in self.jobs:
+            for context in job.list_contexts():
+                yield context
+
+
+class Head(object):
     contexts_filter = [p for p in SETTINGS.GHP_JOBS.split(',') if p]
 
-    def __init__(self, data, project):
-        self.data = data
+    def __init__(self, project, sha, ref):
         self.project = project
+        self.sha = sha
+        self.ref = ref
         self._statuses_cache = None
         self._commit_cache = None
 
-    def __str__(self):
-        return self.data['html_url']
-
     @property
-    def ref(self):
-        return self.data['head']['ref']
+    def is_outdated(self):
+        if not SETTINGS.GHP_COMMIT_MAX_WEEKS:
+            return False
+
+        now = datetime.datetime.utcnow()
+        commit = self.get_commit()
+        age = now - parse_datetime(commit['author']['date'])
+        maxage = datetime.timedelta(weeks=SETTINGS.GHP_COMMIT_MAX_WEEKS)
+        return age > maxage
 
     @retry(wait_fixed=15000)
-    def comment(self, body):
-        if GITHUB.dry:
-            return logger.info("Would comment on %s", self)
+    def get_commit(self):
+        if self._commit_cache is None:
+            logger.debug(
+                "Fetching commit %s", self.sha[:7]
+            )
+            url = 'https://api.github.com/repos/%s/%s/commits/%s?access_token=%s' % (  # noqa
+                self.project.owner, self.project.repository,
+                self.sha, SETTINGS.GITHUB_TOKEN
+            )
+            response = requests.get(url.encode('utf-8'))
+            if 403 == response.status_code:
+                # Fake a regular githubpy ApiError. Actually to trigger
+                # retry on rate limit.
+                raise ApiError(url, {}, dict(json=response.json()))
+            elif 200 != response.status_code:
+                response.raise_for_status()
 
-        logger.info("Commenting on %s", self)
-        (
-            GITHUB.repos(self.project.owner)(self.project.repository)
-            .issues(self.data['number']).comments.post(body=body)
-        )
+            data = response.json()
+            if 'commit' not in data:
+                raise Exception('No commit data')
+
+            commit = data['commit']
+            logger.debug("Got commit for %r", self.sha[:7])
+            self._commit_cache = commit
+
+        return self._commit_cache
+
+    def list_comments(self):
+        raise NotImplemented
+
+    instruction_re = re.compile(
+        '('
+        # Case beginning:  jenkins: ... or `jenkins: ...`
+        '\A`*jenkins:[^\n]*`*' '|'
+        # Case one middle line:  jenkins: ...
+        '(?!`)\njenkins:[^\n]*' '|'
+        # Case middle line teletype:  `jenkins: ...`
+        '\n`+jenkins:[^\n]*`+' '|'
+        # Case block code: ```\njenkins:\n  ...```
+        '```(?:yaml)?\njenkins:[\s\S]*?\n```'
+        ')'
+    )
+
+    @retry(wait_fixed=15000)
+    def list_instructions(self):
+        comments = self.list_comments()
+        instructions = []
+        for comment in comments:
+            if comment['body'] is None:
+                continue
+
+            body = comment['body'].replace('\r', '')
+
+            for instruction in self.instruction_re.findall(body):
+                instruction = instruction.strip().strip('`')
+                if instruction.startswith('yaml\n'):
+                    instruction = instruction[4:].strip()
+
+                instructions.append((
+                    parse_datetime(comment['updated_at']),
+                    comment['user']['login'],
+                    instruction,
+                ))
+        return instructions
 
     def filter_not_built_contexts(self, contexts, rebuild_failed=None):
         not_built = []
@@ -102,27 +266,6 @@ class PullRequest(object):
         return not_built
 
     @retry(wait_fixed=15000)
-    def get_commit(self):
-        if self._commit_cache is None:
-            logger.debug(
-                "Fetching commit %s", self.data['head']['sha'][:8]
-            )
-            url = 'https://api.github.com/repos/%s/%s/commits/%s?access_token=%s' % (  # noqa
-                self.project.owner, self.project.repository,
-                self.data['head']['sha'], SETTINGS.GITHUB_TOKEN
-            )
-            data = requests.get(url.encode('utf-8')).json()
-
-            if 'commit' not in data:
-                raise Exception('No commit data')
-
-            commit = data['commit']
-            logger.debug("Got commit for %r", self.data['head']['sha'][:8])
-            self._commit_cache = commit
-
-        return self._commit_cache
-
-    @retry(wait_fixed=15000)
     def get_statuses(self):
         if self._statuses_cache is None:
             if SETTINGS.GHP_IGNORE_STATUSES:
@@ -130,11 +273,11 @@ class PullRequest(object):
                 statuses = {}
             else:
                 logger.debug(
-                    "Fetching statuses for %s", self.data['head']['sha'][:8]
+                    "Fetching statuses for %s", self.sha[:7]
                 )
                 url = 'https://api.github.com/repos/%s/%s/status/%s?access_token=%s&per_page=100' % (  # noqa
                     self.project.owner, self.project.repository,
-                    self.data['head']['sha'], SETTINGS.GITHUB_TOKEN
+                    self.sha, SETTINGS.GITHUB_TOKEN
                 )
                 response = requests.get(url.encode('utf-8'))
                 if 403 == response.status_code:
@@ -155,46 +298,6 @@ class PullRequest(object):
 
     def get_status_for(self, context):
         return self.get_statuses().get(context, {})
-
-    instruction_re = re.compile(
-        '('
-        # Case beginning:  jenkins: ... or `jenkins: ...`
-        '\A`*jenkins:[^\n]*`*' '|'
-        # Case one middle line:  jenkins: ...
-        '(?!`)\njenkins:[^\n]*' '|'
-        # Case middle line teletype:  `jenkins: ...`
-        '\n`+jenkins:[^\n]*`+' '|'
-        # Case block code: ```\njenkins:\n  ...```
-        '```(?:yaml)?\njenkins:[\s\S]*?\n```'
-        ')'
-    )
-
-    @retry(wait_fixed=15000)
-    def list_instructions(self):
-        logger.debug("Queyring comments for instructions")
-        issue = (
-            GITHUB.repos(self.project.owner)(self.project.repository)
-            .issues(self.data['number'])
-        )
-        comments = [issue.get()] + issue.comments.get()
-        instructions = []
-        for comment in comments:
-            if comment['body'] is None:
-                continue
-
-            body = comment['body'].replace('\r', '')
-
-            for instruction in self.instruction_re.findall(body):
-                instruction = instruction.strip().strip('`')
-                if instruction.startswith('yaml\n'):
-                    instruction = instruction[4:].strip()
-
-                instructions.append((
-                    parse_datetime(comment['updated_at']),
-                    comment['user']['login'],
-                    instruction,
-                ))
-        return instructions
 
     @retry(wait_fixed=15000)
     def update_statuses(self, context, state, description, target_url=None):
@@ -222,72 +325,72 @@ class PullRequest(object):
             )
             new_status = (
                 GITHUB.repos(self.project.owner)(self.project.repository)
-                .statuses(self.data['head']['sha']).post(**new_status)
+                .statuses(self.sha).post(**new_status)
             )
             self._statuses_cache[context] = new_status
         except ApiError:
             logger.warn(
-                'Hit 1000 status updates on %s', self.data['head']['sha']
+                'Hit 1000 status updates on %s', self.sha
             )
 
 
-class Project(object):
-    remote_re = re.compile(
-        r'.*github.com[:/](?P<owner>[\w-]+)/(?P<repository>[\w-]+).*'
-    )
-    pr_filter = [p for p in SETTINGS.GHP_PR.split(',') if p]
-
+class Branch(Head):
     @classmethod
-    def from_remote(cls, remote_url):
-        match = cls.remote_re.match(remote_url)
-        if not match:
-            raise ValueError('%r is not github' % (remote_url,))
-        return cls(**match.groupdict())
-
-    def __init__(self, owner, repository, jobs=None):
-        self.owner = owner
-        self.repository = repository
-        self.jobs = jobs or []
+    def from_github_payload(cls, project, data):
+        return cls(
+            project=project,
+            ref=data['ref'],
+            sha=data['object']['sha']
+            )
 
     def __str__(self):
-        return '%s/%s' % (self.owner, self.repository)
+        return '%s (%s)' % (self.url, self.sha[:7])
 
     @property
     def url(self):
-        return 'https://github.com/%s/%s' % (self.owner, self.repository)
+        return 'https://github.com/%s/%s/tree/%s' % (
+            self.project.owner, self.project.repository,
+            self.ref[len('refs/heads/'):],
+        )
 
     @retry(wait_fixed=15000)
-    def list_pull_requests(self):
-        now = datetime.datetime.utcnow()
-        logger.debug(
-            "Querying GitHub for %s/%s PR", self.owner, self.repository,
+    def list_comments(self):
+        logger.debug("Queyring comments for instructions")
+        return (
+            GITHUB.repos(self.project.owner)(self.project.repository)
+            .commits(self.sha).comments.get()
         )
 
-        pulls = (
-            GITHUB.repos(self.owner)(self.repository)
-            .pulls.get(per_page=b'100')
+
+class PullRequest(Head):
+    def __init__(self, data, project):
+        super(PullRequest, self).__init__(
+            project,
+            sha=data['head']['sha'],
+            ref=data['head']['ref'],
+        )
+        self.data = data
+        self._commit_cache = None
+
+    def __str__(self):
+        return self.data['html_url']
+
+    @retry(wait_fixed=15000)
+    def comment(self, body):
+        if GITHUB.dry:
+            return logger.info("Would comment on %s", self)
+
+        logger.info("Commenting on %s", self)
+        (
+            GITHUB.repos(self.project.owner)(self.project.repository)
+            .issues(self.data['number']).comments.post(body=body)
         )
 
-        pulls_o = []
-        for pr in pulls:
-            if SETTINGS.GHP_PR_MAX_WEEKS:
-                commit = pr.get_commit()
-                age = now - parse_datetime(commit['author']['date'])
-
-                if age > datetime.timedelta(weeks=SETTINGS.GHP_PR_MAX_WEEKS):
-                    logger.debug(
-                        'Skipping PR %s because older than %s weeks' %
-                        (self.bot.pr.data['url'], SETTINGS.GHP_PR_MAX_WEEKS)
-                    )
-                    continue
-
-            if match(pr['html_url'], self.pr_filter):
-                pulls_o.append(PullRequest(pr, project=self))
-            else:
-                logger.debug("Skipping %s", pr['html_url'])
-        return pulls_o
-
-    def list_contexts(self):
-        for job in self.jobs:
-            for context in job.list_contexts():
-                yield context
+    @retry(wait_fixed=15000)
+    def list_comments(self):
+        logger.debug("Queyring comments for instructions")
+        issue = (
+            GITHUB.repos(self.project.owner)(self.project.repository)
+            .issues(self.data['number'])
+        )
+        return [issue.get()] + issue.comments.get()
