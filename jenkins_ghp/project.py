@@ -146,6 +146,21 @@ class Project(object):
             for context in job.list_contexts():
                 yield context
 
+    @retry(wait_fixed=15000)
+    def report_issue(self, title, body):
+        if GITHUB.dry:
+            logger.info("Would report issue '%s'", title)
+            return {'number': 0}
+
+        logger.info("Reporting issue on %s", self)
+        return (
+            GITHUB.repos(self.owner)(self.repository)
+            .issues.post(
+                title=title,
+                body=body,
+            )
+        )
+
 
 class Head(object):
     contexts_filter = [p for p in SETTINGS.GHP_JOBS.split(',') if p]
@@ -359,6 +374,17 @@ class Branch(Head):
         return (
             GITHUB.repos(self.project.owner)(self.project.repository)
             .commits(self.sha).comments.get()
+        )
+
+    @retry(wait_fixed=15000)
+    def comment(self, body):
+        if GITHUB.dry:
+            return logger.info("Would comment on %s", self)
+
+        logger.info("Commenting on %s", self)
+        (
+            GITHUB.repos(self.project.owner)(self.project.repository)
+            .commits(self.sha).comments.post(body=body)
         )
 
 

@@ -23,6 +23,7 @@ import socket
 import yaml
 
 from .jenkins import JENKINS
+from .project import Branch
 from .utils import parse_datetime
 from .settings import SETTINGS
 
@@ -417,3 +418,59 @@ jenkins: reset-errors
                 instruction=repr(instruction),
                 error=str(error),
             ))
+
+
+class ReportExtension(Extension):
+    ISSUE_TEMPLATE = """
+Commit %(abbrev)s is broken on %(branch)s:
+
+%(builds)s
+"""
+    COMMENT_TEMPLATE = """
+Build failure reported at #%(issue)s.
+
+<!--
+jenkins: report-done
+-->
+"""
+
+    DEFAULTS = {
+        # Issue URL where the failed builds are reported.
+        'report-done': False,
+    }
+
+    def process_instruction(self, instruction):
+        if instruction == 'report-done':
+            self.bot.settings['report-done'] = True
+
+    def end(self):
+        if self.bot.settings['report-done']:
+            return
+
+        if not isinstance(self.bot.head, Branch):
+            return
+
+        statuses = self.bot.head.get_statuses()
+        errored = [
+            s for s in statuses.values()
+            if s['state'] in {'failure', 'error'}
+        ]
+        if not errored:
+            return
+
+        branch_name = self.bot.head.ref[len('refs/heads/'):]
+        builds = '- ' + '\n- '.join([s['target_url'] for s in errored])
+        issue = self.bot.head.project.report_issue(
+            title="%s is broken" % (branch_name,),
+            body=self.ISSUE_TEMPLATE % dict(
+                abbrev=self.bot.head.sha[:7],
+                branch=branch_name,
+                builds=builds,
+                sha=self.bot.head.sha,
+                ref=self.bot.head.ref,
+            )
+        )
+
+        self.bot.head.comment(body=self.COMMENT_TEMPLATE % dict(
+            issue=issue['number']
+        ))
