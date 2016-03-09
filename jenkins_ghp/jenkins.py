@@ -64,6 +64,7 @@ class LazyJenkins(object):
             logger.info("Connecting to Jenkins %s", SETTINGS.JENKINS_URL)
             self._instance = Jenkins(SETTINGS.JENKINS_URL)
 
+    @retry
     def list_projects(self):
         """List github projects tested on this jenkins.
 
