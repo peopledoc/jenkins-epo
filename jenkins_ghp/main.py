@@ -45,19 +45,32 @@ def loop(wrapped):
         return wrapped
 
 
-@loop
-def bot():
-    """Poll GitHub to find something to do"""
-    queue_empty = JENKINS.is_queue_empty()
-    if not queue_empty:
+@asyncio.coroutine
+def check_queue(bot):
+    old, bot.queue_empty = bot.queue_empty, JENKINS.is_queue_empty()
+    if not bot.queue_empty:
+        yield from asyncio.sleep(5)
+        bot.queue_empty = JENKINS.is_queue_empty()
+    if old == bot.queue_empty:
+        return
+    elif bot.queue_empty:
+        logger.warn("Queue is empty. New jobs will be queued.")
+    elif not bot.queue_empty:
         logger.warn("Queue is full. No jobs will be queued.")
 
-    bot = Bot(queue_empty)
+
+@loop
+@asyncio.coroutine
+def bot():
+    """Poll GitHub to find something to do"""
+    bot = Bot(queue_empty=None)
     for project in JENKINS.list_projects():
         for branch in project.list_branches():
+            yield from check_queue(bot)
             bot.run(branch)
 
         for pr in project.list_pull_requests():
+            yield from check_queue(bot)
             bot.run(pr)
 
 
