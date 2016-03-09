@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 def entrypoint():
     debug = os.environ.get('GHP_VERBOSE') or os.environ.get('GHP_DEBUG')
-    debug = debug not in ('0', '')
+    debug = debug not in ('0', '', None)
     if debug:
         format = '[%(name)-24s %(levelname)8s] %(message)s'
         level = logging.DEBUG
