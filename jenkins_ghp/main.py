@@ -54,6 +54,9 @@ def bot():
 
     bot = Bot(queue_empty)
     for project in JENKINS.list_projects():
+        for branch in project.list_branches():
+            bot.run(branch)
+
         for pr in project.list_pull_requests():
             bot.run(pr)
 
@@ -63,6 +66,14 @@ def list_jobs():
     for project in JENKINS.list_projects():
         for job in project.jobs:
             print(job)
+
+
+def list_branches():
+    """List branches to build"""
+
+    for project in JENKINS.list_projects():
+        for branch in project.list_branches():
+            print(branch)
 
 
 def list_pr():
@@ -105,7 +116,7 @@ def command_exitcode(command_func):
 def main():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='command', metavar='COMMAND')
-    for command in [bot, list_jobs, list_projects, list_pr]:
+    for command in [bot, list_jobs, list_projects, list_branches, list_pr]:
         subparser = subparsers.add_parser(
             command.__name__.replace('_', '-'),
             help=inspect.cleandoc(command.__doc__ or '').split('\n')[0],

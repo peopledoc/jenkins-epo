@@ -6,7 +6,10 @@ def test_parse(GITHUB):
     updated_at = '2016-02-12T16:32:34Z'
     from jenkins_ghp.project import PullRequest
 
-    pr = PullRequest({'number': '123'}, Mock())
+    pr = PullRequest(
+        {'number': '123', 'head': {'sha': 'c01', 'ref': 'toto'}},
+        Mock(),
+    )
     # GITHUB.repos(owner)(repository).issues(id).comments
     issue = GITHUB.repos.return_value.return_value.issues.return_value
     issue.get.return_value = {

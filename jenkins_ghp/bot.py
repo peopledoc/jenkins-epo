@@ -23,6 +23,7 @@ import socket
 import yaml
 
 from .jenkins import JENKINS
+from .project import Branch
 from .utils import parse_datetime
 from .settings import SETTINGS
 
@@ -44,16 +45,16 @@ class Bot(object):
             SETTINGS.load(ext.SETTINGS)
             logger.debug("Loaded extension %s", ep.name)
 
-    def workon(self, pr):
-        logger.info("Working on %s", pr)
-        self.pr = pr
+    def workon(self, head):
+        logger.info("Working on %s", head)
+        self.head = head
         self.settings = copy.deepcopy(self.DEFAULTS)
         for ext in self.extensions.values():
             self.settings.update(copy.deepcopy(ext.DEFAULTS))
         return self
 
-    def run(self, pr):
-        self.workon(pr)
+    def run(self, head):
+        self.workon(head)
 
         for ext in self.extensions.values():
             ext.begin()
@@ -66,7 +67,7 @@ class Bot(object):
 
     def process_instructions(self):
         process = True
-        for date, author, data in self.pr.list_instructions():
+        for date, author, data in self.head.list_instructions():
             try:
                 data = yaml.load(data)
             except yaml.error.YAMLError as e:
@@ -176,32 +177,32 @@ jenkins: reset-skip-errors
 
     def end(self):
         for instruction, pattern, error in self.bot.settings['skip-errors']:
-            self.bot.pr.comment(self.ERROR_COMMENT % dict(
+            self.bot.head.comment(self.ERROR_COMMENT % dict(
                 mention='@' + instruction.author,
                 pattern=pattern,
                 error=str(error),
             ))
 
-        for job in self.bot.pr.project.jobs:
-            not_built = self.bot.pr.filter_not_built_contexts(
+        for job in self.bot.head.project.jobs:
+            not_built = self.bot.head.filter_not_built_contexts(
                 job.list_contexts(),
                 rebuild_failed=self.bot.settings['rebuild-failed']
             )
 
             for context in not_built:
-                self.bot.pr.update_statuses(
+                self.bot.head.update_statuses(
                     target_url=job.baseurl,
                     **self.status_for_new_context(context)
                 )
 
-            if not_built and self.bot.queue_empty:
-                queued_contexts = [c for c in not_built if not self.skip(c)]
+            queued_contexts = [c for c in not_built if not self.skip(c)]
+            if queued_contexts and self.bot.queue_empty:
                 try:
-                    job.build(self.bot.pr, queued_contexts)
+                    job.build(self.bot.head, queued_contexts)
                 except Exception as e:
                     logger.warn("Failed to queue job %s: %s", job, e)
                     for context in queued_contexts:
-                        self.bot.pr.update_statuses(
+                        self.bot.head.update_statuses(
                             context=context,
                             state='failure',
                             description='Failed to queue job',
@@ -221,7 +222,7 @@ jenkins: reset-skip-errors
                 'state': 'success',
             })
         else:
-            current_status = self.bot.pr.get_status_for(context)
+            current_status = self.bot.head.get_status_for(context)
             already_queued = 'Queued' == current_status.get('description')
             queued = self.bot.queue_empty or already_queued
             new_status.update({
@@ -292,7 +293,7 @@ class FixStatusExtension(Extension):
         )
 
         failed_contexts = []
-        for context, status in sorted(self.bot.pr.get_statuses().items()):
+        for context, status in sorted(self.bot.head.get_statuses().items()):
             if status['state'] == 'success':
                 continue
 
@@ -321,7 +322,7 @@ class FixStatusExtension(Extension):
                 build = None
                 failed_contexts.append(context)
 
-            self.bot.pr.update_statuses(
+            self.bot.head.update_statuses(
                 context=context, **self.compute_actual_status(build, status)
             )
 
@@ -388,7 +389,7 @@ Extensions: %(extensions)s
         )
 
     def answer_help(self):
-        self.bot.pr.comment(self.generate_comment())
+        self.bot.head.comment(self.generate_comment())
 
     def end(self):
         if self.bot.settings['help-mentions']:
@@ -412,8 +413,64 @@ jenkins: reset-errors
 
     def end(self):
         for author, instruction, error in self.bot.settings['errors']:
-            self.bot.pr.comment(self.ERROR_COMMENT % dict(
+            self.bot.head.comment(self.ERROR_COMMENT % dict(
                 mention='@' + author,
                 instruction=repr(instruction),
                 error=str(error),
             ))
+
+
+class ReportExtension(Extension):
+    ISSUE_TEMPLATE = """
+Commit %(abbrev)s is broken on %(branch)s:
+
+%(builds)s
+"""
+    COMMENT_TEMPLATE = """
+Build failure reported at #%(issue)s.
+
+<!--
+jenkins: report-done
+-->
+"""
+
+    DEFAULTS = {
+        # Issue URL where the failed builds are reported.
+        'report-done': False,
+    }
+
+    def process_instruction(self, instruction):
+        if instruction == 'report-done':
+            self.bot.settings['report-done'] = True
+
+    def end(self):
+        if self.bot.settings['report-done']:
+            return
+
+        if not isinstance(self.bot.head, Branch):
+            return
+
+        statuses = self.bot.head.get_statuses()
+        errored = [
+            s for s in statuses.values()
+            if s['state'] in {'failure', 'error'}
+        ]
+        if not errored:
+            return
+
+        branch_name = self.bot.head.ref[len('refs/heads/'):]
+        builds = '- ' + '\n- '.join([s['target_url'] for s in errored])
+        issue = self.bot.head.project.report_issue(
+            title="%s is broken" % (branch_name,),
+            body=self.ISSUE_TEMPLATE % dict(
+                abbrev=self.bot.head.sha[:7],
+                branch=branch_name,
+                builds=builds,
+                sha=self.bot.head.sha,
+                ref=self.bot.head.ref,
+            )
+        )
+
+        self.bot.head.comment(body=self.COMMENT_TEMPLATE % dict(
+            issue=issue['number']
+        ))

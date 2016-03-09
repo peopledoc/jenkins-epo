@@ -39,6 +39,7 @@ setup(
             'error = jenkins_ghp.bot:ErrorExtension',
             'fix = jenkins_ghp.bot:FixStatusExtension',
             'help = jenkins_ghp.bot:HelpExtension',
+            'report = jenkins_ghp.bot:ReportExtension',
         ],
     },
     extras_require={

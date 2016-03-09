@@ -36,6 +36,8 @@ class EnvironmentSettings(object):
 
 
 SETTINGS = EnvironmentSettings(defaults={
+    'GHP_BRANCHES': '',
+    'GHP_COMMIT_MAX_WEEKS': '',
     # Drop into Pdb on unhandled exception
     'GHP_DEBUG': False,
     # Do not trigger jobs nor touch GitHub statuses.
@@ -50,7 +52,6 @@ SETTINGS = EnvironmentSettings(defaults={
     # When commenting on PR
     'GHP_NAME': 'Jenkins GitHub Builder',
     'GHP_PR': '',
-    'GHP_PR_MAX_WEEKS': '',
     'GHP_PROJECTS': '',
     'GHP_VERBOSE': '',
     'GITHUB_TOKEN': None,
