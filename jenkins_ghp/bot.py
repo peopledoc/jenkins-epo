@@ -311,6 +311,9 @@ class FixStatusExtension(Extension):
             if status['description'].endswith('!'):
                 continue
 
+            if not status['target_url'].startswith(JENKINS.baseurl):
+                continue
+
             logger.debug("Query %s status on Jenkins", context)
             try:
                 build = JENKINS.get_build_from_url(status['target_url'])

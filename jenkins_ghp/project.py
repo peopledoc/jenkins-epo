@@ -16,7 +16,7 @@ import datetime
 import logging
 import re
 
-from github import GitHub, ApiError
+from github import GitHub, ApiError, ApiNotFoundError
 import requests
 
 from .settings import SETTINGS
@@ -84,24 +84,23 @@ class Project(object):
 
     @retry(wait_fixed=15000)
     def list_branches(self):
-        settings = self.branches_settings()
+        branches = self.branches_settings()
 
-        if not settings:
+        if not branches:
             logger.debug("No explicit branches configured for %s", self)
             return []
 
-        logger.debug("Search remote branches matching %s", ', '.join(settings))
-        branches = []
-        refs = (
-            GITHUB.repos(self.owner)(self.repository)
-            .git.refs.get(per_page=b'100')
-        )
-        for ref in refs:
-            if not ref['ref'].startswith('refs/heads/'):
-                continue
+        logger.debug("Search remote branches matching %s", ', '.join(branches))
 
-            if not match(ref['ref'], settings):
-                logger.debug("Ignoring branch %s", ref['ref'])
+        ret = []
+        for branch in branches:
+            try:
+                ref = (
+                    GITHUB.repos(self.owner)(self.repository)
+                    .git(branch).get()
+                )
+            except ApiNotFoundError:
+                logger.warn("Branch %s not found in %s", branch, self)
                 continue
 
             branch = Branch.from_github_payload(self, ref)
@@ -111,8 +110,8 @@ class Project(object):
                     branch, SETTINGS.GHP_COMMIT_MAX_WEEKS
                 )
                 continue
-            branches.append(branch)
-        return branches
+            ret.append(branch)
+        return ret
 
     @retry(wait_fixed=15000)
     def list_pull_requests(self):
@@ -399,7 +398,7 @@ class PullRequest(Head):
         self._commit_cache = None
 
     def __str__(self):
-        return self.data['html_url']
+        return '%s (%s)' % (self.data['html_url'], self.ref)
 
     @retry(wait_fixed=15000)
     def comment(self, body):
