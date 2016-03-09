@@ -398,7 +398,7 @@ class PullRequest(Head):
         self._commit_cache = None
 
     def __str__(self):
-        return self.data['html_url']
+        return '%s (%s)' % (self.data['html_url'], self.ref)
 
     @retry(wait_fixed=15000)
     def comment(self, body):
