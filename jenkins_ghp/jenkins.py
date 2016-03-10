@@ -112,6 +112,7 @@ class LazyJenkins(object):
 
         return sorted(projects.values(), key=str)
 
+    @retry
     def is_queue_empty(self):
         return len(self.get_queue().keys()) == 0
 
