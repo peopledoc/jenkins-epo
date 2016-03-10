@@ -136,7 +136,7 @@ class BuilderExtension(Extension):
     jenkins: skip
     jenkins: {skip: '(?!except-this)'}
     jenkins:
-    skip: ['this.*', 'that']
+      skip: ['this.*', 'that']
 
     # Requeue past failed jobs
     jenkins: rebuild
