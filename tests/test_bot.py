@@ -5,6 +5,7 @@ def test_compute_skip_null():
     from jenkins_ghp.bot import Bot, BuilderExtension
 
     pr = Mock()
+    pr.list_jobs.return_value = []
     pr.list_instructions.return_value = [
         (0, 0, 'jenkins: {skip: }'),
     ]
@@ -19,6 +20,7 @@ def test_compute_skip():
     from jenkins_ghp.bot import Bot, BuilderExtension
 
     pr = Mock()
+    pr.list_jobs.return_value = []
     bot = Bot().workon(pr)
 
     pr.list_instructions.return_value = [(0, 0, 'jenkins: skip')]
@@ -39,6 +41,7 @@ def test_compute_rebuild():
     from jenkins_ghp.bot import Bot
 
     pr = Mock()
+    pr.list_jobs.return_value = []
     bot = Bot().workon(pr)
 
     pr.list_instructions.return_value = [('DATE', 0, 'jenkins: rebuild')]
@@ -50,6 +53,7 @@ def test_compute_help():
     from jenkins_ghp.bot import Bot
 
     pr = Mock()
+    pr.list_jobs.return_value = []
     bot = Bot().workon(pr)
 
     pr.list_instructions.return_value = [(0, 'asker', 'jenkins: help')]
@@ -80,6 +84,7 @@ def test_skip_re():
     from jenkins_ghp.bot import Bot
 
     pr = Mock()
+    pr.list_jobs.return_value = []
     pr.list_instructions.return_value = [
         (None, None, """jenkins: {skip: ['toto.*', '(?!notthis)']}"""),
     ]
@@ -94,6 +99,7 @@ def test_skip_re_wrong():
     from jenkins_ghp.bot import Bot
 
     pr = Mock()
+    pr.list_jobs.return_value = []
     pr.list_instructions.return_value = [
         (None, None, '''jenkins: {skip: ['*toto)']}'''),
     ]

@@ -26,6 +26,7 @@ Features
 - Nice with humans: wait for queue to be empty before queuing new PR jobs.
 - Update GitHub commit status from Jenkins status.
 - Report issue on broken well-known branch (master, stable, etc.)
+- Creates jobs from `jenkins.yml <https://github.com/novafloss/jenkins-yml>`_.
 
 
 Skipping jobs

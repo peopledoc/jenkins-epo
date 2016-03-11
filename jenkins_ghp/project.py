@@ -12,12 +12,14 @@
 # You should have received a copy of the GNU General Public License along with
 # jenkins-ghp.  If not, see <http://www.gnu.org/licenses/>.
 
+import base64
 import datetime
 import logging
 import re
 
 from github import GitHub, ApiError, ApiNotFoundError
 import requests
+import yaml
 
 from .settings import SETTINGS
 from .utils import match, parse_datetime, retry
@@ -43,6 +45,24 @@ class LazyGithub(object):
 GITHUB = LazyGithub()
 
 
+class JobSpec(object):
+    def __init__(self, project, name, data=None):
+        if isinstance(data, str):
+            data = dict(script=data)
+        self.data = data or {}
+        self.name = name
+        self.project = project
+
+    def __str__(self):
+        return self.name
+
+    def __eq__(self, other):
+        return self.name == other.name
+
+    def __hash__(self):
+        return hash(str(self))
+
+
 class Project(object):
     remote_re = re.compile(
         r'.*github.com[:/](?P<owner>[\w-]+)/(?P<repository>[\w-]+).*'
@@ -61,6 +81,12 @@ class Project(object):
         self.owner = owner
         self.repository = repository
         self.jobs = jobs or []
+
+    def __eq__(self, other):
+        return str(self) == str(other)
+
+    def __hash__(self):
+        return hash(str(self))
 
     def __str__(self):
         return '%s/%s' % (self.owner, self.repository)
@@ -205,10 +231,33 @@ class Head(object):
                 raise Exception('No commit data')
 
             commit = data['commit']
-            logger.debug("Got commit for %r", self.sha[:7])
             self._commit_cache = commit
 
         return self._commit_cache
+
+    @retry(wait_fixed=15000)
+    def list_jobs(self):
+        jobs = set()
+
+        for job in self.project.jobs:
+            jobs.add(job)
+
+        try:
+            config = (
+                GITHUB.repos(self.project.owner)(self.project.repository)
+                .contents('jenkins.yml').get(ref=self.ref)
+            )
+        except ApiNotFoundError:
+            # No jenkins.yml
+            pass
+        else:
+            config = base64.b64decode(config['content']).decode('utf-8')
+            config = yaml.load(config)
+            for name, params in config.items():
+                job = JobSpec(self.project, name, params)
+                jobs.add(job)
+
+        return list(jobs)
 
     def list_comments(self):
         raise NotImplemented

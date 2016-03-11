@@ -47,12 +47,17 @@ SETTINGS = EnvironmentSettings(defaults={
     'GHP_IGNORE_STATUSES': '',
     'GHP_JOBS': '',
     'GHP_JOBS_AUTO': True,
+    'GHP_JOBS_COMMAND': 'jenkins-yml-runner',
+    # Jenkins credentials used to clone
+    'GHP_JOBS_CREDENTIALS': None,
+    # Jenkins node/label
+    'GHP_JOBS_NODE': 'ghp',
     # Trigger loop
     'GHP_LOOP': 0,
     # When commenting on PR
     'GHP_NAME': 'Jenkins GitHub Builder',
     'GHP_PR': '',
-    'GHP_PROJECTS': '',
+    'GHP_REPOSITORIES': '',
     'GHP_VERBOSE': '',
     'GITHUB_TOKEN': None,
     'JENKINS_URL': 'http://localhost:8080',
