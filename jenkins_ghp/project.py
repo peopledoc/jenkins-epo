@@ -205,7 +205,6 @@ class Head(object):
                 raise Exception('No commit data')
 
             commit = data['commit']
-            logger.debug("Got commit for %r", self.sha[:7])
             self._commit_cache = commit
 
         return self._commit_cache
