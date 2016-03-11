@@ -32,7 +32,7 @@ def retry_filter(exception):
             # update must be managed by code.
             return False
         if 'API rate limit exceeded for' in message:
-            logger.warn("Retrying on rate GitHub limit")
+            logger.warn("Retrying on GitHub rate limit")
             return True
         # If not a rate limit error, don't retry.
         return False
