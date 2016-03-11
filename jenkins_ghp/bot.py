@@ -196,7 +196,7 @@ jenkins: reset-skip-errors
                 )
 
             queued_contexts = [c for c in not_built if not self.skip(c)]
-            if queued_contexts and self.bot.queue_empty:
+            if queued_contexts and not self.bot.queue_empty:
                 try:
                     job.build(self.bot.head, queued_contexts)
                 except Exception as e:
