@@ -31,7 +31,6 @@ logger = logging.getLogger(__name__)
 
 class LazyJenkins(object):
     jobs_filter = [p for p in SETTINGS.GHP_JOBS.split(',') if p]
-    projects_filter = [p for p in SETTINGS.GHP_PROJECTS.split(',') if p]
     build_url_re = re.compile(r'.*/job/(?P<job>.*?)/.*(?P<buildno>\d+)/?')
 
     def __init__(self):
@@ -101,11 +100,6 @@ class LazyJenkins(object):
                 continue
 
             for project in job_projects:
-                project_match = match(str(project), self.projects_filter)
-                if SETTINGS.GHP_JOBS_AUTO and not project_match:
-                    logger.debug("Skipping %s", project)
-                    continue
-
                 logger.info("Managing %s", name)
                 project = projects.setdefault(str(project), project)
                 project.jobs.append(job)
