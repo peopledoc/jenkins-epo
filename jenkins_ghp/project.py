@@ -62,6 +62,12 @@ class Project(object):
         self.repository = repository
         self.jobs = jobs or []
 
+    def __eq__(self, other):
+        return str(self) == str(other)
+
+    def __hash__(self):
+        return hash(str(self))
+
     def __str__(self):
         return '%s/%s' % (self.owner, self.repository)
 
