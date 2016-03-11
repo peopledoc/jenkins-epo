@@ -23,7 +23,7 @@ import socket
 import yaml
 
 from .jenkins import JENKINS
-from .project import Branch
+from .project import Branch, JobSpec
 from .utils import parse_datetime
 from .settings import SETTINGS
 
@@ -51,6 +51,15 @@ class Bot(object):
         self.settings = copy.deepcopy(self.DEFAULTS)
         for ext in self.extensions.values():
             self.settings.update(copy.deepcopy(ext.DEFAULTS))
+
+        self.jobs = []
+        for job in head.list_jobs():
+            if isinstance(job, JobSpec):
+                job = JENKINS.create_job(job)
+
+            if job:
+                self.jobs.append(job)
+
         return self
 
     def run(self, head):
@@ -183,7 +192,7 @@ jenkins: reset-skip-errors
                 error=str(error),
             ))
 
-        for job in self.bot.head.project.jobs:
+        for job in self.bot.jobs:
             not_built = self.bot.head.filter_not_built_contexts(
                 job.list_contexts(),
                 rebuild_failed=self.bot.settings['rebuild-failed']

@@ -12,6 +12,7 @@
 # You should have received a copy of the GNU General Public License along with
 # jenkins-ghp.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import logging
 import json
 import re
@@ -19,6 +20,8 @@ from xml.etree import ElementTree as ET
 
 from jenkinsapi.build import Build
 from jenkinsapi.jenkins import Jenkins
+from jenkinsapi.custom_exceptions import UnknownJob
+import jinja2
 import requests
 
 from .project import Project
@@ -110,6 +113,41 @@ class LazyJenkins(object):
     def is_queue_empty(self):
         return len(self.get_queue().keys()) == 0
 
+    @retry
+    def create_job(self, job_spec):
+        try:
+            api_instance = self._instance.get_job(job_spec.name)
+        except UnknownJob:
+            env = jinja2.Environment(
+                loader=jinja2.FileSystemLoader(
+                    os.path.join(os.path.dirname(__file__), 'jobs')
+                )
+            )
+            template = env.get_template('freestyle.xml')
+            config = template.render(
+                name=job_spec.name,
+                assigned_node=SETTINGS.GHP_JOBS_NODE,
+                command=SETTINGS.GHP_JOBS_COMMAND,
+                owner=job_spec.project.owner,
+                repository=job_spec.project.repository,
+                credentials=SETTINGS.GHP_JOBS_CREDENTIALS,
+                publish=(
+                    not SETTINGS.GHP_DRY_RUN and not SETTINGS.GHP_GITHUB_RO
+                ),
+            )
+            if SETTINGS.GHP_DRY_RUN:
+                logger.info("Would create new Jenkins job %s", job_spec)
+                return None
+
+            api_instance = self._instance.create_job(job_spec.name, config)
+            logger.info("Created new Jenkins job %s", job_spec.name)
+        else:
+            logger.debug("Not updating job %s from Jenkins", job_spec.name)
+
+        job = Job.factory(api_instance)
+        job_spec.project.jobs.append(job)
+        return job
+
 
 JENKINS = LazyJenkins()
 
@@ -123,6 +161,12 @@ class Job(object):
         self.push_trigger = bool(self.config.findall(xpath_query))
         xpath_query = './/triggers/hudson.triggers.SCMTrigger'
         self.polled_by_jenkins = bool(self.config.findall(xpath_query))
+
+    def __eq__(self, other):
+        return self.name == other.name
+
+    def __hash__(self):
+        return hash(str(self))
 
     @property
     def revision_param(self):
