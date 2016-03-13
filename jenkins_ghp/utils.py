@@ -15,6 +15,7 @@
 import datetime
 import fnmatch
 import logging
+import time
 
 import retrying
 from github import ApiError
@@ -32,7 +33,7 @@ def retry_filter(exception):
             # update must be managed by code.
             return False
         if 'API rate limit exceeded for' in message:
-            logger.warn("Retrying on GitHub rate limit")
+            wait_rate_limit_reset()
             return True
         # If not a rate limit error, don't retry.
         return False
@@ -85,3 +86,11 @@ def parse_datetime(formatted):
     return datetime.datetime.strptime(
         formatted, '%Y-%m-%dT%H:%M:%SZ'
     )
+
+
+def wait_rate_limit_reset():
+    from .project import GITHUB
+    now = int(time.time())
+    wait = GITHUB.x_ratelimit_reset - now + 5
+    logger.info("Waiting rate limit reset in %s seconds", wait)
+    time.sleep(wait)
