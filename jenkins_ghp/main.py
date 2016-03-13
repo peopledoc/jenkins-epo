@@ -21,6 +21,7 @@ import logging
 import sys
 
 from .bot import Bot
+from .cache import CACHE
 from .project import Project
 from .jenkins import JENKINS
 from .settings import SETTINGS
@@ -88,6 +89,8 @@ def bot():
         for pr in project.list_pull_requests():
             yield from check_queue(bot)
             bot.run(pr)
+
+    CACHE.purge()
 
 
 def list_jobs():

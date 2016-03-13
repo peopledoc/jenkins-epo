@@ -44,14 +44,13 @@ setup(
     },
     extras_require={
         'release': ['wheel', 'zest.releaser'],
-        'test': ['mock', 'pytest', 'pytest-logging'],
+        'test': ['freezegun', 'mock', 'pytest', 'pytest-logging'],
     },
     install_requires=[
         'githubpy',
         'jenkinsapi',
         'jinja2',
         'pyyaml',
-        'requests',
         'retrying',
     ],
     packages=['jenkins_ghp'],
