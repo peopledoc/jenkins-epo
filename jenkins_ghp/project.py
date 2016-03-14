@@ -19,6 +19,11 @@ import re
 from wsgiref.handlers import format_date_time as http_date
 
 from github import GitHub, ApiError, ApiNotFoundError
+from github import (
+    build_opener, HTTPSHandler, HTTPError, JsonObject, Request,
+    TIMEOUT, _METHOD_MAP, _URL,
+    _encode_json, _encode_params, _parse_json,
+)
 import yaml
 
 from .cache import CACHE
@@ -52,6 +57,44 @@ def cached_request(query, **kw):
     return response
 
 
+class CustomGitHub(GitHub):
+    def _http(self, _method, _path, headers={}, **kw):
+        # Apply https://github.com/michaelliao/githubpy/pull/19
+        data = None
+        if _method == 'GET' and kw:
+            _path = '%s?%s' % (_path, _encode_params(kw))
+        if _method in ['POST', 'PATCH', 'PUT']:
+            data = bytes(_encode_json(kw), 'utf-8')
+        url = '%s%s' % (_URL, _path)
+        opener = build_opener(HTTPSHandler)
+        request = Request(url, data=data)
+        request.get_method = _METHOD_MAP[_method]
+        if self._authorization:
+            request.add_header('Authorization', self._authorization)
+        if _method in ['POST', 'PATCH', 'PUT']:
+            request.add_header(
+                'Content-Type', 'application/x-www-form-urlencoded'
+            )
+        for k, v in headers.items():
+            request.add_header(k, v)
+        try:
+            response = opener.open(request, timeout=TIMEOUT)
+            is_json = self._process_resp(response.headers)
+            if is_json:
+                return _parse_json(response.read().decode('utf-8'))
+        except HTTPError as e:
+            is_json = self._process_resp(e.headers)
+            if is_json:
+                json = _parse_json(e.read().decode('utf-8'))
+            else:
+                json = e.read().decode('utf-8')
+            req = JsonObject(method=_method, url=url)
+            resp = JsonObject(code=e.code, json=json)
+            if resp.code == 404:
+                raise ApiNotFoundError(url, req, resp)
+            raise ApiError(url, req, resp)
+
+
 class LazyGithub(object):
     def __init__(self):
         self._instance = None
@@ -63,7 +106,7 @@ class LazyGithub(object):
 
     def load(self):
         if not self._instance:
-            self._instance = GitHub(access_token=SETTINGS.GITHUB_TOKEN)
+            self._instance = CustomGitHub(access_token=SETTINGS.GITHUB_TOKEN)
 
 
 GITHUB = LazyGithub()
