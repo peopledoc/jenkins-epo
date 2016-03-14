@@ -49,6 +49,11 @@ def loop(wrapped):
 
 @asyncio.coroutine
 def check_queue(bot):
+    if SETTINGS.GHP_ALWAYS_QUEUE:
+        logger.info("Ignoring queue status. New jobs will be queued.")
+        bot.queue_empty = True
+        return
+
     old, bot.queue_empty = bot.queue_empty, JENKINS.is_queue_empty()
     if not bot.queue_empty:
         yield from asyncio.sleep(5)
