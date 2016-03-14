@@ -145,7 +145,8 @@ def command_exitcode(command_func):
         return 1
 
 
-def main():
+def main(argv=None):
+    argv = argv or sys.argv
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='command', metavar='COMMAND')
     for command in [bot, list_jobs, list_projects, list_branches, list_pr]:
@@ -155,7 +156,7 @@ def main():
         )
         subparser.set_defaults(command_func=command)
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
         command_func = args.command_func
     except AttributeError:
