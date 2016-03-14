@@ -485,7 +485,7 @@ class PullRequest(Head):
             ref=data['head']['ref'],
         )
         self.data = data
-        body = data.get('body', '').replace('\r', '')
+        body = (data.get('body') or '').replace('\r', '')
         self.urgent = bool(self._urgent_re.match(body))
 
     def sort_key(self):

@@ -90,7 +90,7 @@ def test_pr_urgent():
 
     pr1 = PullRequest(data=dict(
         head=dict(sha='01234567899abcdef', ref='pr1'),
-        body='',
+        body=None,
         html_url='pulls/1',
     ), project=Mock())
     assert not pr1.urgent
