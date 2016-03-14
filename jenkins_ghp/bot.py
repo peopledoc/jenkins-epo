@@ -78,12 +78,19 @@ class Bot(object):
         process = True
         for date, author, data in self.head.list_instructions():
             try:
-                data = yaml.load(data)
+                payload = yaml.load(data)
             except yaml.error.YAMLError as e:
                 self.settings['errors'].append((author, data, e))
                 continue
 
-            data = data['jenkins']
+            data = payload.pop('jenkins')
+            # If jenkins is empty, reset to dict
+            data = data or {}
+            # If spurious keys are passed, this may be an unindented yaml, just
+            # include it.
+            if payload:
+                data = dict(payload, **data)
+
             if not data:
                 continue
             if isinstance(data, str):
