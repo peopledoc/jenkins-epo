@@ -37,6 +37,7 @@ class EnvironmentSettings(object):
 
 SETTINGS = EnvironmentSettings(defaults={
     'GHP_BRANCHES': '',
+    'GHP_CACHE_PATH': '.ghp-cache',
     'GHP_COMMIT_MAX_WEEKS': '',
     # Drop into Pdb on unhandled exception
     'GHP_DEBUG': False,

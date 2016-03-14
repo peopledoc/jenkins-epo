@@ -16,16 +16,83 @@ import base64
 import datetime
 import logging
 import re
+from wsgiref.handlers import format_date_time as http_date
 
 from github import GitHub, ApiError, ApiNotFoundError
-import requests
+from github import (
+    build_opener, HTTPSHandler, HTTPError, JsonObject, Request,
+    TIMEOUT, _METHOD_MAP, _URL,
+    _encode_json, _encode_params, _parse_json,
+)
 import yaml
 
+from .cache import CACHE
 from .settings import SETTINGS
 from .utils import match, parse_datetime, retry
 
 
 logger = logging.getLogger(__name__)
+
+
+def cached_request(query, **kw):
+    cache_key = '_gh_' + str(query._name) + '_get'
+    try:
+        epoch, response = CACHE.get(cache_key)
+        headers = {b'If-Modified-Since': http_date(epoch).encode('utf-8')}
+    except KeyError:
+        headers = {}
+
+    try:
+        response = query.get(headers=headers, **kw)
+    except ApiError as e:
+        if e.response['code'] != 304:
+            raise
+        else:
+            logger.debug(
+                "Saved one rate limit hit! (remaining=%s)",
+                GITHUB.x_ratelimit_remaining,
+            )
+
+    CACHE.set(cache_key, response)
+    return response
+
+
+class CustomGitHub(GitHub):
+    def _http(self, _method, _path, headers={}, **kw):
+        # Apply https://github.com/michaelliao/githubpy/pull/19
+        data = None
+        if _method == 'GET' and kw:
+            _path = '%s?%s' % (_path, _encode_params(kw))
+        if _method in ['POST', 'PATCH', 'PUT']:
+            data = bytes(_encode_json(kw), 'utf-8')
+        url = '%s%s' % (_URL, _path)
+        opener = build_opener(HTTPSHandler)
+        request = Request(url, data=data)
+        request.get_method = _METHOD_MAP[_method]
+        if self._authorization:
+            request.add_header('Authorization', self._authorization)
+        if _method in ['POST', 'PATCH', 'PUT']:
+            request.add_header(
+                'Content-Type', 'application/x-www-form-urlencoded'
+            )
+        for k, v in headers.items():
+            request.add_header(k, v)
+        try:
+            response = opener.open(request, timeout=TIMEOUT)
+            is_json = self._process_resp(response.headers)
+            if is_json:
+                return _parse_json(response.read().decode('utf-8'))
+        except HTTPError as e:
+            is_json = self._process_resp(e.headers)
+            if is_json:
+                json = _parse_json(e.read().decode('utf-8'))
+            else:
+                json = e.read().decode('utf-8')
+            req = JsonObject(method=_method, url=url)
+            resp = JsonObject(code=e.code, json=json)
+            if resp.code == 404:
+                raise ApiNotFoundError(url, req, resp)
+            raise ApiError(url, req, resp)
 
 
 class LazyGithub(object):
@@ -39,7 +106,7 @@ class LazyGithub(object):
 
     def load(self):
         if not self._instance:
-            self._instance = GitHub(access_token=SETTINGS.GITHUB_TOKEN)
+            self._instance = CustomGitHub(access_token=SETTINGS.GITHUB_TOKEN)
 
 
 GITHUB = LazyGithub()
@@ -121,9 +188,8 @@ class Project(object):
         ret = []
         for branch in branches:
             try:
-                ref = (
-                    GITHUB.repos(self.owner)(self.repository)
-                    .git(branch).get()
+                ref = cached_request(
+                    GITHUB.repos(self.owner)(self.repository).git(branch)
                 )
             except ApiNotFoundError:
                 logger.warn("Branch %s not found in %s", branch, self)
@@ -145,9 +211,9 @@ class Project(object):
             "Querying GitHub for %s/%s PR", self.owner, self.repository,
         )
 
-        pulls = (
+        pulls = cached_request(
             GITHUB.repos(self.owner)(self.repository)
-            .pulls.get(per_page=b'100')
+            .pulls, per_page=b'100',
         )
 
         pulls_o = []
@@ -194,8 +260,6 @@ class Head(object):
         self.project = project
         self.sha = sha
         self.ref = ref
-        self._statuses_cache = None
-        self._commit_cache = None
 
     @property
     def is_outdated(self):
@@ -210,30 +274,15 @@ class Head(object):
 
     @retry(wait_fixed=15000)
     def get_commit(self):
-        if self._commit_cache is None:
-            logger.debug(
-                "Fetching commit %s", self.sha[:7]
-            )
-            url = 'https://api.github.com/repos/%s/%s/commits/%s?access_token=%s' % (  # noqa
-                self.project.owner, self.project.repository,
-                self.sha, SETTINGS.GITHUB_TOKEN
-            )
-            response = requests.get(url.encode('utf-8'))
-            if 403 == response.status_code:
-                # Fake a regular githubpy ApiError. Actually to trigger
-                # retry on rate limit.
-                raise ApiError(url, {}, dict(json=response.json()))
-            elif 200 != response.status_code:
-                response.raise_for_status()
+        logger.debug("Fetching commit %s", self.sha[:7])
+        data = cached_request(
+            GITHUB.repos(self.project.owner)(self.project.repository)
+            .commits(self.sha)
+        )
+        if 'commit' not in data:
+            raise Exception('No commit data')
 
-            data = response.json()
-            if 'commit' not in data:
-                raise Exception('No commit data')
-
-            commit = data['commit']
-            self._commit_cache = commit
-
-        return self._commit_cache
+        return data['commit']
 
     @retry(wait_fixed=15000)
     def list_jobs(self):
@@ -243,9 +292,10 @@ class Head(object):
             jobs.add(job)
 
         try:
-            config = (
+            config = cached_request(
                 GITHUB.repos(self.project.owner)(self.project.repository)
-                .contents('jenkins.yml').get(ref=self.ref)
+                .contents('jenkins.yml'),
+                ref=self.ref,
             )
         except ApiNotFoundError:
             # No jenkins.yml
@@ -330,34 +380,23 @@ class Head(object):
 
     @retry(wait_fixed=15000)
     def get_statuses(self):
-        if self._statuses_cache is None:
-            if SETTINGS.GHP_IGNORE_STATUSES:
-                logger.debug("Skip GitHub statuses")
-                statuses = {}
-            else:
-                logger.debug(
-                    "Fetching statuses for %s", self.sha[:7]
-                )
-                url = 'https://api.github.com/repos/%s/%s/status/%s?access_token=%s&per_page=100' % (  # noqa
-                    self.project.owner, self.project.repository,
-                    self.sha, SETTINGS.GITHUB_TOKEN
-                )
-                response = requests.get(url.encode('utf-8'))
-                if 403 == response.status_code:
-                    # Fake a regular githubpy ApiError. Actually to trigger
-                    # retry on rate limit.
-                    raise ApiError(url, {}, dict(json=response.json()))
-                elif 200 != response.status_code:
-                    response.raise_for_status()
-                statuses = {
-                    x['context']: x
-                    for x in response.json()['statuses']
-                    if match(x['context'], self.contexts_filter)
-                }
-                logger.debug("Got status for %r", sorted(statuses.keys()))
-            self._statuses_cache = statuses
-
-        return self._statuses_cache
+        if SETTINGS.GHP_IGNORE_STATUSES:
+            logger.debug("Skip GitHub statuses")
+            return {}
+        else:
+            logger.debug("Fetching statuses for %s", self.sha[:7])
+            response = cached_request(
+                GITHUB.repos(self.project.owner)(self.project.repository)
+                .status(self.sha),
+                per_page=b'100',
+            )
+            statuses = {
+                x['context']: x
+                for x in response['statuses']
+                if match(x['context'], self.contexts_filter)
+            }
+            logger.debug("Got status for %r", sorted(statuses.keys()))
+            return statuses
 
     def get_status_for(self, context):
         return self.get_statuses().get(context, {})
@@ -419,9 +458,9 @@ class Branch(Head):
     @retry(wait_fixed=15000)
     def list_comments(self):
         logger.debug("Queyring comments for instructions")
-        return (
+        return cached_request(
             GITHUB.repos(self.project.owner)(self.project.repository)
-            .commits(self.sha).comments.get()
+            .commits(self.sha).comments
         )
 
     @retry(wait_fixed=15000)
@@ -467,4 +506,4 @@ class PullRequest(Head):
             GITHUB.repos(self.project.owner)(self.project.repository)
             .issues(self.data['number'])
         )
-        return [issue.get()] + issue.comments.get()
+        return [cached_request(issue)] + cached_request(issue.comments)

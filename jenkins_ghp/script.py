@@ -21,7 +21,8 @@ import sys
 logger = logging.getLogger(__name__)
 
 
-def entrypoint():
+def entrypoint(argv=None):
+    argv = argv or sys.argv[1:]
     debug = os.environ.get('GHP_VERBOSE') or os.environ.get('GHP_DEBUG')
     debug = debug not in ('0', '', None)
     if debug:
@@ -38,10 +39,11 @@ def entrypoint():
     logger.debug("Debug mode enabled")
 
     # Import modules after logging is setup
-    from .main import main
+    from jenkins_ghp.main import main
 
     try:
-        main()
+        logger.debug("%s", argv)
+        main(argv)
     except KeyboardInterrupt:
         tb = sys.exc_info()[-1]
         logger.debug("Interrupted at:\n%s", traceback.format_tb(tb)[-1])
@@ -49,4 +51,4 @@ def entrypoint():
 
 
 if __name__ == '__main__':
-    entrypoint()
+    entrypoint(['bot'])
