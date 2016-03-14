@@ -1,6 +1,21 @@
 from mock import Mock
 
 
+def test_compute_skip_unindented():
+    from jenkins_ghp.bot import Bot
+
+    pr = Mock()
+    pr.list_jobs.return_value = []
+    pr.list_instructions.return_value = [
+        (0, 0, 'jenkins:\nskip: [toto]\n'),
+    ]
+
+    bot = Bot().workon(pr)
+    bot.process_instructions()
+    skip = [re.pattern for re in bot.settings['skip']]
+    assert ['toto'] == skip
+
+
 def test_compute_skip_null():
     from jenkins_ghp.bot import Bot, BuilderExtension
 
