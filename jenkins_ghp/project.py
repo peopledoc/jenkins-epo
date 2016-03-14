@@ -429,7 +429,6 @@ class Head(object):
                 GITHUB.repos(self.project.owner)(self.project.repository)
                 .statuses(self.sha).post(**new_status)
             )
-            self._statuses_cache[context] = new_status
         except ApiError:
             logger.warn(
                 'Hit 1000 status updates on %s', self.sha
