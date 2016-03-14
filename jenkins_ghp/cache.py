@@ -1,3 +1,4 @@
+import fcntl
 import logging
 import shelve
 import time
@@ -47,7 +48,22 @@ class FileCache(Cache):
     CACHE_PATH = SETTINGS.GHP_CACHE_PATH
 
     def __init__(self):
-        self.storage = shelve.open(self.CACHE_PATH, 'c')
+        self.lock = open(self.CACHE_PATH + '.db', 'ab')
+        try:
+            fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            mode = 'c'
+        except IOError:
+            logger.warn("Cache locked, using read-only")
+            mode = 'r'
+            self.lock.close()
+            self.lock = None
+        self.storage = shelve.open(self.CACHE_PATH, mode)
+
+    def set(self, key, value):
+        if self.lock:
+            return super(FileCache, self).set(key, value)
+        else:
+            return time.time(), value
 
     def purge(self):
         super(FileCache, self).purge()
@@ -55,6 +71,9 @@ class FileCache(Cache):
 
     def __del__(self):
         self.storage.close()
+        if self.lock:
+            fcntl.lockf(self.lock, fcntl.LOCK_UN)
+            self.lock.close()
         logger.debug("Saved %s", self.CACHE_PATH)
 
 
