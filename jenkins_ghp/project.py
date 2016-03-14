@@ -476,6 +476,8 @@ class Branch(Head):
 
 
 class PullRequest(Head):
+    _urgent_re = re.compile(r'^jenkins: *urgent$', re.MULTILINE)
+
     def __init__(self, data, project):
         super(PullRequest, self).__init__(
             project,
@@ -483,10 +485,19 @@ class PullRequest(Head):
             ref=data['head']['ref'],
         )
         self.data = data
-        self._commit_cache = None
+        body = data.get('body', '').replace('\r', '')
+        self.urgent = bool(self._urgent_re.match(body))
+
+    def sort_key(self):
+        # Return sort data. Higher is more urgent. By defaults, last PR is
+        # built first. This avoid building staled PR first. It's the default
+        # order of GitHub PR listing.
+        return self.urgent, self.data['html_url']
 
     def __str__(self):
         return '%s (%s)' % (self.data['html_url'], self.ref)
+
+    __repr__ = __str__
 
     @retry(wait_fixed=15000)
     def comment(self, body):

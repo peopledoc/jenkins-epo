@@ -83,3 +83,32 @@ jenkins: unix_eof
     assert 'indent:' in haystack
     assert 'colored:' in haystack
     assert 'unix_eof' in haystack
+
+
+def test_pr_urgent():
+    from jenkins_ghp.project import PullRequest
+
+    pr1 = PullRequest(data=dict(
+        head=dict(sha='01234567899abcdef', ref='pr1'),
+        body='',
+        html_url='pulls/1',
+    ), project=Mock())
+    assert not pr1.urgent
+    pr2 = PullRequest(data=dict(
+        head=dict(sha='01234567899abcdef', ref='pr2'),
+        body='jenkins: urgent',
+        html_url='pulls/2',
+    ), project=Mock())
+    assert pr2.urgent
+    pr3 = PullRequest(data=dict(
+        head=dict(sha='01234567899abcdef', ref='pr3'),
+        body='> jenkins: urgent',
+        html_url='pulls/3',
+    ), project=Mock())
+    assert not pr3.urgent
+
+    github_listing = [pr3, pr2, pr1]
+    build_listing = [pr1, pr3, pr2]
+    assert build_listing == sorted(
+        github_listing, key=PullRequest.sort_key
+    )
