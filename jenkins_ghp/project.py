@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 def cached_request(query, **kw):
-    cache_key = '_gh_' + str(query._name) + '_get'
+    cache_key = '_gh_' + str(query._name) + '_get_' + _encode_params(kw)
     try:
         epoch, response = CACHE.get(cache_key)
         headers = {b'If-Modified-Since': http_date(epoch).encode('utf-8')}
