@@ -2,7 +2,7 @@
 .cache
 /dist/
 /*.egg-info/
-.ghp-cache.db
+.ghp*.db
 __pycache__/
 /my-*
 /.tox/
