@@ -30,13 +30,17 @@ class Cache(object):
         # can safely drop all data not validated for two rounds.
         rounds_delta = 2 * SETTINGS.GHP_LOOP or 2000
         limit = time.time() - rounds_delta
+        cleaned = 0
         for key in list(self.storage.keys()):
             last_seen_date, _ = self.storage[key]
             if last_seen_date > limit:
                 continue
 
-            logger.debug("Clean %s", key)
             self.storage.pop(key)
+            cleaned += 1
+
+        if cleaned:
+            logger.debug("Clean %s key(s)", cleaned)
 
 
 class MemoryCache(Cache):
