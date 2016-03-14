@@ -230,7 +230,7 @@ class Project(object):
                 pulls_o.append(pr)
             else:
                 logger.debug("Skipping %s", pr)
-        return pulls_o
+        return reversed(sorted(pulls_o, key=PullRequest.sort_key))
 
     def list_contexts(self):
         for job in self.jobs:
