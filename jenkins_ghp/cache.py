@@ -18,6 +18,11 @@ class Cache(object):
         except KeyError:
             logger.debug("Miss %s", key)
             raise
+        except Exception:
+            # Looks like this key is corrupted.
+            logger.debug("Drop corrupted key %r", key)
+            del self.storage[key]
+            raise KeyError(key)
 
     def set(self, key, value):
         self.storage[key] = (time.time(), value)
@@ -32,11 +37,15 @@ class Cache(object):
         limit = time.time() - rounds_delta
         cleaned = 0
         for key in list(self.storage.keys()):
-            last_seen_date, _ = self.storage[key]
-            if last_seen_date > limit:
-                continue
+            try:
+                last_seen_date, _ = self.storage[key]
+            except Exception:
+                pass
+            else:
+                if last_seen_date > limit:
+                    continue
 
-            self.storage.pop(key)
+            del self.storage[key]
             cleaned += 1
 
         if cleaned:
