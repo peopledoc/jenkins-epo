@@ -34,7 +34,24 @@ from .utils import match, parse_datetime, retry
 logger = logging.getLogger(__name__)
 
 
+def check_rate_limit_threshold():
+    if GITHUB.x_ratelimit_remaining == -1:
+        # Never queryied GitHub. We must do it once.
+        return
+
+    if GITHUB.x_ratelimit_remaining > SETTINGS.GHP_RATE_LIMIT_THRESHOLD:
+        # Cool, we didn't hit our threshold
+        return
+
+    logger.debug("GitHub hit rate limit threshold exceeded.")
+    # Fake rate limit exceeded
+    raise ApiError(url='any', request={}, response=dict(code='403', json=dict(
+        message="API rate limit exceeded for 0.0.0.0"
+    )))
+
+
 def cached_request(query, **kw):
+    check_rate_limit_threshold()
     cache_key = '_gh_' + str(query._name) + '_get_' + _encode_params(kw)
     try:
         epoch, response = CACHE.get(cache_key)
