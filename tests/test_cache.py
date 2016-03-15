@@ -2,6 +2,7 @@ from datetime import timedelta
 from unittest.mock import patch, MagicMock
 
 from freezegun import freeze_time
+import pytest
 
 
 @patch('jenkins_ghp.cache.SETTINGS')
@@ -24,3 +25,19 @@ def test_purge(SETTINGS):
             assert False, "Key not purged"
         except KeyError:
             pass
+
+
+@patch('jenkins_ghp.cache.fcntl')
+@patch('jenkins_ghp.cache.shelve.open')
+def test_corruptions(dbopen, fcntl):
+    from jenkins_ghp.cache import FileCache
+
+    dbopen.side_effect = [Exception(), MagicMock()]
+    my = FileCache()
+
+    with pytest.raises(KeyError):
+        my.storage.__getitem__.side_effect = Exception()
+        my.get('key')
+
+    my.storage.keys.return_value = ['key']
+    my.purge()

@@ -70,7 +70,15 @@ class FileCache(Cache):
             mode = 'r'
             self.lock.close()
             self.lock = None
-        self.storage = shelve.open(self.CACHE_PATH, mode)
+
+        try:
+            self.storage = shelve.open(self.CACHE_PATH, mode)
+        except Exception as e:
+            if mode != 'c':
+                raise
+            logger.warn("Dropping corrupted cache on %s", e)
+            self.lock.truncate(0)
+            self.storage = shelve.open(self.CACHE_PATH, mode)
 
     def set(self, key, value):
         if self.lock:
