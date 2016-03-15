@@ -20,11 +20,8 @@ def test_purge(SETTINGS):
 
         time.tick(timedelta(seconds=21))
         cache.purge()
-        try:
+        with pytest.raises(KeyError):
             cache.get('key')
-            assert False, "Key not purged"
-        except KeyError:
-            pass
 
 
 @patch('jenkins_ghp.cache.fcntl')
