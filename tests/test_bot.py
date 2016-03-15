@@ -1,4 +1,4 @@
-from mock import Mock
+from unittest.mock import Mock
 
 
 def test_compute_skip_unindented():

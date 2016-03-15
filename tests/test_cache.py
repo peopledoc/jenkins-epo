@@ -1,7 +1,7 @@
 from datetime import timedelta
+from unittest.mock import patch, MagicMock
 
 from freezegun import freeze_time
-from mock import patch
 
 
 @patch('jenkins_ghp.cache.SETTINGS')
