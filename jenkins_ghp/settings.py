@@ -37,7 +37,6 @@ class EnvironmentSettings(object):
 
 SETTINGS = EnvironmentSettings(defaults={
     'GHP_ALWAYS_QUEUE': False,
-    'GHP_BRANCHES': '',
     'GHP_CACHE_PATH': '.ghp-cache',
     'GHP_COMMIT_MAX_WEEKS': '',
     # Drop into Pdb on unhandled exception
@@ -59,6 +58,8 @@ SETTINGS = EnvironmentSettings(defaults={
     # When commenting on PR
     'GHP_NAME': 'Jenkins GitHub Builder',
     'GHP_PR': '',
+    # List repositories and their main branches:
+    #   'owner/repo1:master owner/repo2:master,stable'
     'GHP_REPOSITORIES': '',
     'GHP_VERBOSE': '',
     'GITHUB_TOKEN': None,

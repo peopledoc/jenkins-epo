@@ -68,14 +68,11 @@ def check_queue(bot):
 
 def list_all_projects():
     projects = set()
-    repositories = filter(None, SETTINGS.GHP_REPOSITORIES.split(','))
 
     for project in JENKINS.list_projects():
         projects.add(project)
 
-    for repository in repositories:
-        owner, repository = repository.split('/')
-        project = Project(owner, repository)
+    for project in Project.list_projects():
         projects.add(project)
 
     return sorted(list(projects), key=str)
