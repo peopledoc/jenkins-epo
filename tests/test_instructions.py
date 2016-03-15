@@ -3,6 +3,8 @@ from mock import Mock, patch
 
 @patch('jenkins_ghp.project.GITHUB')
 def test_parse(GITHUB):
+    GITHUB.x_ratelimit_remaining = 4999
+
     updated_at = '2016-02-12T16:32:34Z'
     from jenkins_ghp.project import PullRequest
 

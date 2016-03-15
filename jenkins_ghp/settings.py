@@ -58,6 +58,7 @@ SETTINGS = EnvironmentSettings(defaults={
     # When commenting on PR
     'GHP_NAME': 'Jenkins GitHub Builder',
     'GHP_PR': '',
+    'GHP_RATE_LIMIT_THRESHOLD': 250,
     # List repositories and their main branches:
     #   'owner/repo1:master owner/repo2:master,stable'
     'GHP_REPOSITORIES': '',

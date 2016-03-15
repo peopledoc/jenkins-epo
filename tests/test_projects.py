@@ -1,4 +1,5 @@
-from mock import patch
+from mock import patch, Mock
+import pytest
 
 
 @patch('jenkins_ghp.project.SETTINGS')
@@ -27,3 +28,15 @@ def test_list_projects(SETTINGS):
         ['refs/heads/master', 'refs/heads/stable'] ==
         projects['owner/repo1'].branches_settings()
     )
+
+
+@patch('jenkins_ghp.project.SETTINGS')
+@patch('jenkins_ghp.project.GITHUB')
+def test_threshold(GITHUB, SETTINGS):
+    from jenkins_ghp.project import cached_request, ApiError
+
+    SETTINGS.GHP_RATE_LIMIT_THRESHOLD = 3000
+    GITHUB.x_ratelimit_remaining = 2999
+
+    with pytest.raises(ApiError):
+        cached_request(Mock())
