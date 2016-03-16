@@ -54,6 +54,9 @@ setup(
         'retrying',
     ],
     packages=['jenkins_ghp'],
+    package_data={
+        'jenkins_ghp': ['jobs/*.xml'],
+    },
     description='Jenkins GitHub Poller',
     author=', '.join([
         'James Pic <james.pic@people-doc.com>',
