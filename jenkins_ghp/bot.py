@@ -267,7 +267,7 @@ class FixStatusExtension(Extension):
 
     status_map = {
         # Requeue an aborted job
-        'ABORTED': ('pending', 'Backed'),
+        'ABORTED': ('error', 'Aborted!'),
         'FAILURE': ('failure', 'Build %(name)s failed in %(duration)s!'),
         'SUCCESS': ('success', 'Build %(name)s succeeded in %(duration)s'),
     }
