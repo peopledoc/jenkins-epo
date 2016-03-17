@@ -43,8 +43,7 @@ def retry_filter(exception):
 
     logger.warn(
         "Retrying on %r: %s",
-        type(exception).__name__,
-        str(exception) or repr(exception)
+        type(exception), str(exception) or repr(exception)
     )
     return True
 
