@@ -57,7 +57,7 @@ class Bot(object):
             if isinstance(job, JobSpec):
                 job = JENKINS.create_job(job)
 
-            if job:
+            if job and job.push_trigger:
                 self.jobs.append(job)
 
         return self
