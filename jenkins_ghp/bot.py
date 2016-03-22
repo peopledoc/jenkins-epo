@@ -277,7 +277,7 @@ class FixStatusExtension(Extension):
         # If no build found, this may be an old CI build, or any other
         # unconfirmed build. Retrigger.
         jenkins_status = build.get_status() if build else 'ABORTED'
-        if jenkins_status:
+        if build and jenkins_status:
             state, description = self.status_map[jenkins_status]
             if description == 'Backed':
                 target_url = None
