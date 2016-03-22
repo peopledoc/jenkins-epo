@@ -16,7 +16,6 @@ import base64
 import datetime
 import logging
 import re
-from wsgiref.handlers import format_date_time as http_date
 
 from github import GitHub, ApiError, ApiNotFoundError
 from github import (
@@ -54,9 +53,11 @@ def cached_request(query, **kw):
     check_rate_limit_threshold()
     cache_key = '_gh_' + str(query._name) + '_get_' + _encode_params(kw)
     try:
-        epoch, response = CACHE.get(cache_key)
-        headers = {b'If-Modified-Since': http_date(epoch).encode('utf-8')}
-    except KeyError:
+        response = CACHE.get(cache_key)
+        last_modified = response._headers['Last-Modified']
+        logger.debug("Trying %s modified since %s", cache_key, last_modified)
+        headers = {b'If-Modified-Since': last_modified}
+    except (AttributeError, KeyError):
         headers = {}
 
     try:
@@ -72,6 +73,10 @@ def cached_request(query, **kw):
 
     CACHE.set(cache_key, response)
     return response
+
+
+class GHList(list):
+    pass
 
 
 class CustomGitHub(GitHub):
@@ -98,7 +103,11 @@ class CustomGitHub(GitHub):
             response = opener.open(request, timeout=TIMEOUT)
             is_json = self._process_resp(response.headers)
             if is_json:
-                return _parse_json(response.read().decode('utf-8'))
+                resp = _parse_json(response.read().decode('utf-8'))
+                if isinstance(resp, list):
+                    resp = GHList(resp)
+                resp.__dict__['_headers'] = dict(response.headers.items())
+                return resp
         except HTTPError as e:
             is_json = self._process_resp(e.headers)
             if is_json:
@@ -106,7 +115,9 @@ class CustomGitHub(GitHub):
             else:
                 json = e.read().decode('utf-8')
             req = JsonObject(method=_method, url=url)
-            resp = JsonObject(code=e.code, json=json)
+            resp = JsonObject(
+                code=e.code, json=json, _headers=dict(e.headers.items())
+            )
             if resp.code == 404:
                 raise ApiNotFoundError(url, req, resp)
             raise ApiError(url, req, resp)
