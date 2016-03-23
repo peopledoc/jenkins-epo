@@ -91,5 +91,8 @@ def wait_rate_limit_reset():
     from .project import GITHUB
     now = int(time.time())
     wait = GITHUB.x_ratelimit_reset - now + 5
+    if wait < 0:
+        # This is rate limit GHP threshold. Overwrite reset timestamp.
+        wait = 2100
     logger.info("Waiting rate limit reset in %s seconds", wait)
     time.sleep(wait)
