@@ -1,5 +1,7 @@
+import dbm
 import fcntl
 import logging
+import os
 import shelve
 import time
 
@@ -61,6 +63,9 @@ class FileCache(Cache):
     CACHE_PATH = SETTINGS.GHP_CACHE_PATH
 
     def __init__(self):
+        self.open()
+
+    def open(self):
         self.lock = open(self.CACHE_PATH + '.db', 'ab')
         try:
             fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -80,10 +85,29 @@ class FileCache(Cache):
             self.lock.truncate(0)
             self.storage = shelve.open(self.CACHE_PATH, mode)
 
-    def set(self, key, value):
+    def close(self):
+        self.storage.close()
         if self.lock:
+            fcntl.lockf(self.lock, fcntl.LOCK_UN)
+            self.lock.close()
+
+    def destroy(self):
+        self.close()
+        os.unlink(self.CACHE_PATH + '.db')
+
+    def set(self, key, value):
+        if not self.lock:
+            return time.time(), value
+
+        try:
             return super(FileCache, self).set(key, value)
-        else:
+        except dbm.error:
+            logger.exception("Failed to save to cache, flushing cache")
+            self.destroy()
+            self.open()
+            return super(FileCache, self).set(key, value)
+        except Exception:
+            logger.exception("Failed to save to cache.")
             return time.time(), value
 
     def purge(self):
@@ -91,10 +115,7 @@ class FileCache(Cache):
         self.storage.sync()
 
     def __del__(self):
-        self.storage.close()
-        if self.lock:
-            fcntl.lockf(self.lock, fcntl.LOCK_UN)
-            self.lock.close()
+        self.close()
         logger.debug("Saved %s", self.CACHE_PATH)
 
 
