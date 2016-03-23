@@ -163,7 +163,6 @@ class Project(object):
         r'.*github.com[:/](?P<owner>[\w-]+)/(?P<repository>[\w-]+).*'
     )
     pr_filter = [p for p in SETTINGS.GHP_PR.split(',') if p]
-    _repositories_settings = None
 
     @classmethod
     def from_remote(cls, remote_url):
@@ -172,25 +171,11 @@ class Project(object):
             raise ValueError('%r is not github' % (remote_url,))
         return cls(**match.groupdict())
 
-    @classmethod
-    def list_projects(cls):
-        if cls._repositories_settings is None:
-            cls._repositories_settings = {}
-            repositories = filter(None, SETTINGS.GHP_REPOSITORIES.split(' '))
-            for repository in repositories:
-                repository, branches = repository.split(':')
-                cls._repositories_settings[repository] = [
-                    'refs/heads/' + b for b in branches.split(',') if b
-                ]
-
-        for repository in cls._repositories_settings:
-            owner, repository = repository.split('/')
-            yield Project(owner, repository)
-
-    def __init__(self, owner, repository, jobs=None):
+    def __init__(self, owner, repository, jobs=None, branches=None):
         self.owner = owner
         self.repository = repository
         self.jobs = jobs or []
+        self.branches_settings = branches or []
 
     def __eq__(self, other):
         return str(self) == str(other)
@@ -201,18 +186,17 @@ class Project(object):
     def __str__(self):
         return '%s/%s' % (self.owner, self.repository)
 
-    __repr__ = __str__
+    def __repr__(self):
+        return '%s(%r, %r)' % (
+            self.__class__.__name__, self.owner, self.repository)
 
     @property
     def url(self):
         return 'https://github.com/%s/%s' % (self.owner, self.repository)
 
-    def branches_settings(self):
-        return self._repositories_settings.get(str(self), [])
-
     @retry(wait_fixed=15000)
     def list_branches(self):
-        branches = self.branches_settings()
+        branches = self.branches_settings
 
         if not branches:
             logger.debug("No explicit branches configured for %s", self)

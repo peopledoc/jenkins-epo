@@ -107,6 +107,17 @@ class LazyJenkins(object):
                 project = projects.setdefault(str(project), project)
                 project.jobs.append(job)
 
+        repositories = filter(None, SETTINGS.GHP_REPOSITORIES.split(' '))
+        for entry in repositories:
+            project, branches = entry.split(':')
+            owner, repository = project.split('/')
+            project = projects.setdefault(
+                project, Project(owner, repository)
+            )
+            project.branches_settings = [
+                'refs/heads/' + b for b in branches.split(',') if b
+            ]
+
         return sorted(projects.values(), key=str)
 
     @retry
