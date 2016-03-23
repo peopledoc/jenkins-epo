@@ -42,7 +42,7 @@ def entrypoint(argv=None):
     from jenkins_ghp.main import main
 
     try:
-        logger.debug("%s", argv)
+        logger.debug("Executing %s", ' '.join(argv))
         main(argv)
     except KeyboardInterrupt:
         tb = sys.exc_info()[-1]
