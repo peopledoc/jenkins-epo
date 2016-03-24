@@ -103,6 +103,9 @@ class CustomGitHub(GitHub):
         for k, v in headers.items():
             request.add_header(k, v)
         try:
+            logger.debug(
+                "%s %s remaining=%s", _method, url, self.x_ratelimit_remaining
+            )
             response = opener.open(request, timeout=TIMEOUT)
             is_json = self._process_resp(response.headers)
             if is_json:
