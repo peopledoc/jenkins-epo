@@ -42,7 +42,10 @@ def check_rate_limit_threshold():
         # Cool, we didn't hit our threshold
         return
 
-    logger.debug("GitHub hit rate limit threshold exceeded.")
+    logger.debug(
+        "GitHub hit rate limit threshold exceeded. (remaining=%s)",
+        GITHUB.x_ratelimit_remaining,
+    )
     # Fake rate limit exceeded
     raise ApiError(url='any', request={}, response=dict(code='403', json=dict(
         message="API rate limit exceeded for 0.0.0.0"
