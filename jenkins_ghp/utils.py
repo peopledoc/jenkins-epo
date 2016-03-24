@@ -19,6 +19,7 @@ import time
 
 import retrying
 from github import ApiError
+import http.client
 
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ def retry_filter(exception):
         # If not a rate limit error, don't retry.
         return False
 
-    if not isinstance(exception, IOError):
+    if not isinstance(exception, (IOError, http.client.HTTPException)):
         return False
 
     logger.warn(
