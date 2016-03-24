@@ -282,6 +282,7 @@ class Head(object):
         self.project = project
         self.sha = sha
         self.ref = ref
+        self._status_cache = None
 
     @property
     def is_outdated(self):
@@ -406,19 +407,21 @@ class Head(object):
             logger.debug("Skip GitHub statuses")
             return {}
         else:
-            logger.debug("Fetching statuses for %s", self.sha[:7])
-            response = cached_request(
-                GITHUB.repos(self.project.owner)(self.project.repository)
-                .status(self.sha),
-                per_page=b'100',
-            )
-            statuses = {
-                x['context']: x
-                for x in response['statuses']
-                if match(x['context'], self.contexts_filter)
-            }
-            logger.debug("Got status for %r", sorted(statuses.keys()))
-            return statuses
+            if self._status_cache is None:
+                logger.debug("Fetching statuses for %s", self.sha[:7])
+                response = cached_request(
+                    GITHUB.repos(self.project.owner)(self.project.repository)
+                    .status(self.sha),
+                    per_page=b'100',
+                )
+                statuses = {
+                    x['context']: x
+                    for x in response['statuses']
+                    if match(x['context'], self.contexts_filter)
+                }
+                logger.debug("Got status for %r", sorted(statuses.keys()))
+                self._status_cache = statuses
+            return self._status_cache
 
     def get_status_for(self, context):
         return self.get_statuses().get(context, {})
