@@ -22,7 +22,6 @@ import sys
 
 from .bot import Bot
 from .cache import CACHE
-from .project import Project
 from .jenkins import JENKINS
 from .settings import SETTINGS
 
@@ -66,24 +65,12 @@ def check_queue(bot):
         logger.warn("Queue is full. No jobs will be queued.")
 
 
-def list_all_projects():
-    projects = set()
-
-    for project in JENKINS.list_projects():
-        projects.add(project)
-
-    for project in Project.list_projects():
-        projects.add(project)
-
-    return sorted(list(projects), key=str)
-
-
 @loop
 @asyncio.coroutine
 def bot():
     """Poll GitHub to find something to do"""
     bot = Bot(queue_empty=None)
-    for project in list_all_projects():
+    for project in JENKINS.list_projects():
         for branch in project.list_branches():
             yield from check_queue(bot)
             bot.run(branch)
@@ -97,7 +84,7 @@ def bot():
 
 def list_jobs():
     """List managed jobs"""
-    for project in list_all_projects():
+    for project in JENKINS.list_projects():
         for job in project.jobs:
             print(job)
 
@@ -105,14 +92,14 @@ def list_jobs():
 def list_branches():
     """List branches to build"""
 
-    for project in list_all_projects():
+    for project in JENKINS.list_projects():
         for branch in project.list_branches():
             print(branch)
 
 
 def list_pr():
     """List GitHub PR polled"""
-    for project in list_all_projects():
+    for project in JENKINS.list_projects():
         for pr in project.list_pull_requests():
             print(pr)
 
@@ -120,7 +107,7 @@ def list_pr():
 def list_projects():
     """List GitHub projects tested by this Jenkins"""
 
-    for project in list_all_projects():
+    for project in JENKINS.list_projects():
         print(project)
 
 
