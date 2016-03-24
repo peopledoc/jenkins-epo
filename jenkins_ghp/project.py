@@ -510,7 +510,7 @@ class PullRequest(Head):
         # Return sort data. Higher is more urgent. By defaults, last PR is
         # built first. This avoid building staled PR first. It's the default
         # order of GitHub PR listing.
-        return self.urgent, self.data['html_url']
+        return self.urgent, self.data['number']
 
     def __str__(self):
         return '%s (%s)' % (self.data['html_url'], self.ref)

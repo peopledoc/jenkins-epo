@@ -21,7 +21,7 @@ def test_parse(GITHUB):
     issue.comments.get.return_value = [
         {
             'body': body,
-            'html_url': 'URL' + repr(body),
+            'number': len(body),
             'updated_at': updated_at,
             'user': {'login': 'commenter'},
         } for body in [
@@ -93,24 +93,30 @@ def test_pr_urgent():
     pr1 = PullRequest(data=dict(
         head=dict(sha='01234567899abcdef', ref='pr1'),
         body=None,
-        html_url='pulls/1',
+        number=1, html_url='pulls/1',
     ), project=Mock())
     assert not pr1.urgent
     pr2 = PullRequest(data=dict(
         head=dict(sha='01234567899abcdef', ref='pr2'),
         body='jenkins: urgent',
-        html_url='pulls/2',
+        number=2, html_url='pulls/2',
     ), project=Mock())
     assert pr2.urgent
     pr3 = PullRequest(data=dict(
         head=dict(sha='01234567899abcdef', ref='pr3'),
         body='> jenkins: urgent',
-        html_url='pulls/3',
+        number=3, html_url='pulls/3',
     ), project=Mock())
     assert not pr3.urgent
+    pr10 = PullRequest(data=dict(
+        head=dict(sha='01234567899abcdef', ref='pr3'),
+        body=None,
+        number=10, html_url='pulls/10',
+    ), project=Mock())
+    assert not pr10.urgent
 
-    github_listing = [pr3, pr2, pr1]
-    build_listing = [pr1, pr3, pr2]
+    github_listing = [pr10, pr3, pr2, pr1]
+    build_listing = [pr1, pr3, pr10, pr2]
     assert build_listing == sorted(
         github_listing, key=PullRequest.sort_key
     )
