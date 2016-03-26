@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class Cache(object):
     def get(self, key):
         try:
-            value = self.storage[key]
+            _, value = self.storage[key]
             logger.debug("Hit %s", key)
             return value
         except KeyError:

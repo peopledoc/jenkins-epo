@@ -15,7 +15,7 @@ def test_purge(SETTINGS):
     with freeze_time('2012-12-21 00:00:00 UTC') as time:
         cache.set('key', 'data')
         cache.purge()
-        date, data = cache.get('key')
+        data = cache.get('key')
         assert 'data' == data
 
         time.tick(timedelta(seconds=21))
