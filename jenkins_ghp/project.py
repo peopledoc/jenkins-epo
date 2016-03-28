@@ -544,4 +544,4 @@ class PullRequest(Head):
             GITHUB.repos(self.project.owner)(self.project.repository)
             .issues(self.data['number'])
         )
-        return [cached_request(issue)] + cached_request(issue.comments)
+        return [self.data] + cached_request(issue.comments)

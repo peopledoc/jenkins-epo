@@ -9,15 +9,16 @@ def test_parse(GITHUB):
     from jenkins_ghp.project import PullRequest
 
     pr = PullRequest(
-        {'number': '123', 'head': {'sha': 'c01', 'ref': 'toto'}},
+        {
+            'number': '123', 'head': {'sha': 'c01', 'ref': 'toto'},
+            'updated_at': updated_at,
+            'body': 'jenkins: issue',
+            'user': {'login': 'reporter'},
+        },
         Mock(),
     )
     # GITHUB.repos(owner)(repository).issues(id).comments
     issue = GITHUB.repos.return_value.return_value.issues.return_value
-    issue.get.return_value = {
-        'updated_at': updated_at, 'body': 'jenkins: issue',
-        'user': {'login': 'reporter'},
-    }
     issue.comments.get.return_value = [
         {
             'body': body,
