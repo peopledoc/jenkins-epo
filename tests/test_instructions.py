@@ -98,7 +98,7 @@ def test_pr_urgent():
     assert not pr1.urgent
     pr2 = PullRequest(data=dict(
         head=dict(sha='01234567899abcdef', ref='pr2'),
-        body='jenkins: urgent',
+        body='bla\n\njenkins: urgent',
         number=2, html_url='pulls/2',
     ), project=Mock())
     assert pr2.urgent

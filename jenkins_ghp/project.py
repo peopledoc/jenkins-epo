@@ -513,7 +513,7 @@ class PullRequest(Head):
         )
         self.data = data
         body = (data.get('body') or '').replace('\r', '')
-        self.urgent = bool(self._urgent_re.match(body))
+        self.urgent = bool(self._urgent_re.search(body))
 
     def sort_key(self):
         # Return sort data. Higher is more urgent. By defaults, last PR is
