@@ -168,7 +168,7 @@ class Project(object):
     remote_re = re.compile(
         r'.*github.com[:/](?P<owner>[\w-]+)/(?P<repository>[\w-]+).*'
     )
-    pr_filter = [p for p in SETTINGS.GHP_PR.split(',') if p]
+    pr_filter = [p for p in str(SETTINGS.GHP_PR).split(',') if p]
 
     @classmethod
     def from_remote(cls, remote_url):
