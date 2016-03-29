@@ -168,7 +168,7 @@ class Project(object):
     remote_re = re.compile(
         r'.*github.com[:/](?P<owner>[\w-]+)/(?P<repository>[\w-]+).*'
     )
-    pr_filter = [p for p in SETTINGS.GHP_PR.split(',') if p]
+    pr_filter = [p for p in str(SETTINGS.GHP_PR).split(',') if p]
 
     @classmethod
     def from_remote(cls, remote_url):
@@ -317,21 +317,25 @@ class Head(object):
         for job in self.project.jobs:
             jobs.add(job)
 
-        try:
-            config = cached_request(
-                GITHUB.repos(self.project.owner)(self.project.repository)
-                .contents('jenkins.yml'),
-                ref=self.ref,
-            )
-        except ApiNotFoundError:
-            # No jenkins.yml
-            pass
-        else:
-            config = base64.b64decode(config['content']).decode('utf-8')
-            config = yaml.load(config)
-            for name, params in config.items():
-                job = JobSpec(self.project, name, params)
-                jobs.add(job)
+        entries = cached_request(
+            GITHUB.repos(self.project.owner)(self.project.repository)
+            .contents,
+            ref=self.ref,
+        )
+        files = [x['name'] for x in entries if x['type'] == 'file']
+        if 'jenkins.yml' not in files:
+            return list(jobs)
+
+        config = cached_request(
+            GITHUB.repos(self.project.owner)(self.project.repository)
+            .contents('jenkins.yml'),
+            ref=self.ref,
+        )
+        config = base64.b64decode(config['content']).decode('utf-8')
+        config = yaml.load(config)
+        for name, params in config.items():
+            job = JobSpec(self.project, name, params)
+            jobs.add(job)
 
         return list(jobs)
 
