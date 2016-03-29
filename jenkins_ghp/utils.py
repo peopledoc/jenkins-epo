@@ -21,6 +21,8 @@ import retrying
 from github import ApiError
 import http.client
 
+from .settings import SETTINGS
+
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +95,7 @@ def wait_rate_limit_reset():
     now = int(time.time())
     wait = GITHUB.x_ratelimit_reset - now + 5
     if wait < 0:
-        wait = 300
+        wait = SETTINGS.GHP_LOOP or 60
     logger.info("Waiting rate limit reset in %s seconds", wait)
     time.sleep(wait)
     GITHUB._instance.x_ratelimit_remaining = -1
