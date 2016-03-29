@@ -19,6 +19,7 @@ import time
 
 import retrying
 from github import ApiError
+import http.client
 
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ def retry_filter(exception):
         # If not a rate limit error, don't retry.
         return False
 
-    if not isinstance(exception, IOError):
+    if not isinstance(exception, (IOError, http.client.HTTPException)):
         return False
 
     logger.warn(
@@ -92,7 +93,7 @@ def wait_rate_limit_reset():
     now = int(time.time())
     wait = GITHUB.x_ratelimit_reset - now + 5
     if wait < 0:
-        # This is rate limit GHP threshold. Overwrite reset timestamp.
-        wait = 2100
+        wait = 300
     logger.info("Waiting rate limit reset in %s seconds", wait)
     time.sleep(wait)
+    GITHUB._instance.x_ratelimit_remaining = -1

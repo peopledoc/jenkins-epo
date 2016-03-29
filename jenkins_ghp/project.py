@@ -42,7 +42,10 @@ def check_rate_limit_threshold():
         # Cool, we didn't hit our threshold
         return
 
-    logger.debug("GitHub hit rate limit threshold exceeded.")
+    logger.debug(
+        "GitHub hit rate limit threshold exceeded. (remaining=%s)",
+        GITHUB.x_ratelimit_remaining,
+    )
     # Fake rate limit exceeded
     raise ApiError(url='any', request={}, response=dict(code='403', json=dict(
         message="API rate limit exceeded for 0.0.0.0"
@@ -100,6 +103,9 @@ class CustomGitHub(GitHub):
         for k, v in headers.items():
             request.add_header(k, v)
         try:
+            logger.debug(
+                "%s %s remaining=%s", _method, url, self.x_ratelimit_remaining
+            )
             response = opener.open(request, timeout=TIMEOUT)
             is_json = self._process_resp(response.headers)
             if is_json:
@@ -279,6 +285,7 @@ class Head(object):
         self.project = project
         self.sha = sha
         self.ref = ref
+        self._status_cache = None
 
     @property
     def is_outdated(self):
@@ -403,19 +410,21 @@ class Head(object):
             logger.debug("Skip GitHub statuses")
             return {}
         else:
-            logger.debug("Fetching statuses for %s", self.sha[:7])
-            response = cached_request(
-                GITHUB.repos(self.project.owner)(self.project.repository)
-                .status(self.sha),
-                per_page=b'100',
-            )
-            statuses = {
-                x['context']: x
-                for x in response['statuses']
-                if match(x['context'], self.contexts_filter)
-            }
-            logger.debug("Got status for %r", sorted(statuses.keys()))
-            return statuses
+            if self._status_cache is None:
+                logger.debug("Fetching statuses for %s", self.sha[:7])
+                response = cached_request(
+                    GITHUB.repos(self.project.owner)(self.project.repository)
+                    .status(self.sha),
+                    per_page=b'100',
+                )
+                statuses = {
+                    x['context']: x
+                    for x in response['statuses']
+                    if match(x['context'], self.contexts_filter)
+                }
+                logger.debug("Got status for %r", sorted(statuses.keys()))
+                self._status_cache = statuses
+            return self._status_cache
 
     def get_status_for(self, context):
         return self.get_statuses().get(context, {})
@@ -504,13 +513,13 @@ class PullRequest(Head):
         )
         self.data = data
         body = (data.get('body') or '').replace('\r', '')
-        self.urgent = bool(self._urgent_re.match(body))
+        self.urgent = bool(self._urgent_re.search(body))
 
     def sort_key(self):
         # Return sort data. Higher is more urgent. By defaults, last PR is
         # built first. This avoid building staled PR first. It's the default
         # order of GitHub PR listing.
-        return self.urgent, self.data['html_url']
+        return self.urgent, self.data['number']
 
     def __str__(self):
         return '%s (%s)' % (self.data['html_url'], self.ref)
@@ -535,4 +544,4 @@ class PullRequest(Head):
             GITHUB.repos(self.project.owner)(self.project.repository)
             .issues(self.data['number'])
         )
-        return [cached_request(issue)] + cached_request(issue.comments)
+        return [self.data] + cached_request(issue.comments)

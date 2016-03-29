@@ -80,16 +80,7 @@
       <command>{{ command }}</command>
     </hudson.tasks.Shell>
   </builders>
-{%- if publish %}
-  <publishers>
-    <com.cloudbees.jenkins.GitHubCommitNotifier plugin="github@1.17.0">
-      <statusMessage>
-        <content></content>
-      </statusMessage>
-      <resultOnFailure>FAILURE</resultOnFailure>
-    </com.cloudbees.jenkins.GitHubCommitNotifier>
-  </publishers>
-{%- endif %}
+  <publishers/>
   <buildWrappers>
     <hudson.plugins.ansicolor.AnsiColorBuildWrapper plugin="ansicolor@0.4.2">
       <colorMapName>gnome-terminal</colorMapName>
