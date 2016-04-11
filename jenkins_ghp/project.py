@@ -124,6 +124,11 @@ class CustomGitHub(GitHub):
             resp = JsonObject(
                 code=e.code, json=json, _headers=dict(e.headers.items())
             )
+            if resp.code == 307:
+                return self._http(
+                    _method, json.url[len('https://api.github.com'):],
+                    headers, **kw
+                )
             if resp.code == 404:
                 raise ApiNotFoundError(url, req, resp)
             raise ApiError(url, req, resp)
