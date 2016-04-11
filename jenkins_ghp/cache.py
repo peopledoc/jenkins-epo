@@ -66,7 +66,7 @@ class FileCache(Cache):
         self.open()
 
     def open(self):
-        self.lock = open(self.CACHE_PATH + '.db', 'ab')
+        self.lock = open(self.CACHE_PATH + '.lock', 'ab')
         try:
             fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             mode = 'c'
@@ -90,6 +90,7 @@ class FileCache(Cache):
         if self.lock:
             fcntl.lockf(self.lock, fcntl.LOCK_UN)
             self.lock.close()
+            os.unlink(self.lock.name)
 
     def destroy(self):
         self.close()

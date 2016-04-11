@@ -96,7 +96,13 @@ def bot():
             except RestartLoop:
                 if SETTINGS.GHP_LOOP:
                     break
-            bot.run(pr)
+            try:
+                bot.run(pr)
+            except Exception:
+                if SETTINGS.GHP_LOOP:
+                    logger.exception("Failed to process %s", pr)
+                else:
+                    raise
 
     CACHE.purge()
 

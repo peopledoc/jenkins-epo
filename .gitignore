@@ -3,6 +3,7 @@
 /dist/
 /*.egg-info/
 .ghp*.db
+.ghp*.lock
 __pycache__/
 /my-*
 /.tox/
