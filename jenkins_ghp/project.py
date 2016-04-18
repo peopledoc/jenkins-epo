@@ -322,11 +322,16 @@ class Head(object):
         for job in self.project.jobs:
             jobs.add(job)
 
-        entries = cached_request(
-            GITHUB.repos(self.project.owner)(self.project.repository)
-            .contents,
-            ref=self.ref,
-        )
+        try:
+            entries = cached_request(
+                GITHUB.repos(self.project.owner)(self.project.repository)
+                .contents,
+                ref=self.ref,
+            )
+        except ApiNotFoundError:
+            logger.debug("%s has disappeared", self)
+            return []
+
         files = [x['name'] for x in entries if x['type'] == 'file']
         if 'jenkins.yml' not in files:
             return list(jobs)
