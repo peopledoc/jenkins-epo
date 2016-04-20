@@ -90,12 +90,13 @@ def parse_datetime(formatted):
     )
 
 
+@retry
 def wait_rate_limit_reset():
     from .project import GITHUB
-    now = int(time.time())
-    wait = GITHUB.x_ratelimit_reset - now + 5
-    if wait < 0:
-        wait = SETTINGS.GHP_LOOP or 60
-    logger.info("Waiting rate limit reset in %s seconds", wait)
-    time.sleep(wait)
+    wait = SETTINGS.GHP_LOOP or 60
+    while GITHUB.x_ratelimit_remaining < SETTINGS.GHP_RATE_LIMIT_THRESHOLD:
+        logger.info("Waiting rate limit reset in %s seconds", wait)
+        time.sleep(wait)
+        GITHUB.rate_limit.get()
+
     GITHUB._instance.x_ratelimit_remaining = -1

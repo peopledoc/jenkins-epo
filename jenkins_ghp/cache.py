@@ -112,6 +112,9 @@ class FileCache(Cache):
             return time.time(), value
 
     def purge(self):
+        if not self.lock:
+            return
+
         super(FileCache, self).purge()
         self.storage.sync()
 
