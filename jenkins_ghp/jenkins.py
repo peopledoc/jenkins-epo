@@ -194,7 +194,7 @@ class Job(object):
                         continue
 
                     for param in prop['parameterDefinitions']:
-                        if [param['name'] in r for r in refspecs]:
+                        if sum([param['name'] in r for r in refspecs]):
                             self._revision_param = param['name']
                             logger.debug(
                                 "Using %s param to specify revision for %s",
