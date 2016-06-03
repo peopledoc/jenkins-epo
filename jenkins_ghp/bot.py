@@ -269,6 +269,7 @@ class FixStatusExtension(Extension):
         # Requeue an aborted job
         'ABORTED': ('error', 'Aborted!'),
         'FAILURE': ('failure', 'Build %(name)s failed in %(duration)s!'),
+        'UNSTABLE': ('failure', 'Build %(name)s failed in %(duration)s!'),
         'SUCCESS': ('success', 'Build %(name)s succeeded in %(duration)s'),
     }
 
