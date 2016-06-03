@@ -241,10 +241,14 @@ class Project(object):
             "Querying GitHub for %s/%s PR", self.owner, self.repository,
         )
 
-        pulls = cached_request(
-            GITHUB.repos(self.owner)(self.repository)
-            .pulls, per_page=b'100',
-        )
+        try:
+            pulls = cached_request(
+                GITHUB.repos(self.owner)(self.repository)
+                .pulls, per_page=b'100',
+            )
+        except Exception:
+            logger.exception("Failed to list PR for %s", self)
+            return []
 
         pulls_o = []
         for data in pulls:
