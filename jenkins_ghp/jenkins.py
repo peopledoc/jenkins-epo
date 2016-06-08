@@ -87,6 +87,10 @@ class LazyJenkins(object):
                 continue
 
             job = Job.factory(job)
+            if not job.is_enabled():
+                logger.debug("Skipping %s, disabled", name)
+                continue
+
             if SETTINGS.GHP_JOBS_AUTO and job.polled_by_jenkins:
                 logger.debug("Skipping %s, polled by Jenkins", name)
                 continue
