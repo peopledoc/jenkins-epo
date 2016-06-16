@@ -24,7 +24,7 @@ import yaml
 
 from .jenkins import JENKINS
 from .project import Branch, JobSpec
-from .utils import parse_datetime
+from .utils import match, parse_datetime
 from .settings import SETTINGS
 
 
@@ -148,6 +148,11 @@ class Extension(object):
 
 class BuilderExtension(Extension):
     """
+    # Selecting jobs
+    jenkins:
+      jobs: -glob* # skip prefixed with
+      jobs: [-skip*, +add*]
+
     # Skipping jobs
     jenkins: skip
     jenkins: {skip: '(?!except-this)'}
@@ -159,11 +164,14 @@ class BuilderExtension(Extension):
     """
 
     DEFAULTS = {
+        'jobs-match': [],
         'skip': [],
         'skip-errors': [],
         'rebuild-failed': None,
     }
     SKIP_ALL = ('.*',)
+    BUILD_ALL = ['*']
+
     ERROR_COMMENT = """
 Sorry %(mention)s, I don't understand your pattern `%(pattern)r`: `%(error)s`.
 
@@ -186,6 +194,11 @@ jenkins: reset-skip-errors
                 except re.error as e:
                     logger.warn("Bad pattern for skip: %s", e)
                     errors.append((instruction, pattern, e))
+        if instruction == 'jobs':
+            patterns = instruction.args
+            if isinstance(patterns, str):
+                patterns = [patterns]
+            self.bot.settings['jobs-match'] = patterns
         if instruction == 'reset-skip-errors':
             self.bot.settings['skip-errors'] = []
         elif instruction == 'rebuild':
@@ -229,6 +242,7 @@ jenkins: reset-skip-errors
         for pattern in self.bot.settings['skip']:
             if pattern.match(context):
                 return True
+        return not match(context, self.bot.settings['jobs-match'])
 
     def status_for_new_context(self, context):
         new_status = {'context': context}
