@@ -150,8 +150,9 @@ class BuilderExtension(Extension):
     """
     # Selecting jobs
     jenkins:
-      jobs: -glob* # skip prefixed with
-      jobs: [-skip*, +add*]
+      jobs: only*  # Build only prefixed
+      jobs: ['*', -glob*]  # skip prefixed with glob
+      jobs: ['*', +add*, -skip*]
 
     # Skipping jobs
     jenkins: skip
@@ -198,6 +199,7 @@ jenkins: reset-skip-errors
             patterns = instruction.args
             if isinstance(patterns, str):
                 patterns = [patterns]
+
             self.bot.settings['jobs-match'] = patterns
         if instruction == 'reset-skip-errors':
             self.bot.settings['skip-errors'] = []
