@@ -48,9 +48,10 @@ class Bot(object):
     def workon(self, head):
         logger.info("Working on %s", head)
         self.head = head
-        self.settings = copy.deepcopy(self.DEFAULTS)
+        self.head.project.fetch_settings()
+        self.current = copy.deepcopy(self.DEFAULTS)
         for ext in self.extensions.values():
-            self.settings.update(copy.deepcopy(ext.DEFAULTS))
+            self.current.update(copy.deepcopy(ext.DEFAULTS))
 
         self.jobs = []
         for job in head.list_jobs():
@@ -63,13 +64,17 @@ class Bot(object):
         return self
 
     def run(self, head):
-        self.workon(head)
+        try:
+            self.workon(head)
+        except Exception as e:
+            logger.warn("Fail to work on %s: %s", head, e)
+            return
 
         for ext in self.extensions.values():
             ext.begin()
 
         self.process_instructions()
-        logger.debug("Bot settings: %r", self.settings)
+        logger.debug("Bot settings: %r", self.current)
 
         for ext in self.extensions.values():
             ext.end()
@@ -80,7 +85,7 @@ class Bot(object):
             try:
                 payload = yaml.load(data)
             except yaml.error.YAMLError as e:
-                self.settings['errors'].append((author, data, e))
+                self.current['errors'].append((author, data, e))
                 continue
 
             data = payload.pop('jenkins')
@@ -137,7 +142,7 @@ class Extension(object):
         self.bot = bot
 
     def begin(self):
-        self.bot.settings.update(copy.deepcopy(self.DEFAULTS))
+        self.bot.current.update(copy.deepcopy(self.DEFAULTS))
 
     def process_instruction(self, instruction):
         pass
@@ -187,8 +192,8 @@ jenkins: reset-skip-errors
             if isinstance(patterns, str):
                 patterns = [patterns]
             patterns = patterns or self.SKIP_ALL
-            self.bot.settings['skip'] = skip = []
-            self.bot.settings['skip-errors'] = errors = []
+            self.bot.current['skip'] = skip = []
+            self.bot.current['skip-errors'] = errors = []
             for pattern in patterns:
                 try:
                     skip.append(re.compile(pattern))
@@ -200,14 +205,14 @@ jenkins: reset-skip-errors
             if isinstance(patterns, str):
                 patterns = [patterns]
 
-            self.bot.settings['jobs-match'] = patterns
+            self.bot.current['jobs-match'] = patterns
         if instruction == 'reset-skip-errors':
-            self.bot.settings['skip-errors'] = []
+            self.bot.current['skip-errors'] = []
         elif instruction == 'rebuild':
-            self.bot.settings['rebuild-failed'] = instruction.date
+            self.bot.current['rebuild-failed'] = instruction.date
 
     def end(self):
-        for instruction, pattern, error in self.bot.settings['skip-errors']:
+        for instruction, pattern, error in self.bot.current['skip-errors']:
             self.bot.head.comment(self.ERROR_COMMENT % dict(
                 mention='@' + instruction.author,
                 pattern=pattern,
@@ -217,7 +222,7 @@ jenkins: reset-skip-errors
         for job in self.bot.jobs:
             not_built = self.bot.head.filter_not_built_contexts(
                 job.list_contexts(),
-                rebuild_failed=self.bot.settings['rebuild-failed']
+                rebuild_failed=self.bot.current['rebuild-failed']
             )
 
             for context in not_built:
@@ -241,10 +246,10 @@ jenkins: reset-skip-errors
                         )
 
     def skip(self, context):
-        for pattern in self.bot.settings['skip']:
+        for pattern in self.bot.current['skip']:
             if pattern.match(context):
                 return True
-        return not match(context, self.bot.settings['jobs-match'])
+        return not match(context, self.bot.current['jobs-match'])
 
     def status_for_new_context(self, context):
         new_status = {'context': context}
@@ -307,7 +312,7 @@ class FixStatusExtension(Extension):
                     )
                 except TypeError:
                     pass
-        elif SETTINGS.GHP_STATUS_LOOP:
+        elif self.bot.head.project.SETTINGS.GHP_STATUS_LOOP:
             # Touch the commit status to avoid polling it for the next 5
             # minutes.
             state = 'pending'
@@ -325,7 +330,9 @@ class FixStatusExtension(Extension):
     def end(self):
         fivemin_ago = (
             datetime.datetime.utcnow() -
-            datetime.timedelta(seconds=SETTINGS.GHP_STATUS_LOOP)
+            datetime.timedelta(
+                seconds=self.bot.head.project.SETTINGS.GHP_STATUS_LOOP
+            )
         )
 
         failed_contexts = []
@@ -407,9 +414,9 @@ Extensions: %(extensions)s
 
     def process_instruction(self, instruction):
         if instruction.name in ('help', 'man'):
-            self.bot.settings['help-mentions'].add(instruction.author)
+            self.bot.current['help-mentions'].add(instruction.author)
         elif instruction == 'help-reset':
-            self.bot.settings['help-mentions'] = set()
+            self.bot.current['help-mentions'] = set()
 
     def generate_comment(self):
         docs = []
@@ -423,9 +430,9 @@ Extensions: %(extensions)s
             extensions=','.join(sorted(self.bot.extensions.keys())),
             help=help_,
             host=socket.getfqdn(),
-            me=SETTINGS.GHP_NAME,
+            me=self.bot.head.project.SETTINGS.GHP_NAME,
             mentions=', '.join(sorted([
-                '@' + m for m in self.bot.settings['help-mentions']
+                '@' + m for m in self.bot.current['help-mentions']
             ])),
             software=self.DISTRIBUTION.project_name,
             version=self.DISTRIBUTION.version,
@@ -435,7 +442,7 @@ Extensions: %(extensions)s
         self.bot.head.comment(self.generate_comment())
 
     def end(self):
-        if self.bot.settings['help-mentions']:
+        if self.bot.current['help-mentions']:
             self.answer_help()
 
 
@@ -454,10 +461,10 @@ jenkins: reset-errors
 
     def process_instruction(self, instruction):
         if instruction == 'reset-errors':
-            self.bot.settings['errors'] = []
+            self.bot.current['errors'] = []
 
     def end(self):
-        for author, instruction, error in self.bot.settings['errors']:
+        for author, instruction, error in self.bot.current['errors']:
             self.bot.head.comment(self.ERROR_COMMENT % dict(
                 mention='@' + author,
                 instruction=repr(instruction),
@@ -486,10 +493,10 @@ jenkins: report-done
 
     def process_instruction(self, instruction):
         if instruction == 'report-done':
-            self.bot.settings['report-done'] = True
+            self.bot.current['report-done'] = True
 
     def end(self):
-        if self.bot.settings['report-done']:
+        if self.bot.current['report-done']:
             return
 
         if not isinstance(self.bot.head, Branch):

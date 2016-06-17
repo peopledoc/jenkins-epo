@@ -19,7 +19,15 @@ import os
 logger = logging.getLogger(__name__)
 
 
-class EnvironmentSettings(object):
+class Settings(dict):
+    def __getattr__(self, name):
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError(name)
+
+
+class EnvironmentSettings(Settings):
     def __init__(self, defaults):
         self.load(defaults)
         logger.debug("Environment loaded.")
@@ -31,7 +39,7 @@ class EnvironmentSettings(object):
                 v = int(v)
             except (TypeError, ValueError):
                 pass
-            setattr(self, k, v)
+            self[k] = v
             logger.debug("%s=%r", k, v)
 
 
