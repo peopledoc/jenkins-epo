@@ -278,7 +278,7 @@ def format_duration(duration):
 
 class FixStatusExtension(Extension):
     SETTINGS = {
-        'GHP_STATUS_LOOP': 300,
+        'GHP_STATUS_LOOP': 0,
     }
 
     status_map = {
@@ -307,13 +307,16 @@ class FixStatusExtension(Extension):
                     )
                 except TypeError:
                     pass
-        else:
+        elif SETTINGS.GHP_STATUS_LOOP:
             # Touch the commit status to avoid polling it for the next 5
             # minutes.
             state = 'pending'
             description = current_status['description']
             ellipsis = '...' if description.endswith('....') else '....'
             description = description.rstrip('.') + ellipsis
+        else:
+            # Don't touch
+            return {}
 
         return dict(
             description=description, state=state, target_url=target_url,
@@ -358,9 +361,9 @@ class FixStatusExtension(Extension):
                 build = None
                 failed_contexts.append(context)
 
-            self.bot.head.update_statuses(
-                context=context, **self.compute_actual_status(build, status)
-            )
+            new_status = self.compute_actual_status(build, status)
+            if new_status:
+                self.bot.head.update_statuses(context=context, **new_status)
 
         if failed_contexts:
             logger.warn(
