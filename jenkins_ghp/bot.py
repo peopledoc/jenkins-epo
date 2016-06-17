@@ -235,7 +235,7 @@ jenkins: reset-skip-errors
                     for context in queued_contexts:
                         self.bot.head.update_statuses(
                             context=context,
-                            state='failure',
+                            state='error',
                             description='Failed to queue job',
                             target_url=job.baseurl,
                         )
