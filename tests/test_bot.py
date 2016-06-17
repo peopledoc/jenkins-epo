@@ -12,7 +12,7 @@ def test_compute_skip_unindented():
 
     bot = Bot().workon(pr)
     bot.process_instructions()
-    skip = [re.pattern for re in bot.settings['skip']]
+    skip = [re.pattern for re in bot.current['skip']]
     assert ['toto'] == skip
 
 
@@ -27,7 +27,7 @@ def test_compute_skip_null():
 
     bot = Bot().workon(pr)
     bot.process_instructions()
-    skip = [re.pattern for re in bot.settings['skip']]
+    skip = [re.pattern for re in bot.current['skip']]
     assert skip == list(BuilderExtension.SKIP_ALL)
 
 
@@ -40,7 +40,7 @@ def test_compute_skip():
 
     pr.list_instructions.return_value = [(0, 0, 'jenkins: skip')]
     bot.process_instructions()
-    skip = [re.pattern for re in bot.settings['skip']]
+    skip = [re.pattern for re in bot.current['skip']]
     assert skip == list(BuilderExtension.SKIP_ALL)
 
     pr.list_instructions.return_value = [
@@ -48,7 +48,7 @@ def test_compute_skip():
         (0, 0, 'jenkins: {skip: [this]}'),
     ]
     bot.process_instructions()
-    skip = [re.pattern for re in bot.settings['skip']]
+    skip = [re.pattern for re in bot.current['skip']]
     assert skip == ['this']
 
 
@@ -61,7 +61,7 @@ def test_compute_rebuild():
 
     pr.list_instructions.return_value = [('DATE', 0, 'jenkins: rebuild')]
     bot.process_instructions()
-    assert bot.settings['rebuild-failed'] == 'DATE'
+    assert bot.current['rebuild-failed'] == 'DATE'
 
 
 def test_compute_help():
@@ -73,22 +73,22 @@ def test_compute_help():
 
     pr.list_instructions.return_value = [(0, 'asker', 'jenkins: help')]
     bot.process_instructions()
-    assert 'asker' in bot.settings['help-mentions']
+    assert 'asker' in bot.current['help-mentions']
 
     pr.list_instructions.return_value = [
         (0, 'asker1', 'jenkins: help'),
         (0, 'bot', 'jenkins: help-reset'),
     ]
     bot.process_instructions()
-    assert not bot.settings['help-mentions']
+    assert not bot.current['help-mentions']
 
     pr.list_instructions.return_value = [
         (0, 'asker1', 'jenkins: help'),
         (0, 'asker2', 'jenkins: help'),
     ]
     bot.process_instructions()
-    assert 'asker1' in bot.settings['help-mentions']
-    assert 'asker2' in bot.settings['help-mentions']
+    assert 'asker1' in bot.current['help-mentions']
+    assert 'asker2' in bot.current['help-mentions']
 
     comment = bot.extensions['help'].generate_comment()
     assert '@asker1' in comment
