@@ -157,7 +157,7 @@ class LazyJenkins(object):
             api_instance = self._instance.create_job(job_spec.name, config)
             logger.info("Created new Jenkins job %s", job_spec.name)
         else:
-            logger.debug("Not updating job %s from Jenkins", job_spec.name)
+            logger.debug("Not updating existing job %s", job_spec.name)
 
         job = Job.factory(api_instance)
         job_spec.project.jobs.append(job)
