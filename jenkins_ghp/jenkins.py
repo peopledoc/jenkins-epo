@@ -118,9 +118,6 @@ class LazyJenkins(object):
             project = projects.setdefault(
                 project, Project(owner, repository)
             )
-            project.branches_settings = [
-                'refs/heads/' + b for b in branches.split(',') if b
-            ]
 
         return sorted(projects.values(), key=str)
 

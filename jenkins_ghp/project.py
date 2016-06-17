@@ -56,13 +56,16 @@ def check_rate_limit_threshold():
 def cached_request(query, **kw):
     check_rate_limit_threshold()
     cache_key = '_gh_' + str(query._name) + '_get_' + _encode_params(kw)
+    headers = {
+        b'Accept': b'application/vnd.github.loki-preview+json',
+    }
     try:
         response = CACHE.get(cache_key)
         last_modified = response._headers['Last-Modified']
         logger.debug("Trying %s modified since %s", cache_key, last_modified)
-        headers = {b'If-Modified-Since': last_modified}
+        headers[b'If-Modified-Since'] = last_modified
     except (AttributeError, KeyError):
-        headers = {}
+        pass
 
     try:
         response = query.get(headers=headers, **kw)
@@ -183,11 +186,10 @@ class Project(object):
             raise ValueError('%r is not github' % (remote_url,))
         return cls(**match.groupdict())
 
-    def __init__(self, owner, repository, jobs=None, branches=None):
+    def __init__(self, owner, repository, jobs=None):
         self.owner = owner
         self.repository = repository
         self.jobs = jobs or []
-        self.branches_settings = branches or []
         self.SETTINGS = {}
 
     def __eq__(self, other):
@@ -208,9 +210,46 @@ class Project(object):
         return 'https://github.com/%s/%s' % (self.owner, self.repository)
 
     @retry(wait_fixed=15000)
+    def list_watched_branches(self):
+        branches = [
+            b['name'] for b in cached_request(
+                GITHUB.repos(self.owner)(self.repository).branches,
+                protected='true',
+            )
+        ]
+        logger.debug("Protected branches are %s", branches)
+
+        repositories = filter(None, SETTINGS.GHP_REPOSITORIES.split(' '))
+        for entry in repositories:
+            entry = entry.strip()
+            project, env_branches = entry.split(':')
+
+            if self != project:
+                continue
+
+            env_branches = [b for b in env_branches.split(',') if b]
+            if not env_branches:
+                continue
+
+            branches = env_branches
+            logger.info("Override watched branches %s", branches)
+            break
+
+        return ['refs/heads/' + b for b in branches if b]
+
+    def fetch_default_settings(self):
+        defaults = {}
+
+        defaults['GHP_BRANCHES'] = self.list_watched_branches()
+
+        return defaults
+
+    @retry(wait_fixed=15000)
     def fetch_settings(self):
         if self.SETTINGS:
             return
+
+        default_settings = self.fetch_default_settings()
 
         try:
             settings = self.fetch_file_contents('.github/ghp.yml')
@@ -225,7 +264,13 @@ class Project(object):
             'GHP_' + k.upper(): v
             for k, v in data.items()
         }
-        self.SETTINGS = Settings(SETTINGS, **local_settings)
+
+        all_settings = {}
+        all_settings.update(default_settings)
+        all_settings.update(SETTINGS)
+        all_settings.update(local_settings)
+
+        self.SETTINGS = Settings(**all_settings)
         for k, v in sorted(self.SETTINGS.items()):
             logger.debug("%s=%r", k, v)
 
@@ -264,7 +309,7 @@ class Project(object):
 
     @retry(wait_fixed=15000)
     def list_branches(self):
-        branches = self.branches_settings
+        branches = self.SETTINGS.GHP_BRANCHES
 
         if not branches:
             logger.debug("No explicit branches configured for %s", self)
