@@ -15,6 +15,7 @@
 import base64
 import datetime
 import logging
+import os.path
 import re
 
 from github import GitHub, ApiError, ApiNotFoundError
@@ -26,7 +27,7 @@ from github import (
 import yaml
 
 from .cache import CACHE
-from .settings import SETTINGS
+from .settings import Settings, SETTINGS
 from .utils import match, parse_datetime, retry
 
 
@@ -187,6 +188,7 @@ class Project(object):
         self.repository = repository
         self.jobs = jobs or []
         self.branches_settings = branches or []
+        self.SETTINGS = {}
 
     def __eq__(self, other):
         return str(self) == str(other)
@@ -204,6 +206,61 @@ class Project(object):
     @property
     def url(self):
         return 'https://github.com/%s/%s' % (self.owner, self.repository)
+
+    @retry(wait_fixed=15000)
+    def fetch_settings(self):
+        if self.SETTINGS:
+            return
+
+        try:
+            settings = self.fetch_file_contents('.github/ghp.yml')
+            logger.debug("Loading settings from .github/ghp.yml")
+        except ApiNotFoundError:
+            settings = '{}'
+
+        data = yaml.load(settings)
+        assert hasattr(data, 'items'), "Not yml dict/hash"
+
+        local_settings = {
+            'GHP_' + k.upper(): v
+            for k, v in data.items()
+        }
+        self.SETTINGS = Settings(SETTINGS, **local_settings)
+        for k, v in sorted(self.SETTINGS.items()):
+            logger.debug("%s=%r", k, v)
+
+    @retry(wait_fixed=15000)
+    def fetch_file_contents(self, path, **kwargs):
+        # Search file and gets its contents.
+        path = os.path.normpath(path)
+        items = path.split('/')
+
+        # We walk because to avoid 404, it consumes rate limit. Each walk query
+        # is cached.
+        search = ''
+        for needle in items:
+            out = cached_request(
+                GITHUB.repos(self.owner)(self.repository)
+                .contents(search.strip('/')), **kwargs
+            )
+
+            if needle == items[-1]:
+                type_ = 'file'
+            else:
+                type_ = 'dir'
+            entries = [x['name'] for x in out if x['type'] == type_]
+
+            if needle not in entries:
+                logger.debug("%s not found", path)
+                raise ApiNotFoundError(path, {}, {})
+            search += '/' + needle
+
+        payload = cached_request(
+            GITHUB.repos(self.owner)(self.repository)
+            .contents(path)
+        )
+
+        return base64.b64decode(payload['content']).decode('utf-8')
 
     @retry(wait_fixed=15000)
     def list_branches(self):
@@ -327,25 +384,10 @@ class Head(object):
             jobs.add(job)
 
         try:
-            entries = cached_request(
-                GITHUB.repos(self.project.owner)(self.project.repository)
-                .contents,
-                ref=self.ref,
-            )
+            config = self.project.fetch_file_contents('jenkins.yml')
         except ApiNotFoundError:
-            logger.debug("%s has disappeared", self)
             return []
 
-        files = [x['name'] for x in entries if x['type'] == 'file']
-        if 'jenkins.yml' not in files:
-            return list(jobs)
-
-        config = cached_request(
-            GITHUB.repos(self.project.owner)(self.project.repository)
-            .contents('jenkins.yml'),
-            ref=self.ref,
-        )
-        config = base64.b64decode(config['content']).decode('utf-8')
         config = yaml.load(config)
         for name, params in config.items():
             job = JobSpec(self.project, name, params)

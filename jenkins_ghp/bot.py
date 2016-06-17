@@ -48,6 +48,7 @@ class Bot(object):
     def workon(self, head):
         logger.info("Working on %s", head)
         self.head = head
+        self.head.project.fetch_settings()
         self.current = copy.deepcopy(self.DEFAULTS)
         for ext in self.extensions.values():
             self.current.update(copy.deepcopy(ext.DEFAULTS))
@@ -63,7 +64,11 @@ class Bot(object):
         return self
 
     def run(self, head):
-        self.workon(head)
+        try:
+            self.workon(head)
+        except Exception as e:
+            logger.warn("Fail to work on %s: %s", head, e)
+            return
 
         for ext in self.extensions.values():
             ext.begin()
@@ -138,7 +143,6 @@ class Extension(object):
 
     def begin(self):
         self.bot.current.update(copy.deepcopy(self.DEFAULTS))
-        self.SETTINGS = self.bot.head.project
 
     def process_instruction(self, instruction):
         pass
@@ -308,7 +312,7 @@ class FixStatusExtension(Extension):
                     )
                 except TypeError:
                     pass
-        elif self.SETTINGS.GHP_STATUS_LOOP:
+        elif self.bot.head.project.SETTINGS.GHP_STATUS_LOOP:
             # Touch the commit status to avoid polling it for the next 5
             # minutes.
             state = 'pending'
@@ -326,7 +330,9 @@ class FixStatusExtension(Extension):
     def end(self):
         fivemin_ago = (
             datetime.datetime.utcnow() -
-            datetime.timedelta(seconds=self.SETTINGS.GHP_STATUS_LOOP)
+            datetime.timedelta(
+                seconds=self.bot.head.project.SETTINGS.GHP_STATUS_LOOP
+            )
         )
 
         failed_contexts = []
@@ -424,7 +430,7 @@ Extensions: %(extensions)s
             extensions=','.join(sorted(self.bot.extensions.keys())),
             help=help_,
             host=socket.getfqdn(),
-            me=SETTINGS.GHP_NAME,
+            me=self.bot.head.project.SETTINGS.GHP_NAME,
             mentions=', '.join(sorted([
                 '@' + m for m in self.bot.current['help-mentions']
             ])),
