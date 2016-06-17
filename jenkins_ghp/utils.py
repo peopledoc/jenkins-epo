@@ -69,7 +69,7 @@ def match(item, patterns):
     matched = not patterns
     for pattern in patterns:
         negate = False
-        if pattern.startswith('-'):
+        if pattern.startswith('-') or pattern.startswith('!'):
             negate = True
             pattern = pattern[1:]
         if pattern.startswith('+'):

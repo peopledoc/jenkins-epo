@@ -122,3 +122,34 @@ def test_skip_re_wrong():
     bot = Bot().workon(pr)
     bot.process_instructions()
     assert not bot.extensions['builder'].skip('toto')
+
+
+def test_match_mixed():
+    from jenkins_ghp.bot import Bot
+
+    pr = Mock()
+    pr.list_jobs.return_value = []
+    pr.list_instructions.return_value = [
+        (None, None, """jenkins: {jobs: [-toto*, not*]}"""),
+    ]
+
+    bot = Bot().workon(pr)
+    bot.process_instructions()
+    assert bot.extensions['builder'].skip('toto-doc')
+    assert not bot.extensions['builder'].skip('notthis')
+
+
+def test_match_negate():
+    from jenkins_ghp.bot import Bot
+
+    pr = Mock()
+    pr.list_jobs.return_value = []
+    pr.list_instructions.return_value = [
+        (None, None, """jenkins: {jobs: ['*', -skip*]}"""),
+    ]
+
+    bot = Bot().workon(pr)
+    bot.process_instructions()
+
+    assert bot.extensions['builder'].skip('skip')
+    assert not bot.extensions['builder'].skip('new')
