@@ -440,6 +440,8 @@ Extensions: %(extensions)s
 
 class ErrorExtension(Extension):
     ERROR_COMMENT = """
+:see_no_evil: :bangbang:
+
 Sorry %(mention)s, I don't understand what you mean by `%(instruction)s`: `%(error)s`.
 
 See `jenkins: help` for documentation.
