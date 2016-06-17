@@ -516,7 +516,7 @@ class Branch(Head):
         logger.info("Commenting on %s", self)
         (
             GITHUB.repos(self.project.owner)(self.project.repository)
-            .commits(self.sha).comments.post(body=body)
+            .commits(self.sha).comments.post(body=body.strip())
         )
 
 

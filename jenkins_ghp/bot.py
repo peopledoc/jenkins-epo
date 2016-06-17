@@ -235,7 +235,7 @@ jenkins: reset-skip-errors
                     for context in queued_contexts:
                         self.bot.head.update_statuses(
                             context=context,
-                            state='failure',
+                            state='error',
                             description='Failed to queue job',
                             target_url=job.baseurl,
                         )
@@ -278,7 +278,7 @@ def format_duration(duration):
 
 class FixStatusExtension(Extension):
     SETTINGS = {
-        'GHP_STATUS_LOOP': 300,
+        'GHP_STATUS_LOOP': 0,
     }
 
     status_map = {
@@ -307,13 +307,16 @@ class FixStatusExtension(Extension):
                     )
                 except TypeError:
                     pass
-        else:
+        elif SETTINGS.GHP_STATUS_LOOP:
             # Touch the commit status to avoid polling it for the next 5
             # minutes.
             state = 'pending'
             description = current_status['description']
             ellipsis = '...' if description.endswith('....') else '....'
             description = description.rstrip('.') + ellipsis
+        else:
+            # Don't touch
+            return {}
 
         return dict(
             description=description, state=state, target_url=target_url,
@@ -330,13 +333,14 @@ class FixStatusExtension(Extension):
             if status['state'] == 'success':
                 continue
 
+            # There is no build URL.
+            if status['description'] in {'Backed', 'New', 'Queued'}:
+                continue
+
             updated_at = parse_datetime(status['updated_at'])
             # Don't poll Jenkins more than each 5 min.
             if status['state'] == 'pending' and updated_at > fivemin_ago:
-                continue
-
-            # There is no build URL.
-            if status['description'] in {'Backed', 'New', 'Queued'}:
+                logger.debug("Postpone Jenkins status polling.")
                 continue
 
             # We mark actual failed with a bang to avoid rechecking it is
@@ -358,9 +362,9 @@ class FixStatusExtension(Extension):
                 build = None
                 failed_contexts.append(context)
 
-            self.bot.head.update_statuses(
-                context=context, **self.compute_actual_status(build, status)
-            )
+            new_status = self.compute_actual_status(build, status)
+            if new_status:
+                self.bot.head.update_statuses(context=context, **new_status)
 
         if failed_contexts:
             logger.warn(
@@ -437,6 +441,8 @@ Extensions: %(extensions)s
 
 class ErrorExtension(Extension):
     ERROR_COMMENT = """
+:see_no_evil: :bangbang:
+
 Sorry %(mention)s, I don't understand what you mean by `%(instruction)s`: `%(error)s`.
 
 See `jenkins: help` for documentation.
