@@ -110,6 +110,7 @@ def bot():
 def list_jobs():
     """List managed jobs"""
     for project in JENKINS.list_projects():
+        project.fetch_settings()
         for job in project.jobs:
             print(job)
 
@@ -118,6 +119,7 @@ def list_branches():
     """List branches to build"""
 
     for project in JENKINS.list_projects():
+        project.fetch_settings()
         for branch in project.list_branches():
             print(branch)
 
@@ -125,6 +127,7 @@ def list_branches():
 def list_pr():
     """List GitHub PR polled"""
     for project in JENKINS.list_projects():
+        project.fetch_settings()
         for pr in project.list_pull_requests():
             print(pr)
 
@@ -133,6 +136,7 @@ def list_projects():
     """List GitHub projects tested by this Jenkins"""
 
     for project in JENKINS.list_projects():
+        project.fetch_settings()
         print(project)
 
 
