@@ -62,7 +62,6 @@ def cached_request(query, **kw):
     try:
         response = CACHE.get(cache_key)
         last_modified = response._headers['Last-Modified']
-        logger.debug("Trying %s modified since %s", cache_key, last_modified)
         headers[b'If-Modified-Since'] = last_modified
     except (AttributeError, KeyError):
         pass
@@ -74,7 +73,7 @@ def cached_request(query, **kw):
             raise
         else:
             logger.debug(
-                "Saved one rate limit hit! (remaining=%s)",
+                "Cache up to date (remaining=%s)",
                 GITHUB.x_ratelimit_remaining,
             )
 
@@ -108,7 +107,8 @@ class CustomGitHub(GitHub):
             request.add_header(k, v)
         try:
             logger.debug(
-                "%s %s remaining=%s", _method, url, self.x_ratelimit_remaining
+                "%s %s (remaining=%s)",
+                _method, url, self.x_ratelimit_remaining,
             )
             response = opener.open(request, timeout=TIMEOUT)
             is_json = self._process_resp(response.headers)

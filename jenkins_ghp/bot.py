@@ -54,6 +54,10 @@ class Bot(object):
 
         self.jobs = []
         for job in head.list_jobs():
+            if not match(job.name, JENKINS.jobs_filter):
+                logger.debug("Skipping %s", job.name)
+                continue
+
             if isinstance(job, JobSpec):
                 job = JENKINS.create_job(job)
 
@@ -120,6 +124,12 @@ class Instruction(object):
 
     def __str__(self):
         return self.name
+
+    def __repr__(self):
+        return '%s(%s, %s)' % (
+            self.__class__.__name__,
+            self.author, self.name
+        )
 
     def __eq__(self, other):
         if isinstance(other, str):
