@@ -29,6 +29,7 @@ class Settings(dict):
 
 class EnvironmentSettings(Settings):
     def __init__(self, defaults):
+        logger.debug("Global settings:")
         self.load(defaults)
         logger.debug("Environment loaded.")
 

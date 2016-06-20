@@ -69,7 +69,7 @@ class Bot(object):
             ext.begin()
 
         self.process_instructions()
-        logger.debug("Bot settings: %r", self.current)
+        logger.debug("Bot vars: %r", self.current)
 
         for ext in self.extensions.values():
             ext.end()

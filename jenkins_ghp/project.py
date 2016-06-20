@@ -271,6 +271,7 @@ class Project(object):
         all_settings.update(local_settings)
 
         self.SETTINGS = Settings(**all_settings)
+        logger.debug("Project settings:")
         for k, v in sorted(self.SETTINGS.items()):
             logger.debug("%s=%r", k, v)
 
