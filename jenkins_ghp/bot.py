@@ -125,6 +125,12 @@ class Instruction(object):
     def __str__(self):
         return self.name
 
+    def __repr__(self):
+        return '%s(%s, %s)' % (
+            self.__class__.__name__,
+            self.author, self.name
+        )
+
     def __eq__(self, other):
         if isinstance(other, str):
             return str(self) == other
