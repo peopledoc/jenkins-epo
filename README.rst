@@ -25,7 +25,7 @@ Features
 - Retry on network failure.
 - Nice with humans: wait for queue to be empty before queuing new PR jobs.
 - Update GitHub commit status from Jenkins status.
-- Report issue on broken well-known branch (master, stable, etc.)
+- Report issue on broken protected branch.
 - Creates jobs from `jenkins.yml <https://github.com/novafloss/jenkins-yml>`_.
 
 
