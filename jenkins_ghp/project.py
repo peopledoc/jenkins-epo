@@ -244,7 +244,6 @@ class Project(object):
 
         return defaults
 
-    @retry(wait_fixed=15000)
     def fetch_settings(self):
         if self.SETTINGS:
             return
