@@ -48,7 +48,6 @@ class Bot(object):
     def workon(self, head):
         logger.info("Working on %s", head)
         self.head = head
-        self.head.project.fetch_settings()
         self.current = copy.deepcopy(self.DEFAULTS)
         for ext in self.extensions.values():
             self.current.update(copy.deepcopy(ext.DEFAULTS))
@@ -64,11 +63,7 @@ class Bot(object):
         return self
 
     def run(self, head):
-        try:
-            self.workon(head)
-        except Exception as e:
-            logger.warn("Fail to work on %s: %s", head, e)
-            return
+        self.workon(head)
 
         for ext in self.extensions.values():
             ext.begin()

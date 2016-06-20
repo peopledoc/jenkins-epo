@@ -82,6 +82,12 @@ def bot():
     bot = Bot(queue_empty=None)
 
     for project in JENKINS.list_projects():
+        try:
+            project.fetch_settings()
+        except Exception as e:
+            logger.error("Failed to load %s settings: %s", project, e)
+            continue
+
         for branch in project.list_branches():
             try:
                 yield from check_queue(bot)
