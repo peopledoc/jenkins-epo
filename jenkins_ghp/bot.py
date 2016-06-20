@@ -18,12 +18,13 @@ import datetime
 import inspect
 import logging
 import pkg_resources
+import random
 import re
 import socket
 import yaml
 
 from .jenkins import JENKINS
-from .project import Branch, JobSpec
+from .project import ApiError, Branch, JobSpec, PullRequest
 from .utils import match, parse_datetime
 from .settings import SETTINGS
 
@@ -131,6 +132,9 @@ class Instruction(object):
             self.author, self.name
         )
 
+    def __hash__(self):
+        return hash(self.name)
+
     def __eq__(self, other):
         if isinstance(other, str):
             return str(self) == other
@@ -172,13 +176,22 @@ class BuilderExtension(Extension):
 
     # Requeue past failed jobs
     jenkins: rebuild
+
+    # Acknowledge for auto-merge
+    jenkins: opm
     """
 
     DEFAULTS = {
         'jobs-match': [],
+        'lgtm': [],
+        'lgtm-processed': None,
         'skip': [],
         'skip-errors': [],
         'rebuild-failed': None,
+    }
+    SETTINGS = {
+        'GHP_LGTM_AUTHOR': False,
+        'GHP_LGTM_QUORUM': 1,
     }
     SKIP_ALL = ('.*',)
     BUILD_ALL = ['*']
@@ -190,6 +203,22 @@ Sorry %(mention)s, I don't understand your pattern `%(pattern)r`: `%(error)s`.
 jenkins: reset-skip-errors
 -->
 """
+    LGTM_COMMENT = """
+%(mention)s, %(message)s %(emoji)s
+
+<!--
+jenkins: lgtm-processed
+-->
+"""
+
+    def begin(self):
+        super(BuilderExtension, self).begin()
+
+        if isinstance(self.bot.head, PullRequest):
+            # Initialize LGTM processing
+            self.bot.current['lgtm-processed'] = parse_datetime(
+                self.bot.head.data['created_at']
+            )
 
     def process_instruction(self, instruction):
         if instruction == 'skip':
@@ -205,13 +234,20 @@ jenkins: reset-skip-errors
                 except re.error as e:
                     logger.warn("Bad pattern for skip: %s", e)
                     errors.append((instruction, pattern, e))
-        if instruction == 'jobs':
+        elif instruction == 'jobs':
             patterns = instruction.args
             if isinstance(patterns, str):
                 patterns = [patterns]
 
             self.bot.current['jobs-match'] = patterns
-        if instruction == 'reset-skip-errors':
+        elif instruction in {'lgtm', 'merge', 'opm'}:
+            if hasattr(self.bot.head, 'merge'):
+                if not self.bot.current['lgtm']:
+                    logger.debug("LGTM incoming.")
+                self.bot.current['lgtm'].append(instruction)
+        elif instruction == 'lgtm-processed':
+            self.bot.current['lgtm-processed'] = instruction.date
+        elif instruction == 'reset-skip-errors':
             self.bot.current['skip-errors'] = []
         elif instruction == 'rebuild':
             self.bot.current['rebuild-failed'] = instruction.date
@@ -249,6 +285,145 @@ jenkins: reset-skip-errors
                             description='Failed to queue job',
                             target_url=job.baseurl,
                         )
+
+        self.maybe_merge()
+
+    def check_lgtm(self):
+        logger.debug("Validating LGTMs.")
+        lgtms = self.bot.current['lgtm'][:]
+        if not lgtms:
+            return
+
+        processed_date = self.bot.current['lgtm-processed']
+
+        lgtmers = {i.author for i in lgtms}
+        new_refused = set()
+        for author in list(lgtmers):
+            if author in self.bot.head.project.SETTINGS.GHP_REVIEWERS:
+                logger.info("Accept @%s as reviewer.", author)
+            else:
+                lgtmers.remove(author)
+                logger.info("Refuse LGTM from @%s.", author)
+                unanswerd_lgtm = [
+                    l for l in lgtms
+                    if l.author == author and l.date > processed_date
+                ]
+                if unanswerd_lgtm:
+                    new_refused.add(author)
+
+        if new_refused:
+            self.bot.head.comment(self.LGTM_COMMENT % dict(
+                emoji=random.choice((':confused:', ':disappointed:')),
+                mention=', '.join(['@' + a for a in new_refused]),
+                message="you're not allowed to acknowledge PR",
+            ))
+
+        lgtms = [i for i in lgtms if i.author in lgtmers]
+        if not lgtms:
+            return logger.debug("No legal LGTMs. Skipping.")
+
+        commit = self.bot.head.get_commit()
+        commit_date = parse_datetime(commit['committer']['date'])
+        outdated_lgtm = [l for l in lgtms if l.date < commit_date]
+        lgtms = list(set(lgtms) - set(outdated_lgtm))
+        if outdated_lgtm and not lgtms:
+            logger.debug("PR updated since LGTM. Skipping.")
+            unanswerd_lgtm = [
+                l for l in outdated_lgtm if l.date > processed_date
+            ]
+            if unanswerd_lgtm:
+                mentions = ['@' + l.author for l in unanswerd_lgtm]
+                self.bot.head.comment(self.LGTM_COMMENT % dict(
+                    emoji=random.choice((':up:', ':point_up:')),
+                    mention=', '.join(mentions),
+                    message=(
+                        "PR has been updated since your acknowledgement. "
+                        "I don't merge updated PR."
+                    ),
+                ))
+            return
+
+        if len(lgtms) < self.bot.head.project.SETTINGS.GHP_LGTM_QUORUM:
+            return logger.debug("Missing LGTMs quorum. Skipping.")
+
+        if self.bot.head.project.SETTINGS.GHP_LGTM_AUTHOR:
+            self_lgtm = self.bot.head.author in {i.author for i in lgtms}
+            if not self_lgtm:
+                return logger.debug("Author's LGTM missing. Skipping.")
+
+        logger.debug("Accepted LGTMs from %s", [l.author for l in lgtms])
+
+        return lgtms
+
+    def check_mergeable(self):
+        # This function loop the checklist for an automergeable PR. The
+        # checklist summary is:
+        #
+        # 1. LGTM quorum is ok ;
+        # 2. All managed status are green ;
+        # 3. PR is not behind base branch.
+        #
+        # If any item of the checklist fails, PR must be merge manually.
+
+        lgtms = self.check_lgtm()
+        if not lgtms:
+            return
+
+        statuses = self.bot.head.get_statuses()
+        unsuccess = {
+            k: v for k, v in statuses.items()
+            if v['state'] != 'success'
+        }
+        if unsuccess:
+            return logger.debug("PR not green. Postpone merge.")
+
+        if self.bot.head.is_behind():
+            logger.debug("Base updated since LGTM. Skipping merge.")
+            unprocessed_lgtms = [
+                l for l in lgtms
+                if l.date > self.bot.current['lgtm-processed']
+            ]
+            if unprocessed_lgtms:
+                self.bot.head.comment(self.LGTM_COMMENT % dict(
+                    emoji=random.choice((':confused:', ':disappointed:')),
+                    mention='@' + self.bot.head.author,
+                    message=(
+                        "%(base)s has been updated and this PR is now behind. "
+                        "I don't merge behind PR." % dict(
+                            base=self.bot.head.data['base']['label'],
+                        )
+                    ),
+                ))
+            return
+
+        return lgtms
+
+    def maybe_merge(self):
+        lgtms = self.check_mergeable()
+        if not lgtms:
+            return
+
+        try:
+            self.bot.head.merge()
+        except ApiError as e:
+            logger.warn("Failed to merge: %s", e.response['json']['message'])
+            self.bot.head.comment(self.LGTM_COMMENT % dict(
+                emoji=random.choice((':confused:', ':disappointed:')),
+                mention='@' + self.bot.head.author,
+                message="I can't merge: `%s`" % (
+                    e.response['json']['message']
+                ),
+            ))
+        else:
+            logger.warn("Merged!")
+            self.bot.head.comment(self.LGTM_COMMENT % dict(
+                emoji=random.choice((
+                    ':smiley:', ':sunglasses:', ':thumbup:',
+                    ':ok_hand:', ':surfer:', ':white_check_mark:',
+                )),
+                mention=', '.join(['@' + l.author for l in lgtms]),
+                message="merged %s for you!" % (self.bot.head.ref),
+            ))
 
     def skip(self, context):
         for pattern in self.bot.current['skip']:

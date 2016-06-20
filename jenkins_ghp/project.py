@@ -237,10 +237,22 @@ class Project(object):
 
         return ['refs/heads/' + b for b in branches if b]
 
+    @retry(wait_fixed=15000)
+    def list_reviewers(self):
+        collaborators = cached_request(
+            GITHUB.repos(self.owner)(self.repository).collaborators
+        )
+        return [c['login'] for c in collaborators if (
+            c['site_admin'] or
+            c['permissions']['admin'] or
+            c['permissions']['push']
+        )]
+
     def fetch_default_settings(self):
         defaults = {}
 
         defaults['GHP_BRANCHES'] = self.list_watched_branches()
+        defaults['GHP_REVIEWERS'] = self.list_reviewers()
 
         return defaults
 
@@ -631,6 +643,10 @@ class PullRequest(Head):
 
     __repr__ = __str__
 
+    @property
+    def author(self):
+        return self.data['user']['login']
+
     @retry(wait_fixed=15000)
     def comment(self, body):
         if GITHUB.dry:
@@ -650,3 +666,28 @@ class PullRequest(Head):
             .issues(self.data['number'])
         )
         return [self.data] + cached_request(issue.comments)
+
+    @retry(wait_fixed=15000)
+    def is_behind(self):
+        base = self.data['base']['label']
+        head = self.data['head']['label']
+        comparison = cached_request(
+            GITHUB.repos(self.project.owner)(self.project.repository)
+            .compare('%s...%s' % (base, head))
+        )
+        return comparison['behind_by']
+
+    @retry(wait_fixed=15000)
+    def merge(self, message=None):
+        body = {
+            'sha': self.data['head']['sha'],
+        }
+
+        if GITHUB.dry:
+            return logger.info("Would merge %s", body['sha'])
+
+        logger.debug("Trying merge!")
+        (
+            GITHUB.repos(self.project.owner)(self.project.repository)
+            .pulls(self.data['number']).merge.put(body=body)
+        )

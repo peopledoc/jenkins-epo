@@ -27,6 +27,7 @@ Features
 - Update GitHub commit status from Jenkins status.
 - Report issue on broken protected branch.
 - Creates jobs from `jenkins.yml <https://github.com/novafloss/jenkins-yml>`_.
+- Auto-merge PR on LGTM.
 
 
 Skipping jobs
