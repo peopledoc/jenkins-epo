@@ -8,8 +8,8 @@ Is your Jenkins crazy?
 
 | |PyPI| |CI| |Code Climate| |Requires.io|
 
-A pure python poller based on GitHub API. This is an alternative solution to
-jenkins poll or GitHub webhook.
+A pure python poller based on GitHub API. This is an alternative to jenkins
+poll or GitHub webhook.
 
 
 Features
