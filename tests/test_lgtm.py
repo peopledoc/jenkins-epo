@@ -173,7 +173,7 @@ def test_self_lgtm():
     assert not bot.extensions['builder'].check_lgtm()
 
 
-@patch('jenkins_ghp.bot.BuilderExtension.check_lgtm')
+@patch('jenkins_ghp.extensions.BuilderExtension.check_lgtm')
 def test_skip_not_green(check_lgtm):
     from jenkins_ghp.bot import Bot, Instruction
 
@@ -187,7 +187,7 @@ def test_skip_not_green(check_lgtm):
     assert not bot.extensions['builder'].check_mergeable()
 
 
-@patch('jenkins_ghp.bot.BuilderExtension.check_lgtm')
+@patch('jenkins_ghp.extensions.BuilderExtension.check_lgtm')
 def test_skip_behind(check_lgtm):
     from jenkins_ghp.bot import Bot, Instruction
 
@@ -210,7 +210,7 @@ def test_skip_behind(check_lgtm):
     assert pr.comment.mock_calls
 
 
-@patch('jenkins_ghp.bot.BuilderExtension.check_lgtm')
+@patch('jenkins_ghp.extensions.BuilderExtension.check_lgtm')
 def test_skip_behind_processed(check_lgtm):
     from jenkins_ghp.bot import Bot, Instruction
 
@@ -233,9 +233,10 @@ def test_skip_behind_processed(check_lgtm):
     assert not pr.comment.mock_calls
 
 
-@patch('jenkins_ghp.bot.BuilderExtension.check_mergeable')
+@patch('jenkins_ghp.extensions.BuilderExtension.check_mergeable')
 def test_merge_fail(check_mergeable):
-    from jenkins_ghp.bot import Bot, ApiError
+    from jenkins_ghp.bot import Bot
+    from jenkins_ghp.extensions import ApiError
 
     pr = Mock()
     pr.author = 'author'
@@ -251,7 +252,7 @@ def test_merge_fail(check_mergeable):
     assert pr.comment.mock_calls
 
 
-@patch('jenkins_ghp.bot.BuilderExtension.check_mergeable')
+@patch('jenkins_ghp.extensions.BuilderExtension.check_mergeable')
 def test_merge_success(check_mergeable):
     from jenkins_ghp.bot import Bot, Instruction
 
