@@ -124,6 +124,30 @@ def test_skip_missing_lgtm():
     assert not bot.extensions['builder'].check_lgtm()
 
 
+def test_skip_dup_lgtm():
+    from jenkins_ghp.bot import Bot
+
+    start = datetime.now()
+
+    pr = Mock()
+    pr.project.SETTINGS.GHP_REVIEWERS = ['reviewer1', 'reviewer2']
+    pr.project.SETTINGS.GHP_LGTM_AUTHOR = False
+    pr.project.SETTINGS.GHP_LGTM_QUORUM = 2
+    pr.list_jobs.return_value = []
+    pr.list_instructions.return_value = [
+        (start + timedelta(seconds=1), 'bot', 'jenkins: lgtm-processed'),
+        (start + timedelta(seconds=2), 'reviewer1', 'jenkins: lgtm'),
+        (start + timedelta(seconds=3), 'reviewer1', 'jenkins: lgtm'),
+    ]
+    pr.get_commit.return_value = {'committer': {'date': (
+        start.strftime('%Y-%m-%dT%H:%M:%SZ')
+    )}}
+
+    bot = Bot().workon(pr)
+    bot.process_instructions()
+    assert not bot.extensions['builder'].check_lgtm()
+
+
 def test_self_lgtm():
     from jenkins_ghp.bot import Bot
 

@@ -314,7 +314,7 @@ jenkins: lgtm-processed
         if new_refused:
             self.bot.head.comment(self.LGTM_COMMENT % dict(
                 emoji=random.choice((':confused:', ':disappointed:')),
-                mention=', '.join(['@' + a for a in new_refused]),
+                mention=', '.join(sorted(['@' + a for a in new_refused])),
                 message="you're not allowed to acknowledge PR",
             ))
 
@@ -332,7 +332,9 @@ jenkins: lgtm-processed
                 l for l in outdated_lgtm if l.date > processed_date
             ]
             if unanswerd_lgtm:
-                mentions = ['@' + l.author for l in unanswerd_lgtm]
+                mentions = sorted(set([
+                    '@' + l.author for l in unanswerd_lgtm
+                ]))
                 self.bot.head.comment(self.LGTM_COMMENT % dict(
                     emoji=random.choice((':up:', ':point_up:')),
                     mention=', '.join(mentions),
@@ -342,6 +344,13 @@ jenkins: lgtm-processed
                     ),
                 ))
             return
+
+        lgtmers = {i.author for i in lgtms}
+        if len(lgtms) > len(lgtmers):
+            logger.debug("Deduplicate LGTMs")
+            lgtms = [
+                [l for l in lgtms if l.author == a][0] for a in lgtmers
+            ]
 
         if len(lgtms) < self.bot.head.project.SETTINGS.GHP_LGTM_QUORUM:
             return logger.debug("Missing LGTMs quorum. Skipping.")
@@ -421,7 +430,9 @@ jenkins: lgtm-processed
                     ':smiley:', ':sunglasses:', ':thumbup:',
                     ':ok_hand:', ':surfer:', ':white_check_mark:',
                 )),
-                mention=', '.join(['@' + l.author for l in lgtms]),
+                mention=', '.join(sorted(set([
+                    '@' + l.author for l in lgtms
+                ]))),
                 message="merged %s for you!" % (self.bot.head.ref),
             ))
 

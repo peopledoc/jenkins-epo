@@ -22,12 +22,13 @@ def test_fetch_settings_ghp(fds, ffc):
 
     fds.return_value = {}
     ffc.return_value = repr(dict(
-        branches=['master', 'qualif', 'develop'],
+        branches=['master', 'develop'],
     ))
 
     project = Project('owner', 'repo1')
     project.fetch_settings()
-    assert ['master', 'qualif', 'develop'] == project.SETTINGS.GHP_BRANCHES
+    wanted = ['refs/heads/master', 'refs/heads/develop']
+    assert wanted == project.SETTINGS.GHP_BRANCHES
 
 
 @patch('jenkins_ghp.project.SETTINGS')
