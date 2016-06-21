@@ -282,6 +282,14 @@ class Project(object):
         all_settings.update(local_settings)
 
         self.SETTINGS = Settings(**all_settings)
+        self.post_process_settings()
+
+    def post_process_settings(self):
+        self.SETTINGS.GHP_BRANCHES = [
+            b if b.startswith('refs/heads') else 'refs/heads/%s' % b
+            for b in self.SETTINGS['GHP_BRANCHES']
+        ]
+
         logger.debug("Project settings:")
         for k, v in sorted(self.SETTINGS.items()):
             logger.debug("%s=%r", k, v)

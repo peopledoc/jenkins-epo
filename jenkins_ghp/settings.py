@@ -26,6 +26,9 @@ class Settings(dict):
         except KeyError:
             raise AttributeError(name)
 
+    def __setattr__(self, name, value):
+        self[name] = value
+
 
 class EnvironmentSettings(Settings):
     def __init__(self, defaults):
