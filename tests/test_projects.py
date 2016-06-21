@@ -41,3 +41,35 @@ def test_defaults_branches(cached_request, SETTINGS):
     project = Project('owner', 'repo1')
     branches = project.list_watched_branches()
     assert ['refs/heads/master'] == branches
+
+
+@patch('jenkins_ghp.project.cached_request')
+def test_reviewers(cached_request):
+    from jenkins_ghp.project import Project
+
+    cached_request.return_value = [
+        {'login': 'siteadmin', 'site_admin': True},
+        {
+            'login': 'contributor',
+            'permissions': {'admin': False, 'pull': False, 'push': False},
+            'site_admin': False,
+        },
+        {
+            'login': 'pusher',
+            'permissions': {'admin': False, 'pull': True, 'push': True},
+            'site_admin': False,
+        },
+        {
+            'login': 'owner',
+            'permissions': {'admin': True, 'pull': True, 'push': True},
+            'site_admin': False,
+        },
+    ]
+
+    project = Project('owner', 'repository')
+    reviewers = project.list_reviewers()
+
+    assert 'siteadmin' in reviewers
+    assert 'contributor' not in reviewers
+    assert 'pusher' in reviewers
+    assert 'owner' in reviewers
