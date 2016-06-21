@@ -17,7 +17,8 @@ def test_compute_skip_unindented():
 
 
 def test_compute_skip_null():
-    from jenkins_ghp.bot import Bot, BuilderExtension
+    from jenkins_ghp.bot import Bot
+    from jenkins_ghp.extensions import BuilderExtension
 
     pr = Mock()
     pr.list_jobs.return_value = []
@@ -32,7 +33,8 @@ def test_compute_skip_null():
 
 
 def test_compute_skip():
-    from jenkins_ghp.bot import Bot, BuilderExtension
+    from jenkins_ghp.bot import Bot
+    from jenkins_ghp.extensions import BuilderExtension
 
     pr = Mock()
     pr.list_jobs.return_value = []
@@ -153,3 +155,12 @@ def test_match_negate():
 
     assert bot.extensions['builder'].skip('skip')
     assert not bot.extensions['builder'].skip('new')
+
+
+def test_duration_format():
+    from jenkins_ghp.extensions import format_duration
+
+    assert '4.2 sec' == format_duration(4200)
+    assert '23 sec' == format_duration(23000)
+    assert '5 min 4.2 sec' == format_duration(304200)
+    assert '2 h 5 min 4.2 sec' == format_duration(7504200)

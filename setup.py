@@ -35,11 +35,11 @@ setup(
     entry_points={
         'console_scripts': ['jenkins-ghp=jenkins_ghp.script:entrypoint'],
         'jenkins_ghp.bot.extensions': [
-            'builder = jenkins_ghp.bot:BuilderExtension',
-            'error = jenkins_ghp.bot:ErrorExtension',
-            'fix = jenkins_ghp.bot:FixStatusExtension',
-            'help = jenkins_ghp.bot:HelpExtension',
-            'report = jenkins_ghp.bot:ReportExtension',
+            'builder = jenkins_ghp.extensions:BuilderExtension',
+            'error = jenkins_ghp.extensions:ErrorExtension',
+            'fix = jenkins_ghp.extensions:FixStatusExtension',
+            'help = jenkins_ghp.extensions:HelpExtension',
+            'report = jenkins_ghp.extensions:ReportExtension',
         ],
     },
     extras_require={
