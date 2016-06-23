@@ -98,7 +98,10 @@ class Project(object):
         repositories = filter(None, SETTINGS.GHP_REPOSITORIES.split(' '))
         for entry in repositories:
             entry = entry.strip()
-            project, env_branches = entry.split(':')
+            if ':' in entry:
+                project, env_branches = entry.split(':')
+            else:
+                project, env_branches = entry, ''
 
             if self != project:
                 continue
