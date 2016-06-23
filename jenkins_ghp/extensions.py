@@ -158,11 +158,11 @@ jenkins: lgtm-processed
         self.maybe_merge()
 
     def check_lgtm(self):
-        logger.debug("Validating LGTMs.")
         lgtms = self.bot.current['lgtm'][:]
         if not lgtms:
             return
 
+        logger.debug("Validating LGTMs.")
         processed_date = self.bot.current['lgtm-processed']
 
         lgtmers = {i.author for i in lgtms}
