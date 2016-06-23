@@ -89,8 +89,7 @@ class Repository(object):
     def list_watched_branches(self):
         branches = [
             b['name'] for b in cached_request(
-                GITHUB.repos(self.owner)(self.name).branches,
-                protected='true',
+                GITHUB.repos(self).branches, protected='true',
             )
         ]
         logger.debug("Protected branches are %s", branches)
@@ -118,9 +117,7 @@ class Repository(object):
 
     @retry(wait_fixed=15000)
     def list_reviewers(self):
-        collaborators = cached_request(
-            GITHUB.repos(self.owner)(self.name).collaborators
-        )
+        collaborators = cached_request(GITHUB.repos(self).collaborators)
         return [c['login'] for c in collaborators if (
             c['site_admin'] or
             c['permissions']['admin'] or
@@ -184,8 +181,7 @@ class Repository(object):
         search = ''
         for needle in items:
             out = cached_request(
-                GITHUB.repos(self.owner)(self.name)
-                .contents(search.strip('/')), **kwargs
+                GITHUB.repos(self).contents(search.strip('/')), **kwargs
             )
 
             if needle == items[-1]:
@@ -199,10 +195,7 @@ class Repository(object):
                 raise ApiNotFoundError(path, {}, {})
             search += '/' + needle
 
-        payload = cached_request(
-            GITHUB.repos(self.owner)(self.name)
-            .contents(path)
-        )
+        payload = cached_request(GITHUB.repos(self).contents(path))
 
         return base64.b64decode(payload['content']).decode('utf-8')
 
@@ -219,9 +212,7 @@ class Repository(object):
         ret = []
         for branch in branches:
             try:
-                ref = cached_request(
-                    GITHUB.repos(self.owner)(self.name).git(branch)
-                )
+                ref = cached_request(GITHUB.repos(self).git(branch))
             except ApiNotFoundError:
                 logger.warn("Branch %s not found in %s", branch, self)
                 continue
@@ -241,10 +232,7 @@ class Repository(object):
         logger.debug("Querying GitHub for %s PR", self)
 
         try:
-            pulls = cached_request(
-                GITHUB.repos(self.owner)(self.name)
-                .pulls, per_page=b'100',
-            )
+            pulls = cached_request(GITHUB.repos(self).pulls)
         except Exception:
             logger.exception("Failed to list PR for %s", self)
             return []
@@ -277,12 +265,8 @@ class Repository(object):
             return {'number': 0}
 
         logger.info("Reporting issue on %s", self)
-        return (
-            GITHUB.repos(self.owner)(self.name)
-            .issues.post(
-                title=title,
-                body=body,
-            )
+        return GITHUB.repos(self).issues.post(
+            title=title, body=body,
         )
 
 
@@ -310,8 +294,7 @@ class Head(object):
     def get_commit(self):
         logger.debug("Fetching commit %s", self.sha[:7])
         data = cached_request(
-            GITHUB.repos(self.repository.owner)(self.repository.name)
-            .commits(self.sha)
+            GITHUB.repos(self.repository).commits(self.sha)
         )
         if 'commit' not in data:
             raise Exception('No commit data')
@@ -415,9 +398,7 @@ class Head(object):
             if self._status_cache is None:
                 logger.debug("Fetching statuses for %s", self.sha[:7])
                 response = cached_request(
-                    GITHUB.repos(self.repository.owner)(self.repository.name)
-                    .status(self.sha),
-                    per_page=b'100',
+                    GITHUB.repos(self.repository).status(self.sha),
                 )
                 statuses = {
                     x['context']: x
@@ -456,8 +437,8 @@ class Head(object):
                 "Set GitHub status %s to %s/%s", context, state, description,
             )
             new_status = (
-                GITHUB.repos(self.repository.owner)(self.repository.name)
-                .statuses(self.sha).post(**new_status)
+                GITHUB.repos(self.repository).statuses(self.sha)
+                .post(**new_status)
             )
         except ApiError:
             logger.warn(
@@ -487,8 +468,7 @@ class Branch(Head):
     def list_comments(self):
         logger.debug("Queyring comments for instructions")
         return cached_request(
-            GITHUB.repos(self.repository.owner)(self.repository.name)
-            .commits(self.sha).comments
+            GITHUB.repos(self.repository).commits(self.sha).comments
         )
 
     @retry(wait_fixed=15000)
@@ -498,8 +478,8 @@ class Branch(Head):
 
         logger.info("Commenting on %s", self)
         (
-            GITHUB.repos(self.repository.owner)(self.repository.name)
-            .commits(self.sha).comments.post(body=body.strip())
+            GITHUB.repos(self.repository).commits(self.sha).comments
+            .post(body=body.strip())
         )
 
 
@@ -538,17 +518,14 @@ class PullRequest(Head):
 
         logger.info("Commenting on %s", self)
         (
-            GITHUB.repos(self.repository.owner)(self.repository.name)
-            .issues(self.data['number']).comments.post(body=body)
+            GITHUB.repos(self.repository).issues(self.data['number'])
+            .comments.post(body=body)
         )
 
     @retry(wait_fixed=15000)
     def list_comments(self):
         logger.debug("Queyring comments for instructions")
-        issue = (
-            GITHUB.repos(self.repository.owner)(self.repository.name)
-            .issues(self.data['number'])
-        )
+        issue = GITHUB.repos(self.repository).issues(self.data['number'])
         return [self.data] + cached_request(issue.comments)
 
     @retry(wait_fixed=15000)
@@ -556,8 +533,7 @@ class PullRequest(Head):
         base = self.data['base']['label']
         head = self.data['head']['label']
         comparison = cached_request(
-            GITHUB.repos(self.repository.owner)(self.repository.name)
-            .compare('%s...%s' % (base, head))
+            GITHUB.repos(self.repository).compare('%s...%s' % (base, head))
         )
         return comparison['behind_by']
 
@@ -572,6 +548,6 @@ class PullRequest(Head):
 
         logger.debug("Trying merge!")
         (
-            GITHUB.repos(self.repository.owner)(self.repository.name)
-            .pulls(self.data['number']).merge.put(body=body)
+            GITHUB.repos(self.repository).pulls(self.data['number']).merge
+            .put(body=body)
         )

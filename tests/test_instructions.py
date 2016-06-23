@@ -17,8 +17,8 @@ def test_parse(GITHUB):
         },
         Mock(),
     )
-    # GITHUB.repos(owner)(repository).issues(id).comments
-    issue = GITHUB.repos.return_value.return_value.issues.return_value
+    # GITHUB.repos(repository).issues(id).comments
+    issue = GITHUB.repos.return_value.issues.return_value
     issue.comments.get.return_value = [
         {
             'body': body,
