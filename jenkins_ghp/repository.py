@@ -62,6 +62,38 @@ class Repository(object):
             raise ValueError('%r is not github' % (remote_url,))
         return cls(**match.groupdict())
 
+    @classmethod
+    def from_jobs(cls, jobs=None):
+        repositories = {}
+        jobs = jobs or []
+
+        env_repos = filter(None, SETTINGS.GHP_REPOSITORIES.split(' '))
+        for entry in env_repos:
+            entry += ':'
+            repository, branches = entry.split(':', 1)
+            owner, name = repository.split('/')
+            repository = Repository(owner, name)
+            repositories[repository] = repository
+            logger.debug("Managing %s.", repository)
+
+        for job in jobs:
+            for remote in job.get_scm_url():
+                repository = Repository.from_remote(remote)
+                if repository not in repositories:
+                    logger.debug("Managing %s.", repository)
+                    repositories[repository] = repository
+                else:
+                    repository = repositories[repository]
+                repository.jobs.append(job)
+                break
+            else:
+                logger.info("Skipping %s, no GitHub repository.", job)
+                continue
+
+            logger.info("Managing %s.", job)
+
+        return sorted(repositories.values(), key=str)
+
     def __init__(self, owner, name, jobs=None):
         self.owner = owner
         self.name = name

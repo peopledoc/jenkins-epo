@@ -23,6 +23,7 @@ import sys
 from .bot import Bot
 from .cache import CACHE
 from .jenkins import JENKINS
+from .repository import Repository
 from .settings import SETTINGS
 
 
@@ -81,7 +82,7 @@ def bot():
     """Poll GitHub to find something to do"""
     bot = Bot(queue_empty=None)
 
-    for repository in JENKINS.list_repositories():
+    for repository in Repository.from_jobs(JENKINS.get_jobs()):
         try:
             repository.fetch_settings()
         except Exception as e:
@@ -115,8 +116,7 @@ def bot():
 
 def list_jobs():
     """List managed jobs"""
-    for repository in JENKINS.list_repositories():
-        repository.fetch_settings()
+    for repository in Repository.from_jobs(JENKINS.get_jobs()):
         for job in repository.jobs:
             print(job)
 
@@ -124,7 +124,7 @@ def list_jobs():
 def list_branches():
     """List branches to build"""
 
-    for repository in JENKINS.list_repositories():
+    for repository in Repository.from_jobs(JENKINS.get_jobs()):
         repository.fetch_settings()
         for branch in repository.list_branches():
             print(branch)
@@ -132,8 +132,7 @@ def list_branches():
 
 def list_pr():
     """List GitHub PR polled"""
-    for repository in JENKINS.list_repositories():
-        repository.fetch_settings()
+    for repository in Repository.from_jobs(JENKINS.get_jobs()):
         for pr in repository.list_pull_requests():
             print(pr)
 
@@ -141,8 +140,7 @@ def list_pr():
 def list_repositories():
     """List GitHub repositories tested by this Jenkins"""
 
-    for repository in JENKINS.list_repositories():
-        repository.fetch_settings()
+    for repository in Repository.from_jobs(JENKINS.get_jobs()):
         print(repository)
 
 

@@ -24,7 +24,6 @@ from jenkinsapi.custom_exceptions import UnknownJob
 import jinja2
 import requests
 
-from .repository import Repository
 from .settings import SETTINGS
 from .utils import match, retry
 
@@ -33,8 +32,8 @@ logger = logging.getLogger(__name__)
 
 
 class LazyJenkins(object):
-    jobs_filter = [p for p in SETTINGS.GHP_JOBS.split(',') if p]
     build_url_re = re.compile(r'.*/job/(?P<job>.*?)/.*(?P<buildno>\d+)/?')
+    jobs_filter = [p for p in SETTINGS.GHP_JOBS.split(',') if p]
 
     def __init__(self):
         self._instance = None
@@ -67,61 +66,33 @@ class LazyJenkins(object):
             self._instance = Jenkins(SETTINGS.JENKINS_URL)
 
     @retry
-    def list_repositories(self):
-        """List GitHub repositories tested on this jenkins
-
-        Mine jobs configs to find GitHub remote URL. Attach each job to the
-        corresponding repository.
-        """
-
-        repositories = {}
-
+    def get_jobs(self):
+        self.load()
         if not SETTINGS.GHP_JOBS_AUTO and not self.jobs_filter:
-            logger.warn("Use GHP_JOBS env var to list jobs to managed")
+            logger.warn("Use GHP_JOBS env var to list jobs to managed.")
             return []
 
-        for name, job in self.get_jobs():
+        for name, job in self._instance.get_jobs():
             if not match(name, self.jobs_filter):
-                logger.debug("Skipping %s", name)
+                logger.debug("Skipping %s.", name)
+                continue
+
+            if not job.is_enabled():
+                logger.debug("Skipping %s, disabled.", name)
                 continue
 
             job = Job.factory(job)
-            if not job.is_enabled():
-                logger.debug("Skipping %s, disabled", name)
-                continue
-
             if SETTINGS.GHP_JOBS_AUTO and job.polled_by_jenkins:
-                logger.debug("Skipping %s, polled by Jenkins", name)
+                logger.debug("Skipping %s, polled by Jenkins.", name)
                 continue
 
             # This option works only with webhook, so we can safely use it to
             # mark a job for jenkins-ghp.
             if SETTINGS.GHP_JOBS_AUTO and not job.push_trigger:
-                logger.debug("Skipping %s, trigger on push disabled", name)
+                logger.debug("Skipping %s, trigger on push disabled.", name)
                 continue
 
-            job_repositories = [x for x in job.get_repositories()]
-            if not job_repositories:
-                logger.debug("Skipping %s, no GitHub repository to poll", name)
-                continue
-
-            for repository in job_repositories:
-                logger.info("Managing %s", name)
-                repository = repositories.setdefault(
-                    str(repository), repository,
-                )
-                repository.jobs.append(job)
-
-        env_repos = filter(None, SETTINGS.GHP_REPOSITORIES.split(' '))
-        for entry in env_repos:
-            entry += ':'
-            repository, branches = entry.split(':', 1)
-            owner, name = repository.split('/')
-            repository = repositories.setdefault(
-                repository, Repository(owner, name)
-            )
-
-        return sorted(repositories.values(), key=str)
+            yield job
 
     @retry
     def is_queue_empty(self):
@@ -230,14 +201,6 @@ class Job(object):
 
     def __str__(self):
         return self._instance.name
-
-    def get_repositories(self):
-        try:
-            for remote_url in self.get_scm_url():
-                yield Repository.from_remote(remote_url)
-        except Exception as e:
-            logger.debug("No repository found: %s", e)
-            return []
 
 
 class FreestyleJob(Job):
