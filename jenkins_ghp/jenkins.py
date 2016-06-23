@@ -113,7 +113,8 @@ class LazyJenkins(object):
 
         repositories = filter(None, SETTINGS.GHP_REPOSITORIES.split(' '))
         for entry in repositories:
-            project, branches = entry.split(':')
+            entry += ':'
+            project, branches = entry.split(':', 1)
             owner, repository = project.split('/')
             project = projects.setdefault(
                 project, Project(owner, repository)
