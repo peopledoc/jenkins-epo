@@ -138,7 +138,9 @@ class LazyJenkins(object):
             template = env.get_template('freestyle.xml')
             config = template.render(
                 name=job_spec.name,
-                assigned_node=SETTINGS.GHP_JOBS_NODE,
+                assigned_node=job_spec.data.get(
+                    'node', SETTINGS.GHP_JOBS_NODE,
+                ),
                 command=SETTINGS.GHP_JOBS_COMMAND,
                 owner=job_spec.project.owner,
                 repository=job_spec.project.repository,
