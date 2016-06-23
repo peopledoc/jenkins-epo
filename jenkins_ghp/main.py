@@ -81,14 +81,14 @@ def bot():
     """Poll GitHub to find something to do"""
     bot = Bot(queue_empty=None)
 
-    for project in JENKINS.list_projects():
+    for repository in JENKINS.list_repositories():
         try:
-            project.fetch_settings()
+            repository.fetch_settings()
         except Exception as e:
-            logger.error("Failed to load %s settings: %s", project, e)
+            logger.error("Failed to load %s settings: %s", repository, e)
             continue
 
-        for branch in project.list_branches():
+        for branch in repository.list_branches():
             try:
                 yield from check_queue(bot)
             except RestartLoop:
@@ -96,7 +96,7 @@ def bot():
                     break
             bot.run(branch)
 
-        for pr in project.list_pull_requests():
+        for pr in repository.list_pull_requests():
             try:
                 yield from check_queue(bot)
             except RestartLoop:
@@ -115,35 +115,35 @@ def bot():
 
 def list_jobs():
     """List managed jobs"""
-    for project in JENKINS.list_projects():
-        project.fetch_settings()
-        for job in project.jobs:
+    for repository in JENKINS.list_repositories():
+        repository.fetch_settings()
+        for job in repository.jobs:
             print(job)
 
 
 def list_branches():
     """List branches to build"""
 
-    for project in JENKINS.list_projects():
-        project.fetch_settings()
-        for branch in project.list_branches():
+    for repository in JENKINS.list_repositories():
+        repository.fetch_settings()
+        for branch in repository.list_branches():
             print(branch)
 
 
 def list_pr():
     """List GitHub PR polled"""
-    for project in JENKINS.list_projects():
-        project.fetch_settings()
-        for pr in project.list_pull_requests():
+    for repository in JENKINS.list_repositories():
+        repository.fetch_settings()
+        for pr in repository.list_pull_requests():
             print(pr)
 
 
-def list_projects():
-    """List GitHub projects tested by this Jenkins"""
+def list_repositories():
+    """List GitHub repositories tested by this Jenkins"""
 
-    for project in JENKINS.list_projects():
-        project.fetch_settings()
-        print(project)
+    for repository in JENKINS.list_repositories():
+        repository.fetch_settings()
+        print(repository)
 
 
 def command_exitcode(command_func):
@@ -173,7 +173,7 @@ def main(argv=None):
     argv = argv or sys.argv
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='command', metavar='COMMAND')
-    for command in [bot, list_jobs, list_projects, list_branches, list_pr]:
+    for command in [bot, list_jobs, list_repositories, list_branches, list_pr]:
         subparser = subparsers.add_parser(
             command.__name__.replace('_', '-'),
             help=inspect.cleandoc(command.__doc__ or '').split('\n')[0],

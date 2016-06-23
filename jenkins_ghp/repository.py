@@ -32,12 +32,12 @@ logger = logging.getLogger(__name__)
 
 
 class JobSpec(object):
-    def __init__(self, project, name, data=None):
+    def __init__(self, repository, name, data=None):
         if isinstance(data, str):
             data = dict(script=data)
         self.data = data or {}
         self.name = name
-        self.project = project
+        self.repository = repository
 
     def __str__(self):
         return self.name
@@ -49,9 +49,9 @@ class JobSpec(object):
         return hash(str(self))
 
 
-class Project(object):
+class Repository(object):
     remote_re = re.compile(
-        r'.*github.com[:/](?P<owner>[\w-]+)/(?P<repository>[\w-]+).*'
+        r'.*github.com[:/](?P<owner>[\w-]+)/(?P<name>[\w-]+).*'
     )
     pr_filter = [p for p in str(SETTINGS.GHP_PR).split(',') if p]
 
@@ -62,9 +62,9 @@ class Project(object):
             raise ValueError('%r is not github' % (remote_url,))
         return cls(**match.groupdict())
 
-    def __init__(self, owner, repository, jobs=None):
+    def __init__(self, owner, name, jobs=None):
         self.owner = owner
-        self.repository = repository
+        self.name = name
         self.jobs = jobs or []
         self.SETTINGS = {}
 
@@ -75,22 +75,21 @@ class Project(object):
         return hash(str(self))
 
     def __str__(self):
-        return '%s/%s' % (self.owner, self.repository)
+        return '%s/%s' % (self.owner, self.name)
 
     def __repr__(self):
         return '%s(%r, %r)' % (
-            self.__class__.__name__, self.owner, self.repository)
+            self.__class__.__name__, self.owner, self.name)
 
     @property
     def url(self):
-        return 'https://github.com/%s/%s' % (self.owner, self.repository)
+        return 'https://github.com/%s' % (self,)
 
     @retry(wait_fixed=15000)
     def list_watched_branches(self):
         branches = [
             b['name'] for b in cached_request(
-                GITHUB.repos(self.owner)(self.repository).branches,
-                protected='true',
+                GITHUB.repos(self).branches, protected='true',
             )
         ]
         logger.debug("Protected branches are %s", branches)
@@ -99,11 +98,11 @@ class Project(object):
         for entry in repositories:
             entry = entry.strip()
             if ':' in entry:
-                project, env_branches = entry.split(':')
+                repository, env_branches = entry.split(':')
             else:
-                project, env_branches = entry, ''
+                repository, env_branches = entry, ''
 
-            if self != project:
+            if self != repository:
                 continue
 
             env_branches = [b for b in env_branches.split(',') if b]
@@ -118,9 +117,7 @@ class Project(object):
 
     @retry(wait_fixed=15000)
     def list_reviewers(self):
-        collaborators = cached_request(
-            GITHUB.repos(self.owner)(self.repository).collaborators
-        )
+        collaborators = cached_request(GITHUB.repos(self).collaborators)
         return [c['login'] for c in collaborators if (
             c['site_admin'] or
             c['permissions']['admin'] or
@@ -169,7 +166,7 @@ class Project(object):
             for b in self.SETTINGS['GHP_BRANCHES']
         ]
 
-        logger.debug("Project settings:")
+        logger.debug("Repository settings:")
         for k, v in sorted(self.SETTINGS.items()):
             logger.debug("%s=%r", k, v)
 
@@ -184,8 +181,7 @@ class Project(object):
         search = ''
         for needle in items:
             out = cached_request(
-                GITHUB.repos(self.owner)(self.repository)
-                .contents(search.strip('/')), **kwargs
+                GITHUB.repos(self).contents(search.strip('/')), **kwargs
             )
 
             if needle == items[-1]:
@@ -199,10 +195,7 @@ class Project(object):
                 raise ApiNotFoundError(path, {}, {})
             search += '/' + needle
 
-        payload = cached_request(
-            GITHUB.repos(self.owner)(self.repository)
-            .contents(path)
-        )
+        payload = cached_request(GITHUB.repos(self).contents(path))
 
         return base64.b64decode(payload['content']).decode('utf-8')
 
@@ -219,9 +212,7 @@ class Project(object):
         ret = []
         for branch in branches:
             try:
-                ref = cached_request(
-                    GITHUB.repos(self.owner)(self.repository).git(branch)
-                )
+                ref = cached_request(GITHUB.repos(self).git(branch))
             except ApiNotFoundError:
                 logger.warn("Branch %s not found in %s", branch, self)
                 continue
@@ -238,22 +229,17 @@ class Project(object):
 
     @retry(wait_fixed=15000)
     def list_pull_requests(self):
-        logger.debug(
-            "Querying GitHub for %s/%s PR", self.owner, self.repository,
-        )
+        logger.debug("Querying GitHub for %s PR", self)
 
         try:
-            pulls = cached_request(
-                GITHUB.repos(self.owner)(self.repository)
-                .pulls, per_page=b'100',
-            )
+            pulls = cached_request(GITHUB.repos(self).pulls)
         except Exception:
             logger.exception("Failed to list PR for %s", self)
             return []
 
         pulls_o = []
         for data in pulls:
-            pr = PullRequest(data, project=self)
+            pr = PullRequest(data, repository=self)
             if pr.is_outdated:
                 logger.debug(
                     'Skipping PR %s because older than %s weeks',
@@ -279,20 +265,16 @@ class Project(object):
             return {'number': 0}
 
         logger.info("Reporting issue on %s", self)
-        return (
-            GITHUB.repos(self.owner)(self.repository)
-            .issues.post(
-                title=title,
-                body=body,
-            )
+        return GITHUB.repos(self).issues.post(
+            title=title, body=body,
         )
 
 
 class Head(object):
     contexts_filter = [p for p in SETTINGS.GHP_JOBS.split(',') if p]
 
-    def __init__(self, project, sha, ref):
-        self.project = project
+    def __init__(self, repository, sha, ref):
+        self.repository = repository
         self.sha = sha
         self.ref = ref
         self._status_cache = None
@@ -312,8 +294,7 @@ class Head(object):
     def get_commit(self):
         logger.debug("Fetching commit %s", self.sha[:7])
         data = cached_request(
-            GITHUB.repos(self.project.owner)(self.project.repository)
-            .commits(self.sha)
+            GITHUB.repos(self.repository).commits(self.sha)
         )
         if 'commit' not in data:
             raise Exception('No commit data')
@@ -324,17 +305,17 @@ class Head(object):
     def list_jobs(self):
         jobs = set()
 
-        for job in self.project.jobs:
+        for job in self.repository.jobs:
             jobs.add(job)
 
         try:
-            config = self.project.fetch_file_contents('jenkins.yml')
+            config = self.repository.fetch_file_contents('jenkins.yml')
         except ApiNotFoundError:
             return []
 
         config = yaml.load(config)
         for name, params in config.items():
-            job = JobSpec(self.project, name, params)
+            job = JobSpec(self.repository, name, params)
             jobs.add(job)
 
         return list(jobs)
@@ -417,9 +398,7 @@ class Head(object):
             if self._status_cache is None:
                 logger.debug("Fetching statuses for %s", self.sha[:7])
                 response = cached_request(
-                    GITHUB.repos(self.project.owner)(self.project.repository)
-                    .status(self.sha),
-                    per_page=b'100',
+                    GITHUB.repos(self.repository).status(self.sha),
                 )
                 statuses = {
                     x['context']: x
@@ -458,8 +437,8 @@ class Head(object):
                 "Set GitHub status %s to %s/%s", context, state, description,
             )
             new_status = (
-                GITHUB.repos(self.project.owner)(self.project.repository)
-                .statuses(self.sha).post(**new_status)
+                GITHUB.repos(self.repository).statuses(self.sha)
+                .post(**new_status)
             )
         except ApiError:
             logger.warn(
@@ -469,9 +448,9 @@ class Head(object):
 
 class Branch(Head):
     @classmethod
-    def from_github_payload(cls, project, data):
+    def from_github_payload(cls, repository, data):
         return cls(
-            project=project,
+            repository=repository,
             ref=data['ref'],
             sha=data['object']['sha']
             )
@@ -481,17 +460,15 @@ class Branch(Head):
 
     @property
     def url(self):
-        return 'https://github.com/%s/%s/tree/%s' % (
-            self.project.owner, self.project.repository,
-            self.ref[len('refs/heads/'):],
+        return 'https://github.com/%s/tree/%s' % (
+            self.repository, self.ref[len('refs/heads/'):],
         )
 
     @retry(wait_fixed=15000)
     def list_comments(self):
         logger.debug("Queyring comments for instructions")
         return cached_request(
-            GITHUB.repos(self.project.owner)(self.project.repository)
-            .commits(self.sha).comments
+            GITHUB.repos(self.repository).commits(self.sha).comments
         )
 
     @retry(wait_fixed=15000)
@@ -501,17 +478,17 @@ class Branch(Head):
 
         logger.info("Commenting on %s", self)
         (
-            GITHUB.repos(self.project.owner)(self.project.repository)
-            .commits(self.sha).comments.post(body=body.strip())
+            GITHUB.repos(self.repository).commits(self.sha).comments
+            .post(body=body.strip())
         )
 
 
 class PullRequest(Head):
     _urgent_re = re.compile(r'^jenkins: *urgent$', re.MULTILINE)
 
-    def __init__(self, data, project):
+    def __init__(self, data, repository):
         super(PullRequest, self).__init__(
-            project,
+            repository,
             sha=data['head']['sha'],
             ref=data['head']['ref'],
         )
@@ -541,17 +518,14 @@ class PullRequest(Head):
 
         logger.info("Commenting on %s", self)
         (
-            GITHUB.repos(self.project.owner)(self.project.repository)
-            .issues(self.data['number']).comments.post(body=body)
+            GITHUB.repos(self.repository).issues(self.data['number'])
+            .comments.post(body=body)
         )
 
     @retry(wait_fixed=15000)
     def list_comments(self):
         logger.debug("Queyring comments for instructions")
-        issue = (
-            GITHUB.repos(self.project.owner)(self.project.repository)
-            .issues(self.data['number'])
-        )
+        issue = GITHUB.repos(self.repository).issues(self.data['number'])
         return [self.data] + cached_request(issue.comments)
 
     @retry(wait_fixed=15000)
@@ -559,8 +533,7 @@ class PullRequest(Head):
         base = self.data['base']['label']
         head = self.data['head']['label']
         comparison = cached_request(
-            GITHUB.repos(self.project.owner)(self.project.repository)
-            .compare('%s...%s' % (base, head))
+            GITHUB.repos(self.repository).compare('%s...%s' % (base, head))
         )
         return comparison['behind_by']
 
@@ -575,6 +548,6 @@ class PullRequest(Head):
 
         logger.debug("Trying merge!")
         (
-            GITHUB.repos(self.project.owner)(self.project.repository)
-            .pulls(self.data['number']).merge.put(body=body)
+            GITHUB.repos(self.repository).pulls(self.data['number']).merge
+            .put(body=body)
         )

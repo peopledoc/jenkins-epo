@@ -24,7 +24,7 @@ from jenkinsapi.custom_exceptions import UnknownJob
 import jinja2
 import requests
 
-from .project import Project
+from .repository import Repository
 from .settings import SETTINGS
 from .utils import match, retry
 
@@ -67,15 +67,14 @@ class LazyJenkins(object):
             self._instance = Jenkins(SETTINGS.JENKINS_URL)
 
     @retry
-    def list_projects(self):
-        """List github projects tested on this jenkins.
+    def list_repositories(self):
+        """List GitHub repositories tested on this jenkins
 
-        Mine jobs configs to find github remote URL. Attach each job to the
-        corresponding project.
-
+        Mine jobs configs to find GitHub remote URL. Attach each job to the
+        corresponding repository.
         """
 
-        projects = {}
+        repositories = {}
 
         if not SETTINGS.GHP_JOBS_AUTO and not self.jobs_filter:
             logger.warn("Use GHP_JOBS env var to list jobs to managed")
@@ -101,26 +100,28 @@ class LazyJenkins(object):
                 logger.debug("Skipping %s, trigger on push disabled", name)
                 continue
 
-            job_projects = [x for x in job.get_projects()]
-            if not job_projects:
-                logger.debug("Skipping %s, no GitHub project to poll", name)
+            job_repositories = [x for x in job.get_repositories()]
+            if not job_repositories:
+                logger.debug("Skipping %s, no GitHub repository to poll", name)
                 continue
 
-            for project in job_projects:
+            for repository in job_repositories:
                 logger.info("Managing %s", name)
-                project = projects.setdefault(str(project), project)
-                project.jobs.append(job)
+                repository = repositories.setdefault(
+                    str(repository), repository,
+                )
+                repository.jobs.append(job)
 
-        repositories = filter(None, SETTINGS.GHP_REPOSITORIES.split(' '))
-        for entry in repositories:
+        env_repos = filter(None, SETTINGS.GHP_REPOSITORIES.split(' '))
+        for entry in env_repos:
             entry += ':'
-            project, branches = entry.split(':', 1)
-            owner, repository = project.split('/')
-            project = projects.setdefault(
-                project, Project(owner, repository)
+            repository, branches = entry.split(':', 1)
+            owner, name = repository.split('/')
+            repository = repositories.setdefault(
+                repository, Repository(owner, name)
             )
 
-        return sorted(projects.values(), key=str)
+        return sorted(repositories.values(), key=str)
 
     @retry
     def is_queue_empty(self):
@@ -143,8 +144,8 @@ class LazyJenkins(object):
                     'node', SETTINGS.GHP_JOBS_NODE,
                 ),
                 command=SETTINGS.GHP_JOBS_COMMAND,
-                owner=job_spec.project.owner,
-                repository=job_spec.project.repository,
+                owner=job_spec.repository.owner,
+                repository=job_spec.repository.repository,
                 credentials=SETTINGS.GHP_JOBS_CREDENTIALS,
                 publish=(
                     not SETTINGS.GHP_DRY_RUN and not SETTINGS.GHP_GITHUB_RO
@@ -160,7 +161,7 @@ class LazyJenkins(object):
             logger.debug("Not updating existing job %s", job_spec.name)
 
         job = Job.factory(api_instance)
-        job_spec.project.jobs.append(job)
+        job_spec.repository.jobs.append(job)
         return job
 
 
@@ -230,12 +231,12 @@ class Job(object):
     def __str__(self):
         return self._instance.name
 
-    def get_projects(self):
+    def get_repositories(self):
         try:
             for remote_url in self.get_scm_url():
-                yield Project.from_remote(remote_url)
+                yield Repository.from_remote(remote_url)
         except Exception as e:
-            logger.debug("No project found: %s", e)
+            logger.debug("No repository found: %s", e)
             return []
 
 

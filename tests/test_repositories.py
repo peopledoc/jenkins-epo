@@ -1,38 +1,38 @@
 from unittest.mock import patch
 
 
-@patch('jenkins_ghp.project.Project.fetch_file_contents')
-@patch('jenkins_ghp.project.Project.fetch_default_settings')
+@patch('jenkins_ghp.repository.Repository.fetch_file_contents')
+@patch('jenkins_ghp.repository.Repository.fetch_default_settings')
 def test_fetch_settings_ghp(fds, ffc):
-    from jenkins_ghp.project import Project
+    from jenkins_ghp.repository import Repository
 
     fds.return_value = {}
     ffc.return_value = repr(dict(
         branches=['master', 'develop'],
     ))
 
-    project = Project('owner', 'repo1')
-    project.fetch_settings()
+    repo = Repository('owner', 'repo1')
+    repo.fetch_settings()
     wanted = ['refs/heads/master', 'refs/heads/develop']
-    assert wanted == project.SETTINGS.GHP_BRANCHES
+    assert wanted == repo.SETTINGS.GHP_BRANCHES
 
 
-@patch('jenkins_ghp.project.SETTINGS')
-@patch('jenkins_ghp.project.cached_request')
+@patch('jenkins_ghp.repository.SETTINGS')
+@patch('jenkins_ghp.repository.cached_request')
 def test_defaults_branches(cached_request, SETTINGS):
-    from jenkins_ghp.project import Project
+    from jenkins_ghp.repository import Repository
 
     SETTINGS.GHP_REPOSITORIES = 'owner/repo1:master owner/repo2:stable'
     cached_request.return_value = []
 
-    project = Project('owner', 'repo1')
-    branches = project.list_watched_branches()
+    repo = Repository('owner', 'repo1')
+    branches = repo.list_watched_branches()
     assert ['refs/heads/master'] == branches
 
 
-@patch('jenkins_ghp.project.cached_request')
+@patch('jenkins_ghp.repository.cached_request')
 def test_reviewers(cached_request):
-    from jenkins_ghp.project import Project
+    from jenkins_ghp.repository import Repository
 
     cached_request.return_value = [
         {'login': 'siteadmin', 'site_admin': True},
@@ -53,8 +53,8 @@ def test_reviewers(cached_request):
         },
     ]
 
-    project = Project('owner', 'repository')
-    reviewers = project.list_reviewers()
+    repo = Repository('owner', 'repository')
+    reviewers = repo.list_reviewers()
 
     assert 'siteadmin' in reviewers
     assert 'contributor' not in reviewers

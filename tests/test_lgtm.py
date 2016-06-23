@@ -20,7 +20,7 @@ def test_deny_non_reviewer():
     start = datetime.now()
 
     pr = Mock()
-    pr.project.SETTINGS.GHP_REVIEWERS = ['reviewer']
+    pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer']
     pr.list_jobs.return_value = []
     pr.list_instructions.return_value = [
         (start + timedelta(seconds=1), 'nonreviewer', 'jenkins: lgtm'),
@@ -39,7 +39,7 @@ def test_skip_lgtm_processed():
     start = datetime.now()
 
     pr = Mock()
-    pr.project.SETTINGS.GHP_REVIEWERS = ['reviewer']
+    pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer']
     pr.list_jobs.return_value = []
     pr.list_instructions.return_value = [
         (start + timedelta(seconds=1), 'nonreviewer', 'jenkins: lgtm'),
@@ -58,8 +58,8 @@ def test_skip_updated():
     start = datetime.now()
 
     pr = Mock()
-    pr.project.SETTINGS.GHP_REVIEWERS = ['reviewer']
-    pr.project.SETTINGS.GHP_LGTM_AUTHOR = False
+    pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer']
+    pr.repository.SETTINGS.GHP_LGTM_AUTHOR = False
     pr.list_jobs.return_value = []
     pr.list_instructions.return_value = [
         (start + timedelta(seconds=1), 'bot', 'jenkins: lgtm-processed'),
@@ -82,8 +82,8 @@ def test_skip_updated_processed():
     start = datetime.now()
 
     pr = Mock()
-    pr.project.SETTINGS.GHP_REVIEWERS = ['reviewer']
-    pr.project.SETTINGS.GHP_LGTM_AUTHOR = False
+    pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer']
+    pr.repository.SETTINGS.GHP_LGTM_AUTHOR = False
     pr.list_jobs.return_value = []
     pr.list_instructions.return_value = [
         (start + timedelta(seconds=1), 'bot', 'jenkins: lgtm-processed'),
@@ -107,9 +107,9 @@ def test_skip_missing_lgtm():
     start = datetime.now()
 
     pr = Mock()
-    pr.project.SETTINGS.GHP_REVIEWERS = ['reviewer1', 'reviewer2']
-    pr.project.SETTINGS.GHP_LGTM_AUTHOR = False
-    pr.project.SETTINGS.GHP_LGTM_QUORUM = 2
+    pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer1', 'reviewer2']
+    pr.repository.SETTINGS.GHP_LGTM_AUTHOR = False
+    pr.repository.SETTINGS.GHP_LGTM_QUORUM = 2
     pr.list_jobs.return_value = []
     pr.list_instructions.return_value = [
         (start + timedelta(seconds=1), 'bot', 'jenkins: lgtm-processed'),
@@ -130,9 +130,9 @@ def test_skip_dup_lgtm():
     start = datetime.now()
 
     pr = Mock()
-    pr.project.SETTINGS.GHP_REVIEWERS = ['reviewer1', 'reviewer2']
-    pr.project.SETTINGS.GHP_LGTM_AUTHOR = False
-    pr.project.SETTINGS.GHP_LGTM_QUORUM = 2
+    pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer1', 'reviewer2']
+    pr.repository.SETTINGS.GHP_LGTM_AUTHOR = False
+    pr.repository.SETTINGS.GHP_LGTM_QUORUM = 2
     pr.list_jobs.return_value = []
     pr.list_instructions.return_value = [
         (start + timedelta(seconds=1), 'bot', 'jenkins: lgtm-processed'),
@@ -155,9 +155,9 @@ def test_self_lgtm():
 
     pr = Mock()
     pr.data = dict(user=dict(login='author'))
-    pr.project.SETTINGS.GHP_REVIEWERS = ['author', 'reviewer']
-    pr.project.SETTINGS.GHP_LGTM_AUTHOR = True
-    pr.project.SETTINGS.GHP_LGTM_QUORUM = 1
+    pr.repository.SETTINGS.GHP_REVIEWERS = ['author', 'reviewer']
+    pr.repository.SETTINGS.GHP_LGTM_AUTHOR = True
+    pr.repository.SETTINGS.GHP_LGTM_QUORUM = 1
     pr.list_jobs.return_value = []
     pr.list_instructions.return_value = [
         (start + timedelta(seconds=1), 'bot', 'jenkins: lgtm-processed'),
