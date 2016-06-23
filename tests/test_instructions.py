@@ -1,12 +1,12 @@
 from unittest.mock import Mock, patch
 
 
-@patch('jenkins_ghp.project.GITHUB')
+@patch('jenkins_ghp.repository.GITHUB')
 def test_parse(GITHUB):
     GITHUB.x_ratelimit_remaining = 4999
 
     updated_at = '2016-02-12T16:32:34Z'
-    from jenkins_ghp.project import PullRequest
+    from jenkins_ghp.repository import PullRequest
 
     pr = PullRequest(
         {
@@ -89,31 +89,31 @@ jenkins: unix_eof
 
 
 def test_pr_urgent():
-    from jenkins_ghp.project import PullRequest
+    from jenkins_ghp.repository import PullRequest
 
     pr1 = PullRequest(data=dict(
         head=dict(sha='01234567899abcdef', ref='pr1'),
         body=None,
         number=1, html_url='pulls/1',
-    ), project=Mock())
+    ), repository=Mock())
     assert not pr1.urgent
     pr2 = PullRequest(data=dict(
         head=dict(sha='01234567899abcdef', ref='pr2'),
         body='bla\n\njenkins: urgent',
         number=2, html_url='pulls/2',
-    ), project=Mock())
+    ), repository=Mock())
     assert pr2.urgent
     pr3 = PullRequest(data=dict(
         head=dict(sha='01234567899abcdef', ref='pr3'),
         body='> jenkins: urgent',
         number=3, html_url='pulls/3',
-    ), project=Mock())
+    ), repository=Mock())
     assert not pr3.urgent
     pr10 = PullRequest(data=dict(
         head=dict(sha='01234567899abcdef', ref='pr3'),
         body=None,
         number=10, html_url='pulls/10',
-    ), project=Mock())
+    ), repository=Mock())
     assert not pr10.urgent
 
     github_listing = [pr10, pr3, pr2, pr1]

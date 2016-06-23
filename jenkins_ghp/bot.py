@@ -19,7 +19,7 @@ import pkg_resources
 import yaml
 
 from .jenkins import JENKINS
-from .project import JobSpec
+from .repository import JobSpec
 from .utils import match
 from .settings import SETTINGS
 

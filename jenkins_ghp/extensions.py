@@ -22,7 +22,7 @@ import socket
 
 from .bot import Extension
 from .jenkins import JENKINS
-from .project import ApiError, Branch, PullRequest
+from .repository import ApiError, Branch, PullRequest
 from .utils import match, parse_datetime
 
 
@@ -168,7 +168,7 @@ jenkins: lgtm-processed
         lgtmers = {i.author for i in lgtms}
         new_refused = set()
         for author in list(lgtmers):
-            if author in self.bot.head.project.SETTINGS.GHP_REVIEWERS:
+            if author in self.bot.head.repository.SETTINGS.GHP_REVIEWERS:
                 logger.info("Accept @%s as reviewer.", author)
             else:
                 lgtmers.remove(author)
@@ -221,10 +221,10 @@ jenkins: lgtm-processed
                 [l for l in lgtms if l.author == a][0] for a in lgtmers
             ]
 
-        if len(lgtms) < self.bot.head.project.SETTINGS.GHP_LGTM_QUORUM:
+        if len(lgtms) < self.bot.head.repository.SETTINGS.GHP_LGTM_QUORUM:
             return logger.debug("Missing LGTMs quorum. Skipping.")
 
-        if self.bot.head.project.SETTINGS.GHP_LGTM_AUTHOR:
+        if self.bot.head.repository.SETTINGS.GHP_LGTM_AUTHOR:
             self_lgtm = self.bot.head.author in {i.author for i in lgtms}
             if not self_lgtm:
                 return logger.debug("Author's LGTM missing. Skipping.")
@@ -372,7 +372,7 @@ class FixStatusExtension(Extension):
                     )
                 except TypeError:
                     pass
-        elif self.bot.head.project.SETTINGS.GHP_STATUS_LOOP:
+        elif self.bot.head.repository.SETTINGS.GHP_STATUS_LOOP:
             # Touch the commit status to avoid polling it for the next 5
             # minutes.
             state = 'pending'
@@ -391,7 +391,7 @@ class FixStatusExtension(Extension):
         fivemin_ago = (
             datetime.datetime.utcnow() -
             datetime.timedelta(
-                seconds=self.bot.head.project.SETTINGS.GHP_STATUS_LOOP
+                seconds=self.bot.head.repository.SETTINGS.GHP_STATUS_LOOP
             )
         )
 
@@ -490,7 +490,7 @@ Extensions: %(extensions)s
             extensions=','.join(sorted(self.bot.extensions.keys())),
             help=help_,
             host=socket.getfqdn(),
-            me=self.bot.head.project.SETTINGS.GHP_NAME,
+            me=self.bot.head.repository.SETTINGS.GHP_NAME,
             mentions=', '.join(sorted([
                 '@' + m for m in self.bot.current['help-mentions']
             ])),
@@ -572,7 +572,7 @@ jenkins: report-done
 
         branch_name = self.bot.head.ref[len('refs/heads/'):]
         builds = '- ' + '\n- '.join([s['target_url'] for s in errored])
-        issue = self.bot.head.project.report_issue(
+        issue = self.bot.head.repository.report_issue(
             title="%s is broken" % (branch_name,),
             body=self.ISSUE_TEMPLATE % dict(
                 abbrev=self.bot.head.sha[:7],
