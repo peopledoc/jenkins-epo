@@ -14,10 +14,8 @@
 
 from __future__ import absolute_import
 
-import base64
 import datetime
 import logging
-import os.path
 import re
 
 from github import ApiError, ApiNotFoundError
@@ -87,7 +85,7 @@ class Repository(object):
                 repository.jobs.append(job)
                 break
             else:
-                logger.info("Skipping %s, no GitHub repository.", job)
+                logger.debug("Skipping %s, no GitHub repository.", job)
                 continue
 
             logger.info("Managing %s.", job)
@@ -117,13 +115,8 @@ class Repository(object):
     def url(self):
         return 'https://github.com/%s' % (self,)
 
-    @retry(wait_fixed=15000)
-    def list_watched_branches(self):
-        branches = [
-            b['name'] for b in cached_request(
-                GITHUB.repos(self).branches, protected='true',
-            )
-        ]
+    def load_protected_branches(self, branches=None):
+        branches = [b['name'] for b in branches or []]
         logger.debug("Protected branches are %s", branches)
 
         repositories = filter(None, SETTINGS.GHP_REPOSITORIES.split(' '))
@@ -142,41 +135,29 @@ class Repository(object):
                 continue
 
             branches = env_branches
-            logger.info("Override watched branches %s", branches)
+            logger.debug("Override watched branches %s.", branches)
             break
 
         return ['refs/heads/' + b for b in branches if b]
 
-    @retry(wait_fixed=15000)
-    def list_reviewers(self):
-        collaborators = cached_request(GITHUB.repos(self).collaborators)
-        return [c['login'] for c in collaborators if (
+    def load_reviewers(self, collaborators):
+        return [c['login'] for c in collaborators or [] if (
             c['site_admin'] or
             c['permissions']['admin'] or
             c['permissions']['push']
         )]
 
-    def fetch_default_settings(self):
-        defaults = {}
-
-        defaults['GHP_BRANCHES'] = self.list_watched_branches()
-        defaults['GHP_REVIEWERS'] = self.list_reviewers()
-
-        return defaults
-
-    def fetch_settings(self):
+    def load_settings(self, branches=None, collaborators=None, ghp_yml=None):
         if self.SETTINGS:
             return
 
-        default_settings = self.fetch_default_settings()
+        default_settings = dict(
+            GHP_BRANCHES=self.load_protected_branches(branches),
+            GHP_REVIEWERS=self.load_reviewers(collaborators),
+        )
 
-        try:
-            settings = self.fetch_file_contents('.github/ghp.yml')
-            logger.debug("Loading settings from .github/ghp.yml")
-        except ApiNotFoundError:
-            settings = '{}'
-
-        data = yaml.load(settings)
+        ghp_yml = ghp_yml or '{}'
+        data = yaml.load(ghp_yml)
         assert hasattr(data, 'items'), "Not yml dict/hash"
 
         local_settings = {
@@ -201,35 +182,6 @@ class Repository(object):
         logger.debug("Repository settings:")
         for k, v in sorted(self.SETTINGS.items()):
             logger.debug("%s=%r", k, v)
-
-    @retry(wait_fixed=15000)
-    def fetch_file_contents(self, path, **kwargs):
-        # Search file and gets its contents.
-        path = os.path.normpath(path)
-        items = path.split('/')
-
-        # We walk because to avoid 404, it consumes rate limit. Each walk query
-        # is cached.
-        search = ''
-        for needle in items:
-            out = cached_request(
-                GITHUB.repos(self).contents(search.strip('/')), **kwargs
-            )
-
-            if needle == items[-1]:
-                type_ = 'file'
-            else:
-                type_ = 'dir'
-            entries = [x['name'] for x in out if x['type'] == type_]
-
-            if needle not in entries:
-                logger.debug("%s not found", path)
-                raise ApiNotFoundError(path, {}, {})
-            search += '/' + needle
-
-        payload = cached_request(GITHUB.repos(self).contents(path))
-
-        return base64.b64decode(payload['content']).decode('utf-8')
 
     @retry(wait_fixed=15000)
     def list_branches(self):
@@ -341,7 +293,7 @@ class Head(object):
             jobs.add(job)
 
         try:
-            config = self.repository.fetch_file_contents('jenkins.yml')
+            config = GITHUB.fetch_file_contents(self.repository, 'jenkins.yml')
         except ApiNotFoundError:
             return []
 
