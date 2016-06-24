@@ -22,13 +22,105 @@ import sys
 
 from .bot import Bot
 from .cache import CACHE
-from .github import GitHubRequests
+from .github import ApiNotFoundError, GITHUB, cached_request
 from .jenkins import JENKINS
-from .repository import Repository
+from .repository import Branch, Repository
 from .settings import SETTINGS
+from .utils import retry
 
 
 logger = logging.getLogger('jenkins_ghp')
+
+
+class Procedures(object):
+    @staticmethod
+    @retry(wait_fixed=15000)
+    def fetch_settings(repository):
+        try:
+            ghp_yml = GITHUB.fetch_file_contents(repository, '.github/ghp.yml')
+            logger.debug("Loading settings from .github/ghp.yml")
+        except ApiNotFoundError:
+            ghp_yml = None
+
+        collaborators = cached_request(GITHUB.repos(repository).collaborators)
+        branches = cached_request(
+            GITHUB.repos(repository).branches, protected='true',
+        )
+
+        repository.load_settings(
+            branches=branches,
+            collaborators=collaborators,
+            ghp_yml=ghp_yml,
+        )
+
+    @staticmethod
+    @retry(wait_fixed=15000)
+    def list_branches(repository):
+        branches = repository.SETTINGS.GHP_BRANCHES
+        if not branches:
+            logger.debug("No explicit branches configured for %s", repository)
+            return []
+
+        for branch in branches:
+            logger.debug("Search remote branch %s", branch)
+            try:
+                ref = cached_request(GITHUB.repos(repository).git(branch))
+            except ApiNotFoundError:
+                logger.warn("Branch %s not found in %s", branch, repository)
+                continue
+
+            sha = ref['object']['sha']
+            logger.debug("Fetching commit %s", sha[:7])
+            data = cached_request(GITHUB.repos(repository).commits(sha))
+            commit = data['commit']
+            branch = Branch(repository, ref, commit)
+            if branch.is_outdated:
+                logger.debug(
+                    'Skipping branch %s because older than %s weeks',
+                    branch, repository.SETTINGS.GHP_COMMIT_MAX_WEEKS,
+                )
+                continue
+            yield branch
+
+    @classmethod
+    def list_repositories(cls, fetch_settings=False):
+        repositories = {}
+        jobs = JENKINS.get_jobs()
+
+        env_repos = filter(None, SETTINGS.GHP_REPOSITORIES.split(' '))
+        for entry in env_repos:
+            entry += ':'
+            repository, branches = entry.split(':', 1)
+            owner, name = repository.split('/')
+            repository = Repository(owner, name)
+            repositories[repository] = repository
+            logger.debug("Managing %s.", repository)
+
+        for job in jobs:
+            for remote in job.get_scm_url():
+                repository = Repository.from_remote(remote)
+                if repository not in repositories:
+                    logger.debug("Managing %s.", repository)
+                    repositories[repository] = repository
+                else:
+                    repository = repositories[repository]
+                repository.jobs.append(job)
+                break
+            else:
+                logger.debug("Skipping %s, no GitHub repository.", job)
+                continue
+
+            logger.info("Managing %s.", job)
+
+        for repo in sorted(repositories.values(), key=str):
+            try:
+                if fetch_settings:
+                    Procedures.fetch_settings(repository)
+            except Exception as e:
+                logger.error("Failed to load %s settings: %r", repository, e)
+                continue
+
+            yield repo
 
 
 def loop(wrapped):
@@ -83,15 +175,10 @@ def bot():
     """Poll GitHub to find something to do"""
     bot = Bot(queue_empty=None)
 
-    for repository in Repository.from_jobs(JENKINS.get_jobs()):
-        try:
-            GitHubRequests.fetch_settings(repository)
-            logger.info("Working on %s.", repository)
-        except Exception as e:
-            logger.error("Failed to load %s settings: %r", repository, e)
-            continue
+    for repository in Procedures.list_repositories(fetch_settings=True):
+        logger.info("Working on %s.", repository)
 
-        for branch in GitHubRequests.list_branches(repository):
+        for branch in Procedures.list_branches(repository):
             try:
                 yield from check_queue(bot)
             except RestartLoop:
@@ -126,20 +213,16 @@ def list_jobs():
 def list_branches():
     """List branches to build"""
 
-    for repository in Repository.from_jobs(JENKINS.get_jobs()):
-        try:
-            GitHubRequests.fetch_settings(repository)
-        except Exception as e:
-            logger.error("Failed to load %s settings: %r", repository, e)
-            continue
-
-        for branch in GitHubRequests.list_branches(repository):
+    for repository in Procedures.list_repositories(fetch_settings=True):
+        logger.info("Working on %s.", repository)
+        for branch in Procedures.list_branches(repository):
             print(branch)
 
 
 def list_pr():
     """List GitHub PR polled"""
-    for repository in Repository.from_jobs(JENKINS.get_jobs()):
+    for repository in Procedures.list_repositories(fetch_settings=True):
+        logger.info("Working on %s.", repository)
         for pr in repository.list_pull_requests():
             print(pr)
 
@@ -147,7 +230,7 @@ def list_pr():
 def list_repositories():
     """List GitHub repositories tested by this Jenkins"""
 
-    for repository in Repository.from_jobs(JENKINS.get_jobs()):
+    for repository in Procedures.list_repositories():
         print(repository)
 
 
