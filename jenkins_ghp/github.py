@@ -201,3 +201,32 @@ class GitHubRequests(object):
             collaborators=collaborators,
             ghp_yml=ghp_yml,
         )
+
+    @staticmethod
+    @retry(wait_fixed=15000)
+    def list_branches(repository):
+        branches = repository.SETTINGS.GHP_BRANCHES
+        if not branches:
+            logger.debug("No explicit branches configured for %s", repository)
+            return []
+
+        for branch in branches:
+            logger.debug("Search remote branch %s", branch)
+            try:
+                ref = cached_request(GITHUB.repos(repository).git(branch))
+            except ApiNotFoundError:
+                logger.warn("Branch %s not found in %s", branch, repository)
+                continue
+
+            sha = ref['object']['sha']
+            logger.debug("Fetching commit %s", sha[:7])
+            data = cached_request(GITHUB.repos(repository).commits(sha))
+            commit = data['commit']
+            branch = repository.load_branch(ref, commit)
+            if branch.is_outdated:
+                logger.debug(
+                    'Skipping branch %s because older than %s weeks',
+                    branch, repository.SETTINGS.GHP_COMMIT_MAX_WEEKS,
+                )
+                continue
+            yield branch
