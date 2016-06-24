@@ -1,21 +1,6 @@
 from unittest.mock import patch
 
 
-@patch('jenkins_ghp.repository.SETTINGS')
-def test_list_repositories(SETTINGS):
-    from jenkins_ghp.repository import Repository
-
-    SETTINGS.GHP_REPOSITORIES = "owner/repo1:master"
-    repositories = Repository.from_jobs()
-    assert 1 == len(repositories)
-
-    SETTINGS.GHP_REPOSITORIES = "owner/repo1:master,stable owner/repo2"
-    repositories = {str(p): p for p in Repository.from_jobs()}
-    assert 2 == len(repositories)
-    assert 'owner/repo1' in repositories
-    assert 'owner/repo2' in repositories
-
-
 def test_load_ghp_yml():
     from jenkins_ghp.repository import Repository
 
