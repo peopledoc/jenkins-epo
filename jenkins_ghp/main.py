@@ -22,6 +22,7 @@ import sys
 
 from .bot import Bot
 from .cache import CACHE
+from .github import GitHubRequests
 from .jenkins import JENKINS
 from .repository import Repository
 from .settings import SETTINGS
@@ -84,9 +85,10 @@ def bot():
 
     for repository in Repository.from_jobs(JENKINS.get_jobs()):
         try:
-            repository.fetch_settings()
+            GitHubRequests.fetch_settings(repository)
+            logger.info("Working on %s.", repository)
         except Exception as e:
-            logger.error("Failed to load %s settings: %s", repository, e)
+            logger.error("Failed to load %s settings: %r", repository, e)
             continue
 
         for branch in repository.list_branches():
@@ -125,7 +127,11 @@ def list_branches():
     """List branches to build"""
 
     for repository in Repository.from_jobs(JENKINS.get_jobs()):
-        repository.fetch_settings()
+        try:
+            GitHubRequests.fetch_settings(repository)
+        except Exception as e:
+            logger.error("Failed to load %s settings: %r", repository, e)
+            continue
         for branch in repository.list_branches():
             print(branch)
 

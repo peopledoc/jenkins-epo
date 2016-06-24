@@ -14,6 +14,8 @@
 
 from __future__ import absolute_import
 
+import base64
+import os.path
 import logging
 
 from github import GitHub, ApiError, ApiNotFoundError
@@ -25,6 +27,7 @@ from github import (
 
 from .cache import CACHE
 from .settings import SETTINGS
+from .utils import retry
 
 
 logger = logging.getLogger(__name__)
@@ -147,5 +150,54 @@ class LazyGithub(object):
         if not self._instance:
             self._instance = CustomGitHub(access_token=SETTINGS.GITHUB_TOKEN)
 
+    @retry(wait_fixed=15000)
+    def fetch_file_contents(self, repository, path, **kwargs):
+        path = os.path.normpath(path)
+        items = path.split('/')
+
+        # We walk to avoid 404, it consumes rate limit. Each step is cached.
+        search = ''
+        for needle in items:
+            out = cached_request(
+                self.repos(repository).contents(search), **kwargs
+            )
+
+            if needle == items[-1]:
+                type_ = 'file'
+            else:
+                type_ = 'dir'
+            entries = [x['name'] for x in out if x['type'] == type_]
+
+            if needle not in entries:
+                logger.debug("%s not found", path)
+                raise ApiNotFoundError(path, {}, {})
+            search = (search + '/' + needle).strip('/')
+
+        payload = cached_request(self.repos(repository).contents(path))
+        return base64.b64decode(payload['content']).decode('utf-8')
+
 
 GITHUB = LazyGithub()
+
+
+class GitHubRequests(object):
+
+    @staticmethod
+    @retry(wait_fixed=15000)
+    def fetch_settings(repository):
+        try:
+            ghp_yml = GITHUB.fetch_file_contents(repository, '.github/ghp.yml')
+            logger.debug("Loading settings from .github/ghp.yml")
+        except ApiNotFoundError:
+            ghp_yml = None
+
+        collaborators = cached_request(GITHUB.repos(repository).collaborators)
+        branches = cached_request(
+            GITHUB.repos(repository).branches, protected='true',
+        )
+
+        repository.load_settings(
+            branches=branches,
+            collaborators=collaborators,
+            ghp_yml=ghp_yml,
+        )

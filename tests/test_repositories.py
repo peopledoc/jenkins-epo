@@ -16,40 +16,46 @@ def test_list_repositories(SETTINGS):
     assert 'owner/repo2' in repositories
 
 
-@patch('jenkins_ghp.repository.Repository.fetch_file_contents')
-@patch('jenkins_ghp.repository.Repository.fetch_default_settings')
-def test_fetch_settings_ghp(fds, ffc):
+def test_load_ghp_yml():
     from jenkins_ghp.repository import Repository
 
-    fds.return_value = {}
-    ffc.return_value = repr(dict(
-        branches=['master', 'develop'],
-    ))
-
     repo = Repository('owner', 'repo1')
-    repo.fetch_settings()
+    repo.load_settings(ghp_yml=repr(dict(
+        branches=['master', 'develop'],
+    )))
     wanted = ['refs/heads/master', 'refs/heads/develop']
     assert wanted == repo.SETTINGS.GHP_BRANCHES
 
 
 @patch('jenkins_ghp.repository.SETTINGS')
-@patch('jenkins_ghp.repository.cached_request')
-def test_defaults_branches(cached_request, SETTINGS):
+def test_load_protected_branches_env(SETTINGS):
     from jenkins_ghp.repository import Repository
 
     SETTINGS.GHP_REPOSITORIES = 'owner/repo1:master owner/repo2:stable'
-    cached_request.return_value = []
 
     repo = Repository('owner', 'repo1')
-    branches = repo.list_watched_branches()
-    assert ['refs/heads/master'] == branches
+    repo.load_settings()
+    assert ['refs/heads/master'] == repo.SETTINGS.GHP_BRANCHES
 
 
-@patch('jenkins_ghp.repository.cached_request')
-def test_reviewers(cached_request):
+@patch('jenkins_ghp.repository.SETTINGS')
+def test_load_protected_branches(SETTINGS):
     from jenkins_ghp.repository import Repository
 
-    cached_request.return_value = [
+    SETTINGS.GHP_REPOSITORIES = ''
+
+    repo = Repository('owner', 'repo1')
+    repo.load_settings(branches=[
+        {'name': 'master'},
+    ])
+    assert ['refs/heads/master'] == repo.SETTINGS.GHP_BRANCHES
+
+
+def test_reviewers():
+    from jenkins_ghp.repository import Repository
+
+    repo = Repository('owner', 'repository')
+    repo.load_settings(collaborators=[
         {'login': 'siteadmin', 'site_admin': True},
         {
             'login': 'contributor',
@@ -66,10 +72,9 @@ def test_reviewers(cached_request):
             'permissions': {'admin': True, 'pull': True, 'push': True},
             'site_admin': False,
         },
-    ]
+    ])
 
-    repo = Repository('owner', 'repository')
-    reviewers = repo.list_reviewers()
+    reviewers = repo.SETTINGS.GHP_REVIEWERS
 
     assert 'siteadmin' in reviewers
     assert 'contributor' not in reviewers
