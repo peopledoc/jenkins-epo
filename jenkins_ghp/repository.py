@@ -460,6 +460,7 @@ class Head(object):
                 return
 
         if GITHUB.dry:
+            self._status_cache[context] = new_status
             return logger.info(
                 "Would update status %s to %s/%s", context, state, description,
             )
@@ -472,6 +473,7 @@ class Head(object):
                 GITHUB.repos(self.repository).statuses(self.sha)
                 .post(**new_status)
             )
+            self._status_cache[context] = new_status
         except ApiError:
             logger.warn(
                 'Hit 1000 status updates on %s', self.sha
