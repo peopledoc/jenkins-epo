@@ -2,6 +2,7 @@
 Description=Jenkins GitHub poller
 
 [Service]
+Environment=SYSTEMD=1
 EnvironmentFile=/etc/jenkins-ghp.conf
 WorkingDirectory=/var/lib/jenkins/ghp
 ExecStart=/usr/local/bin/jenkins-ghp bot
