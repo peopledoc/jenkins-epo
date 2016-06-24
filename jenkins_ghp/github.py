@@ -54,7 +54,9 @@ def check_rate_limit_threshold():
 
 def cached_request(query, **kw):
     check_rate_limit_threshold()
-    cache_key = '_gh_' + str(query._name) + '_get_' + _encode_params(kw)
+    cache_key = '_'.join([
+        'gh', SETTINGS.GITHUB_TOKEN[:8], str(query._name), _encode_params(kw),
+    ])
     headers = {
         b'Accept': b'application/vnd.github.loki-preview+json',
     }
