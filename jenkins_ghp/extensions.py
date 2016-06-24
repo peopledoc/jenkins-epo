@@ -86,7 +86,7 @@ jenkins: lgtm-processed
         if isinstance(self.bot.head, PullRequest):
             # Initialize LGTM processing
             self.bot.current['lgtm-processed'] = parse_datetime(
-                self.bot.head.data['created_at']
+                self.bot.head.payload['created_at']
             )
 
     def process_instruction(self, instruction):
@@ -268,7 +268,7 @@ jenkins: lgtm-processed
                     message=(
                         "%(base)s has been updated and this PR is now behind. "
                         "I don't merge behind PR." % dict(
-                            base=self.bot.head.data['base']['label'],
+                            base=self.bot.head.payload['base']['label'],
                         )
                     ),
                 ))

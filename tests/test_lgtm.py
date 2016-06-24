@@ -154,7 +154,7 @@ def test_self_lgtm():
     start = datetime.now()
 
     pr = Mock()
-    pr.data = dict(user=dict(login='author'))
+    pr.payload = dict(user=dict(login='author'))
     pr.repository.SETTINGS.GHP_REVIEWERS = ['author', 'reviewer']
     pr.repository.SETTINGS.GHP_LGTM_AUTHOR = True
     pr.repository.SETTINGS.GHP_LGTM_QUORUM = 1
@@ -199,7 +199,7 @@ def test_skip_behind(check_lgtm):
 
     pr = Mock()
     pr.author = 'author'
-    pr.data = dict(base=dict(label='forker:fork'))
+    pr.payload = dict(base=dict(label='forker:fork'))
     pr.get_statuses.return_value = {'pending-job': {'state': 'success'}}
     pr.is_behind.return_value = 4
     pr.list_jobs.return_value = []
@@ -222,7 +222,7 @@ def test_skip_behind_processed(check_lgtm):
 
     pr = Mock()
     pr.author = 'author'
-    pr.data = dict(base=dict(label='forker:fork'))
+    pr.payload = dict(base=dict(label='forker:fork'))
     pr.get_statuses.return_value = {'pending-job': {'state': 'success'}}
     pr.is_behind.return_value = 4
     pr.list_jobs.return_value = []
