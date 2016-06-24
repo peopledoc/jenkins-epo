@@ -119,11 +119,9 @@ class Procedures(object):
 
         env_repos = filter(None, SETTINGS.GHP_REPOSITORIES.split(' '))
         for entry in env_repos:
-            entry += ':'
-            repository, branches = entry.split(':', 1)
+            repository, branches = (entry + ':').split(':', 1)
             owner, name = repository.split('/')
-            repository = Repository(owner, name)
-            repositories[repository] = repository
+            repositories[repository] = Repository(owner, name)
             logger.debug("Managing %s.", repository)
 
         for job in jobs:
@@ -134,23 +132,20 @@ class Procedures(object):
                     repositories[repository] = repository
                 else:
                     repository = repositories[repository]
+
+                logger.info("Managing %s.", job)
                 repository.jobs.append(job)
                 break
             else:
                 logger.debug("Skipping %s, no GitHub repository.", job)
-                continue
-
-            logger.info("Managing %s.", job)
 
         for repo in sorted(repositories.values(), key=str):
             try:
                 if fetch_settings:
-                    Procedures.fetch_settings(repository)
+                    Procedures.fetch_settings(repo)
+                yield repo
             except Exception as e:
                 logger.error("Failed to load %s settings: %r", repository, e)
-                continue
-
-            yield repo
 
 
 def loop(wrapped):
