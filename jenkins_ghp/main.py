@@ -22,7 +22,7 @@ import sys
 
 from .bot import Bot
 from .cache import CACHE
-from .github import ApiNotFoundError, GITHUB, cached_request
+from .github import ApiError, ApiNotFoundError, GITHUB, cached_request
 from .jenkins import JENKINS
 from .repository import Branch, PullRequest, Repository
 from .settings import SETTINGS
@@ -144,8 +144,15 @@ class Procedures(object):
                 if fetch_settings:
                     Procedures.fetch_settings(repo)
                 yield repo
-            except Exception as e:
+            except ApiError as e:
                 logger.error("Failed to load %s settings: %r", repo, e)
+
+    @staticmethod
+    @retry(wait_fixed=15000)
+    def whoami():
+        user = cached_request(GITHUB.user)
+        logger.info("I'm @%s on GitHub.", user['login'])
+        return user['login']
 
 
 def loop(wrapped):
@@ -198,6 +205,7 @@ def check_queue(bot):
 @asyncio.coroutine
 def bot():
     """Poll GitHub to find something to do"""
+    Procedures.whoami()
     bot = Bot(queue_empty=None)
 
     for repository in Procedures.list_repositories(fetch_settings=True):
@@ -230,14 +238,14 @@ def bot():
 
 def list_jobs():
     """List managed jobs"""
-    for repository in Repository.from_jobs(JENKINS.get_jobs()):
+    for repository in Procedures.list_repositories():
         for job in repository.jobs:
             print(job)
 
 
 def list_branches():
     """List branches to build"""
-
+    Procedures.whoami()
     for repository in Procedures.list_repositories(fetch_settings=True):
         logger.info("Working on %s.", repository)
         for branch in Procedures.list_branches(repository):
@@ -246,6 +254,7 @@ def list_branches():
 
 def list_pr():
     """List GitHub PR polled"""
+    Procedures.whoami()
     for repository in Procedures.list_repositories(fetch_settings=True):
         logger.info("Working on %s.", repository)
         for pr in Procedures.list_pulls(repository):
@@ -254,7 +263,6 @@ def list_pr():
 
 def list_repositories():
     """List GitHub repositories tested by this Jenkins"""
-
     for repository in Procedures.list_repositories():
         print(repository)
 
