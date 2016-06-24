@@ -8,15 +8,12 @@ def test_parse(GITHUB):
     updated_at = '2016-02-12T16:32:34Z'
     from jenkins_ghp.repository import PullRequest
 
-    pr = PullRequest(
-        {
-            'number': '123', 'head': {'sha': 'c01', 'ref': 'toto'},
-            'updated_at': updated_at,
-            'body': 'jenkins: issue',
-            'user': {'login': 'reporter'},
-        },
-        Mock(),
-    )
+    pr = PullRequest(repository=Mock(), payload={
+        'number': '123', 'head': {'sha': 'c01', 'ref': 'toto'},
+        'updated_at': updated_at,
+        'body': 'jenkins: issue',
+        'user': {'login': 'reporter'},
+    })
     # GITHUB.repos(repository).issues(id).comments
     issue = GITHUB.repos.return_value.issues.return_value
     issue.comments.get.return_value = [
@@ -91,25 +88,25 @@ jenkins: unix_eof
 def test_pr_urgent():
     from jenkins_ghp.repository import PullRequest
 
-    pr1 = PullRequest(data=dict(
+    pr1 = PullRequest(payload=dict(
         head=dict(sha='01234567899abcdef', ref='pr1'),
         body=None,
         number=1, html_url='pulls/1',
     ), repository=Mock())
     assert not pr1.urgent
-    pr2 = PullRequest(data=dict(
+    pr2 = PullRequest(payload=dict(
         head=dict(sha='01234567899abcdef', ref='pr2'),
         body='bla\n\njenkins: urgent',
         number=2, html_url='pulls/2',
     ), repository=Mock())
     assert pr2.urgent
-    pr3 = PullRequest(data=dict(
+    pr3 = PullRequest(payload=dict(
         head=dict(sha='01234567899abcdef', ref='pr3'),
         body='> jenkins: urgent',
         number=3, html_url='pulls/3',
     ), repository=Mock())
     assert not pr3.urgent
-    pr10 = PullRequest(data=dict(
+    pr10 = PullRequest(payload=dict(
         head=dict(sha='01234567899abcdef', ref='pr3'),
         body=None,
         number=10, html_url='pulls/10',

@@ -24,15 +24,17 @@ from .bot import Bot
 from .cache import CACHE
 from .github import ApiNotFoundError, GITHUB, cached_request
 from .jenkins import JENKINS
-from .repository import Branch, Repository
+from .repository import Branch, PullRequest, Repository
 from .settings import SETTINGS
-from .utils import retry
+from .utils import match, retry
 
 
 logger = logging.getLogger('jenkins_ghp')
 
 
 class Procedures(object):
+    pr_filter = [p for p in str(SETTINGS.GHP_PR).split(',') if p]
+
     @staticmethod
     @retry(wait_fixed=15000)
     def fetch_settings(repository):
@@ -83,17 +85,43 @@ class Procedures(object):
             yield branch
 
     @classmethod
+    @retry(wait_fixed=15000)
+    def list_pulls(cls, repository):
+        logger.debug("Querying GitHub for %s PR.", repository)
+        try:
+            pulls = cached_request(GITHUB.repos(repository).pulls)
+        except Exception:
+            logger.exception("Failed to list PR for %s.", repository)
+            return []
+
+        pulls_o = []
+        for data in pulls:
+            if not match(data['html_url'], cls.pr_filter):
+                logger.debug(
+                    "Skipping %s (%s).", data['html_url'], data['head']['ref'],
+                )
+            else:
+                pulls_o.append(PullRequest(repository, data))
+
+        for pr in reversed(sorted(pulls_o, key=PullRequest.sort_key)):
+            if pr.is_outdated:
+                logger.debug(
+                    'Skipping PR %s because older than %s weeks.',
+                    pr, SETTINGS.GHP_COMMIT_MAX_WEEKS,
+                )
+            else:
+                yield pr
+
+    @classmethod
     def list_repositories(cls, fetch_settings=False):
         repositories = {}
         jobs = JENKINS.get_jobs()
 
         env_repos = filter(None, SETTINGS.GHP_REPOSITORIES.split(' '))
         for entry in env_repos:
-            entry += ':'
-            repository, branches = entry.split(':', 1)
+            repository, branches = (entry + ':').split(':', 1)
             owner, name = repository.split('/')
-            repository = Repository(owner, name)
-            repositories[repository] = repository
+            repositories[repository] = Repository(owner, name)
             logger.debug("Managing %s.", repository)
 
         for job in jobs:
@@ -104,23 +132,20 @@ class Procedures(object):
                     repositories[repository] = repository
                 else:
                     repository = repositories[repository]
+
+                logger.info("Managing %s.", job)
                 repository.jobs.append(job)
                 break
             else:
                 logger.debug("Skipping %s, no GitHub repository.", job)
-                continue
-
-            logger.info("Managing %s.", job)
 
         for repo in sorted(repositories.values(), key=str):
             try:
                 if fetch_settings:
-                    Procedures.fetch_settings(repository)
+                    Procedures.fetch_settings(repo)
+                yield repo
             except Exception as e:
                 logger.error("Failed to load %s settings: %r", repository, e)
-                continue
-
-            yield repo
 
 
 def loop(wrapped):
@@ -186,7 +211,7 @@ def bot():
                     break
             bot.run(branch)
 
-        for pr in repository.list_pull_requests():
+        for pr in Procedures.list_pulls(repository):
             try:
                 yield from check_queue(bot)
             except RestartLoop:
@@ -223,7 +248,7 @@ def list_pr():
     """List GitHub PR polled"""
     for repository in Procedures.list_repositories(fetch_settings=True):
         logger.info("Working on %s.", repository)
-        for pr in repository.list_pull_requests():
+        for pr in Procedures.list_pulls(repository):
             print(pr)
 
 
