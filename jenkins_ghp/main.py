@@ -145,7 +145,7 @@ class Procedures(object):
                     Procedures.fetch_settings(repo)
                 yield repo
             except Exception as e:
-                logger.error("Failed to load %s settings: %r", repository, e)
+                logger.error("Failed to load %s settings: %r", repo, e)
 
 
 def loop(wrapped):
