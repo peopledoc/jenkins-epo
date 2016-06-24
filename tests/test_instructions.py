@@ -1,8 +1,10 @@
 from unittest.mock import Mock, patch
 
 
+@patch('jenkins_ghp.github.SETTINGS')
 @patch('jenkins_ghp.repository.GITHUB')
-def test_parse(GITHUB):
+def test_parse(GITHUB, SETTINGS):
+    SETTINGS.GITHUB_TOKEN = 'testtoken'
     GITHUB.x_ratelimit_remaining = 4999
 
     updated_at = '2016-02-12T16:32:34Z'
