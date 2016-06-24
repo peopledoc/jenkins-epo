@@ -238,7 +238,7 @@ def bot():
 
 def list_jobs():
     """List managed jobs"""
-    for repository in Repository.from_jobs(JENKINS.get_jobs()):
+    for repository in Procedures.list_repositories():
         for job in repository.jobs:
             print(job)
 
