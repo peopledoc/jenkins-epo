@@ -51,7 +51,6 @@ class Repository(object):
     remote_re = re.compile(
         r'.*github.com[:/](?P<owner>[\w-]+)/(?P<name>[\w-]+).*'
     )
-    pr_filter = [p for p in str(SETTINGS.GHP_PR).split(',') if p]
 
     @classmethod
     def from_remote(cls, remote_url):
@@ -150,32 +149,6 @@ class Repository(object):
         logger.debug("Repository settings:")
         for k, v in sorted(self.SETTINGS.items()):
             logger.debug("%s=%r", k, v)
-
-    @retry(wait_fixed=15000)
-    def list_pull_requests(self):
-        logger.debug("Querying GitHub for %s PR", self)
-
-        try:
-            pulls = cached_request(GITHUB.repos(self).pulls)
-        except Exception:
-            logger.exception("Failed to list PR for %s", self)
-            return []
-
-        pulls_o = []
-        for data in pulls:
-            pr = PullRequest(data, repository=self)
-            if pr.is_outdated:
-                logger.debug(
-                    'Skipping PR %s because older than %s weeks',
-                    pr, SETTINGS.GHP_COMMIT_MAX_WEEKS
-                )
-                continue
-
-            if match(data['html_url'], self.pr_filter):
-                pulls_o.append(pr)
-            else:
-                logger.debug("Skipping %s", pr)
-        return reversed(sorted(pulls_o, key=PullRequest.sort_key))
 
     def list_contexts(self):
         for job in self.jobs:
@@ -413,30 +386,30 @@ class Branch(Head):
 class PullRequest(Head):
     _urgent_re = re.compile(r'^jenkins: *urgent$', re.MULTILINE)
 
-    def __init__(self, data, repository):
+    def __init__(self, repository, payload):
         super(PullRequest, self).__init__(
             repository,
-            sha=data['head']['sha'],
-            ref=data['head']['ref'],
+            sha=payload['head']['sha'],
+            ref=payload['head']['ref'],
         )
-        self.data = data
-        body = (data.get('body') or '').replace('\r', '')
+        self.payload = payload
+        body = (payload.get('body') or '').replace('\r', '')
         self.urgent = bool(self._urgent_re.search(body))
 
     def sort_key(self):
         # Return sort data. Higher is more urgent. By defaults, last PR is
         # built first. This avoid building staled PR first. It's the default
         # order of GitHub PR listing.
-        return self.urgent, self.data['number']
+        return self.urgent, self.payload['number']
 
     def __str__(self):
-        return '%s (%s)' % (self.data['html_url'], self.ref)
+        return '%s (%s)' % (self.payload['html_url'], self.ref)
 
     __repr__ = __str__
 
     @property
     def author(self):
-        return self.data['user']['login']
+        return self.payload['user']['login']
 
     @property
     def is_outdated(self):
@@ -456,20 +429,20 @@ class PullRequest(Head):
 
         logger.info("Commenting on %s", self)
         (
-            GITHUB.repos(self.repository).issues(self.data['number'])
+            GITHUB.repos(self.repository).issues(self.payload['number'])
             .comments.post(body=body)
         )
 
     @retry(wait_fixed=15000)
     def list_comments(self):
         logger.debug("Queyring comments for instructions")
-        issue = GITHUB.repos(self.repository).issues(self.data['number'])
-        return [self.data] + cached_request(issue.comments)
+        issue = GITHUB.repos(self.repository).issues(self.payload['number'])
+        return [self.payload] + cached_request(issue.comments)
 
     @retry(wait_fixed=15000)
     def is_behind(self):
-        base = self.data['base']['label']
-        head = self.data['head']['label']
+        base = self.payload['base']['label']
+        head = self.payload['head']['label']
         comparison = cached_request(
             GITHUB.repos(self.repository).compare('%s...%s' % (base, head))
         )
@@ -478,7 +451,7 @@ class PullRequest(Head):
     @retry(wait_fixed=15000)
     def merge(self, message=None):
         body = {
-            'sha': self.data['head']['sha'],
+            'sha': self.payload['head']['sha'],
         }
 
         if GITHUB.dry:
@@ -486,6 +459,6 @@ class PullRequest(Head):
 
         logger.debug("Trying merge!")
         (
-            GITHUB.repos(self.repository).pulls(self.data['number']).merge
+            GITHUB.repos(self.repository).pulls(self.payload['number']).merge
             .put(body=body)
         )
