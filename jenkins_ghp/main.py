@@ -91,7 +91,7 @@ def bot():
             logger.error("Failed to load %s settings: %r", repository, e)
             continue
 
-        for branch in repository.list_branches():
+        for branch in GitHubRequests.list_branches(repository):
             try:
                 yield from check_queue(bot)
             except RestartLoop:
@@ -132,7 +132,8 @@ def list_branches():
         except Exception as e:
             logger.error("Failed to load %s settings: %r", repository, e)
             continue
-        for branch in repository.list_branches():
+
+        for branch in GitHubRequests.list_branches(repository):
             print(branch)
 
 

@@ -115,6 +115,9 @@ class Repository(object):
     def url(self):
         return 'https://github.com/%s' % (self,)
 
+    def load_branch(self, ref, commit):
+        return Branch(self, ref, commit)
+
     def load_protected_branches(self, branches=None):
         branches = [b['name'] for b in branches or []]
         logger.debug("Protected branches are %s", branches)
@@ -184,34 +187,6 @@ class Repository(object):
             logger.debug("%s=%r", k, v)
 
     @retry(wait_fixed=15000)
-    def list_branches(self):
-        branches = self.SETTINGS.GHP_BRANCHES
-
-        if not branches:
-            logger.debug("No explicit branches configured for %s", self)
-            return []
-
-        logger.debug("Search remote branches matching %s", ', '.join(branches))
-
-        ret = []
-        for branch in branches:
-            try:
-                ref = cached_request(GITHUB.repos(self).git(branch))
-            except ApiNotFoundError:
-                logger.warn("Branch %s not found in %s", branch, self)
-                continue
-
-            branch = Branch.from_github_payload(self, ref)
-            if branch.is_outdated:
-                logger.debug(
-                    'Skipping branch %s because older than %s weeks',
-                    branch, SETTINGS.GHP_COMMIT_MAX_WEEKS
-                )
-                continue
-            ret.append(branch)
-        return ret
-
-    @retry(wait_fixed=15000)
     def list_pull_requests(self):
         logger.debug("Querying GitHub for %s PR", self)
 
@@ -262,17 +237,6 @@ class Head(object):
         self.sha = sha
         self.ref = ref
         self._status_cache = None
-
-    @property
-    def is_outdated(self):
-        if not SETTINGS.GHP_COMMIT_MAX_WEEKS:
-            return False
-
-        now = datetime.datetime.utcnow()
-        commit = self.get_commit()
-        age = now - parse_datetime(commit['author']['date'])
-        maxage = datetime.timedelta(weeks=SETTINGS.GHP_COMMIT_MAX_WEEKS)
-        return age > maxage
 
     @retry(wait_fixed=15000)
     def get_commit(self):
@@ -433,16 +397,28 @@ class Head(object):
 
 
 class Branch(Head):
-    @classmethod
-    def from_github_payload(cls, repository, data):
-        return cls(
+    def __init__(self, repository, payload, commit=None):
+        super(Branch, self).__init__(
             repository=repository,
-            ref=data['ref'],
-            sha=data['object']['sha']
-            )
+            ref=payload['ref'],
+            sha=payload['object']['sha']
+        )
+        self.payload = payload
+        self.commit = commit
 
     def __str__(self):
         return '%s (%s)' % (self.url, self.sha[:7])
+
+    @property
+    def is_outdated(self):
+        weeks = self.repository.SETTINGS.GHP_COMMIT_MAX_WEEKS
+        if not weeks:
+            return False
+
+        now = datetime.datetime.utcnow()
+        age = now - parse_datetime(self.commit['author']['date'])
+        maxage = datetime.timedelta(weeks=weeks)
+        return age > maxage
 
     @property
     def url(self):
@@ -496,6 +472,17 @@ class PullRequest(Head):
     @property
     def author(self):
         return self.data['user']['login']
+
+    @property
+    def is_outdated(self):
+        if not self.repository.SETTINGS.GHP_COMMIT_MAX_WEEKS:
+            return False
+
+        now = datetime.datetime.utcnow()
+        commit = self.get_commit()
+        age = now - parse_datetime(commit['author']['date'])
+        maxage = datetime.timedelta(weeks=SETTINGS.GHP_COMMIT_MAX_WEEKS)
+        return age > maxage
 
     @retry(wait_fixed=15000)
     def comment(self, body):
