@@ -20,7 +20,6 @@ import yaml
 
 from .jenkins import JENKINS
 from .repository import JobSpec
-from .utils import match
 from .settings import SETTINGS
 
 
@@ -50,14 +49,10 @@ class Bot(object):
 
         self.jobs = []
         for job in head.list_jobs():
-            if not match(job.name, JENKINS.jobs_filter):
-                logger.debug("Skipping %s", job.name)
-                continue
-
             if isinstance(job, JobSpec):
                 job = JENKINS.create_job(job)
 
-            if job and job.push_trigger:
+            if job and job.managed:
                 self.jobs.append(job)
 
         return self

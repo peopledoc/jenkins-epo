@@ -33,7 +33,6 @@ logger = logging.getLogger(__name__)
 
 class LazyJenkins(object):
     build_url_re = re.compile(r'.*/job/(?P<job>.*?)/.*(?P<buildno>\d+)/?')
-    jobs_filter = [p for p in SETTINGS.GHP_JOBS.split(',') if p]
 
     def __init__(self):
         self._instance = None
@@ -73,26 +72,9 @@ class LazyJenkins(object):
             return []
 
         for name, job in self._instance.get_jobs():
-            if not match(name, self.jobs_filter):
-                logger.debug("Skipping %s.", name)
-                continue
-
-            if not job.is_enabled():
-                logger.debug("Skipping %s, disabled.", name)
-                continue
-
             job = Job.factory(job)
-            if SETTINGS.GHP_JOBS_AUTO and job.polled_by_jenkins:
-                logger.debug("Skipping %s, polled by Jenkins.", name)
-                continue
-
-            # This option works only with webhook, so we can safely use it to
-            # mark a job for jenkins-ghp.
-            if SETTINGS.GHP_JOBS_AUTO and not job.push_trigger:
-                logger.debug("Skipping %s, trigger on push disabled.", name)
-                continue
-
-            yield job
+            if job.managed:
+                yield job
 
     @retry
     def is_queue_empty(self):
@@ -140,6 +122,8 @@ JENKINS = LazyJenkins()
 
 
 class Job(object):
+    jobs_filter = [p for p in SETTINGS.GHP_JOBS.split(',') if p]
+
     def __init__(self, api_instance):
         self._instance = api_instance
         self.config = ET.fromstring(self._instance.get_config())
@@ -154,6 +138,28 @@ class Job(object):
 
     def __hash__(self):
         return hash(str(self))
+
+    @property
+    def managed(self):
+        if not match(self.name, self.jobs_filter):
+            logger.debug("%s filtered.", self)
+            return False
+
+        if not self.is_enabled():
+            logger.debug("%s disabled.", self)
+            return False
+
+        if SETTINGS.GHP_JOBS_AUTO and self.polled_by_jenkins:
+            logger.debug("%s is polled by Jenkins.", self)
+            return False
+
+        # This option works only with webhook, so we can safely use it to
+        # mark a job for jenkins-ghp.
+        if SETTINGS.GHP_JOBS_AUTO and not self.push_trigger:
+            logger.debug("Trigger on push disabled on %s.", self)
+            return False
+
+        return True
 
     @property
     def revision_param(self):
