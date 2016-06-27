@@ -15,8 +15,9 @@
 from __future__ import absolute_import
 
 import base64
-import os.path
 import logging
+import os.path
+import time
 
 from github import GitHub, ApiError, ApiNotFoundError
 from github import (
@@ -24,6 +25,7 @@ from github import (
     TIMEOUT, _METHOD_MAP, _URL,
     _encode_json, _encode_params, _parse_json,
 )
+import http.client
 
 from .cache import CACHE
 from .settings import SETTINGS
@@ -31,6 +33,42 @@ from .utils import retry
 
 
 logger = logging.getLogger(__name__)
+
+
+def retry_filter(exception):
+    if isinstance(exception, ApiError):
+        try:
+            message = exception.response['json']['message']
+        except KeyError:
+            # Don't retry on ApiError by default. Things like 1000 status
+            # update must be managed by code.
+            return False
+        if 'API rate limit exceeded for' in message:
+            wait_rate_limit_reset()
+            return True
+        # If not a rate limit error, don't retry.
+        return False
+
+    if not isinstance(exception, (IOError, http.client.HTTPException)):
+        return False
+
+    logger.warn(
+        "Retrying on %r: %s",
+        type(exception), str(exception) or repr(exception)
+    )
+    return True
+
+
+@retry
+def wait_rate_limit_reset():
+    from .github import GITHUB
+    wait = SETTINGS.GHP_LOOP or 60
+    while GITHUB.x_ratelimit_remaining < SETTINGS.GHP_RATE_LIMIT_THRESHOLD:
+        logger.info("Waiting rate limit reset in %s seconds", wait)
+        time.sleep(wait)
+        GITHUB.rate_limit.get()
+
+    GITHUB._instance.x_ratelimit_remaining = -1
 
 
 def check_rate_limit_threshold():

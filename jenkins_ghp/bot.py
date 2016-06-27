@@ -21,6 +21,7 @@ import yaml
 from .jenkins import JENKINS
 from .repository import JobSpec
 from .settings import SETTINGS
+from .utils import Bunch
 
 
 logger = logging.getLogger(__name__)
@@ -43,7 +44,7 @@ class Bot(object):
     def workon(self, head):
         logger.info("Working on %s", head)
         self.head = head
-        self.current = copy.deepcopy(self.DEFAULTS)
+        self.current = Bunch(copy.deepcopy(self.DEFAULTS))
         for ext in self.extensions.values():
             self.current.update(copy.deepcopy(ext.DEFAULTS))
 

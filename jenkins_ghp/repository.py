@@ -22,8 +22,8 @@ from github import ApiError, ApiNotFoundError
 import yaml
 
 from .github import cached_request, GITHUB
-from .settings import Settings, SETTINGS
-from .utils import match, parse_datetime, retry
+from .settings import SETTINGS
+from .utils import Bunch, match, parse_datetime, retry
 
 
 logger = logging.getLogger(__name__)
@@ -63,7 +63,7 @@ class Repository(object):
         self.owner = owner
         self.name = name
         self.jobs = jobs or []
-        self.SETTINGS = Settings()
+        self.SETTINGS = Bunch()
 
     def __eq__(self, other):
         return str(self) == str(other)
@@ -137,7 +137,7 @@ class Repository(object):
         all_settings.update(SETTINGS)
         all_settings.update(local_settings)
 
-        self.SETTINGS = Settings(**all_settings)
+        self.SETTINGS = Bunch(**all_settings)
         self.post_process_settings()
 
     def post_process_settings(self):
