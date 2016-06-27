@@ -43,18 +43,19 @@ class Bot(object):
 
     def workon(self, head):
         logger.info("Working on %s", head)
-        self.head = head
         self.current = Bunch(copy.deepcopy(self.DEFAULTS))
+        self.current.head = head
         for ext in self.extensions.values():
             self.current.update(copy.deepcopy(ext.DEFAULTS))
+            ext.current = self.current
 
-        self.jobs = []
+        self.current.jobs = []
         for job in head.list_jobs():
             if isinstance(job, JobSpec):
                 job = JENKINS.create_job(job)
 
             if job and job.managed:
-                self.jobs.append(job)
+                self.current.jobs.append(job)
 
         return self
 
@@ -72,7 +73,7 @@ class Bot(object):
 
     def process_instructions(self):
         process = True
-        for date, author, data in self.head.list_instructions():
+        for date, author, data in self.current.head.list_instructions():
             try:
                 payload = yaml.load(data)
             except yaml.error.YAMLError as e:

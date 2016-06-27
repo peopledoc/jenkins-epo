@@ -83,10 +83,10 @@ jenkins: lgtm-processed
     def begin(self):
         super(BuilderExtension, self).begin()
 
-        if isinstance(self.bot.head, PullRequest):
+        if isinstance(self.current.head, PullRequest):
             # Initialize LGTM processing
-            self.bot.current['lgtm-processed'] = parse_datetime(
-                self.bot.head.payload['created_at']
+            self.current['lgtm-processed'] = parse_datetime(
+                self.current.head.payload['created_at']
             )
 
     def process_instruction(self, instruction):
@@ -95,8 +95,8 @@ jenkins: lgtm-processed
             if isinstance(patterns, str):
                 patterns = [patterns]
             patterns = patterns or self.SKIP_ALL
-            self.bot.current['skip'] = skip = []
-            self.bot.current['skip-errors'] = errors = []
+            self.current['skip'] = skip = []
+            self.current['skip-errors'] = errors = []
             for pattern in patterns:
                 try:
                     skip.append(re.compile(pattern))
@@ -108,35 +108,35 @@ jenkins: lgtm-processed
             if isinstance(patterns, str):
                 patterns = [patterns]
 
-            self.bot.current['jobs-match'] = patterns
+            self.current['jobs-match'] = patterns
         elif instruction in {'lgtm', 'merge', 'opm'}:
-            if hasattr(self.bot.head, 'merge'):
-                if not self.bot.current['lgtm']:
+            if hasattr(self.current.head, 'merge'):
+                if not self.current['lgtm']:
                     logger.debug("LGTM incoming.")
-                self.bot.current['lgtm'].append(instruction)
+                self.current['lgtm'].append(instruction)
         elif instruction == 'lgtm-processed':
-            self.bot.current['lgtm-processed'] = instruction.date
+            self.current['lgtm-processed'] = instruction.date
         elif instruction == 'reset-skip-errors':
-            self.bot.current['skip-errors'] = []
+            self.current['skip-errors'] = []
         elif instruction == 'rebuild':
-            self.bot.current['rebuild-failed'] = instruction.date
+            self.current['rebuild-failed'] = instruction.date
 
     def end(self):
-        for instruction, pattern, error in self.bot.current['skip-errors']:
-            self.bot.head.comment(self.ERROR_COMMENT % dict(
+        for instruction, pattern, error in self.current['skip-errors']:
+            self.current.head.comment(self.ERROR_COMMENT % dict(
                 mention='@' + instruction.author,
                 pattern=pattern,
                 error=str(error),
             ))
 
-        for job in self.bot.jobs:
-            not_built = self.bot.head.filter_not_built_contexts(
+        for job in self.current.jobs:
+            not_built = self.current.head.filter_not_built_contexts(
                 job.list_contexts(),
-                rebuild_failed=self.bot.current['rebuild-failed']
+                rebuild_failed=self.current['rebuild-failed']
             )
 
             for context in not_built:
-                self.bot.head.update_statuses(
+                self.current.head.update_statuses(
                     target_url=job.baseurl,
                     **self.status_for_new_context(context)
                 )
@@ -144,11 +144,11 @@ jenkins: lgtm-processed
             queued_contexts = [c for c in not_built if not self.skip(c)]
             if queued_contexts and self.bot.queue_empty:
                 try:
-                    job.build(self.bot.head, queued_contexts)
+                    job.build(self.current.head, queued_contexts)
                 except Exception as e:
                     logger.warn("Failed to queue job %s: %s", job, e)
                     for context in queued_contexts:
-                        self.bot.head.update_statuses(
+                        self.current.head.update_statuses(
                             context=context,
                             state='error',
                             description='Failed to queue job',
@@ -158,17 +158,17 @@ jenkins: lgtm-processed
         self.maybe_merge()
 
     def check_lgtm(self):
-        lgtms = self.bot.current['lgtm'][:]
+        lgtms = self.current['lgtm'][:]
         if not lgtms:
             return
 
         logger.debug("Validating LGTMs.")
-        processed_date = self.bot.current['lgtm-processed']
+        processed_date = self.current['lgtm-processed']
 
         lgtmers = {i.author for i in lgtms}
         new_refused = set()
         for author in list(lgtmers):
-            if author in self.bot.head.repository.SETTINGS.GHP_REVIEWERS:
+            if author in self.current.head.repository.SETTINGS.GHP_REVIEWERS:
                 logger.info("Accept @%s as reviewer.", author)
             else:
                 lgtmers.remove(author)
@@ -181,7 +181,7 @@ jenkins: lgtm-processed
                     new_refused.add(author)
 
         if new_refused:
-            self.bot.head.comment(self.LGTM_COMMENT % dict(
+            self.current.head.comment(self.LGTM_COMMENT % dict(
                 emoji=random.choice((':confused:', ':disappointed:')),
                 mention=', '.join(sorted(['@' + a for a in new_refused])),
                 message="you're not allowed to acknowledge PR",
@@ -191,7 +191,7 @@ jenkins: lgtm-processed
         if not lgtms:
             return logger.debug("No legal LGTMs. Skipping.")
 
-        commit = self.bot.head.get_commit()
+        commit = self.current.head.get_commit()
         commit_date = parse_datetime(commit['committer']['date'])
         outdated_lgtm = [l for l in lgtms if l.date < commit_date]
         lgtms = list(set(lgtms) - set(outdated_lgtm))
@@ -204,7 +204,7 @@ jenkins: lgtm-processed
                 mentions = sorted(set([
                     '@' + l.author for l in unanswerd_lgtm
                 ]))
-                self.bot.head.comment(self.LGTM_COMMENT % dict(
+                self.current.head.comment(self.LGTM_COMMENT % dict(
                     emoji=random.choice((':up:', ':point_up:')),
                     mention=', '.join(mentions),
                     message=(
@@ -221,11 +221,11 @@ jenkins: lgtm-processed
                 [l for l in lgtms if l.author == a][0] for a in lgtmers
             ]
 
-        if len(lgtms) < self.bot.head.repository.SETTINGS.GHP_LGTM_QUORUM:
+        if len(lgtms) < self.current.head.repository.SETTINGS.GHP_LGTM_QUORUM:
             return logger.debug("Missing LGTMs quorum. Skipping.")
 
-        if self.bot.head.repository.SETTINGS.GHP_LGTM_AUTHOR:
-            self_lgtm = self.bot.head.author in {i.author for i in lgtms}
+        if self.current.head.repository.SETTINGS.GHP_LGTM_AUTHOR:
+            self_lgtm = self.current.head.author in {i.author for i in lgtms}
             if not self_lgtm:
                 return logger.debug("Author's LGTM missing. Skipping.")
 
@@ -247,7 +247,7 @@ jenkins: lgtm-processed
         if not lgtms:
             return
 
-        statuses = self.bot.head.get_statuses()
+        statuses = self.current.head.get_statuses()
         unsuccess = {
             k: v for k, v in statuses.items()
             if v['state'] != 'success'
@@ -255,20 +255,20 @@ jenkins: lgtm-processed
         if unsuccess:
             return logger.debug("PR not green. Postpone merge.")
 
-        if self.bot.head.is_behind():
+        if self.current.head.is_behind():
             logger.debug("Base updated since LGTM. Skipping merge.")
             unprocessed_lgtms = [
                 l for l in lgtms
-                if l.date > self.bot.current['lgtm-processed']
+                if l.date > self.current['lgtm-processed']
             ]
             if unprocessed_lgtms:
-                self.bot.head.comment(self.LGTM_COMMENT % dict(
+                self.current.head.comment(self.LGTM_COMMENT % dict(
                     emoji=random.choice((':confused:', ':disappointed:')),
-                    mention='@' + self.bot.head.author,
+                    mention='@' + self.current.head.author,
                     message=(
                         "%(base)s has been updated and this PR is now behind. "
                         "I don't merge behind PR." % dict(
-                            base=self.bot.head.payload['base']['label'],
+                            base=self.current.head.payload['base']['label'],
                         )
                     ),
                 ))
@@ -282,19 +282,19 @@ jenkins: lgtm-processed
             return
 
         try:
-            self.bot.head.merge()
+            self.current.head.merge()
         except ApiError as e:
             logger.warn("Failed to merge: %s", e.response['json']['message'])
-            self.bot.head.comment(self.LGTM_COMMENT % dict(
+            self.current.head.comment(self.LGTM_COMMENT % dict(
                 emoji=random.choice((':confused:', ':disappointed:')),
-                mention='@' + self.bot.head.author,
+                mention='@' + self.current.head.author,
                 message="I can't merge: `%s`" % (
                     e.response['json']['message']
                 ),
             ))
         else:
             logger.warn("Merged!")
-            self.bot.head.comment(self.LGTM_COMMENT % dict(
+            self.current.head.comment(self.LGTM_COMMENT % dict(
                 emoji=random.choice((
                     ':smiley:', ':sunglasses:', ':thumbup:',
                     ':ok_hand:', ':surfer:', ':white_check_mark:',
@@ -302,14 +302,14 @@ jenkins: lgtm-processed
                 mention=', '.join(sorted(set([
                     '@' + l.author for l in lgtms
                 ]))),
-                message="merged %s for you!" % (self.bot.head.ref),
+                message="merged %s for you!" % (self.current.head.ref),
             ))
 
     def skip(self, context):
-        for pattern in self.bot.current['skip']:
+        for pattern in self.current['skip']:
             if pattern.match(context):
                 return True
-        return not match(context, self.bot.current['jobs-match'])
+        return not match(context, self.current['jobs-match'])
 
     def status_for_new_context(self, context):
         new_status = {'context': context}
@@ -319,7 +319,7 @@ jenkins: lgtm-processed
                 'state': 'success',
             })
         else:
-            current_status = self.bot.head.get_status_for(context)
+            current_status = self.current.head.get_status_for(context)
             already_queued = 'Queued' == current_status.get('description')
             queued = self.bot.queue_empty or already_queued
             new_status.update({
@@ -372,7 +372,7 @@ class FixStatusExtension(Extension):
                     )
                 except TypeError:
                     pass
-        elif self.bot.head.repository.SETTINGS.GHP_STATUS_LOOP:
+        elif self.current.head.repository.SETTINGS.GHP_STATUS_LOOP:
             # Touch the commit status to avoid polling it for the next 5
             # minutes.
             state = 'pending'
@@ -391,12 +391,13 @@ class FixStatusExtension(Extension):
         fivemin_ago = (
             datetime.datetime.utcnow() -
             datetime.timedelta(
-                seconds=self.bot.head.repository.SETTINGS.GHP_STATUS_LOOP
+                seconds=self.current.head.repository.SETTINGS.GHP_STATUS_LOOP
             )
         )
 
         failed_contexts = []
-        for context, status in sorted(self.bot.head.get_statuses().items()):
+        statuses = self.current.head.get_statuses()
+        for context, status in sorted(statuses.items()):
             if status['state'] == 'success':
                 continue
 
@@ -431,7 +432,9 @@ class FixStatusExtension(Extension):
 
             new_status = self.compute_actual_status(build, status)
             if new_status:
-                self.bot.head.update_statuses(context=context, **new_status)
+                self.current.head.update_statuses(
+                    context=context, **new_status,
+                )
 
         if failed_contexts:
             logger.warn(
@@ -474,9 +477,9 @@ Extensions: %(extensions)s
 
     def process_instruction(self, instruction):
         if instruction.name in ('help', 'man'):
-            self.bot.current['help-mentions'].add(instruction.author)
+            self.current['help-mentions'].add(instruction.author)
         elif instruction == 'help-reset':
-            self.bot.current['help-mentions'] = set()
+            self.current['help-mentions'] = set()
 
     def generate_comment(self):
         docs = []
@@ -490,19 +493,19 @@ Extensions: %(extensions)s
             extensions=','.join(sorted(self.bot.extensions.keys())),
             help=help_,
             host=socket.getfqdn(),
-            me=self.bot.head.repository.SETTINGS.GHP_NAME,
+            me=self.current.head.repository.SETTINGS.GHP_NAME,
             mentions=', '.join(sorted([
-                '@' + m for m in self.bot.current['help-mentions']
+                '@' + m for m in self.current['help-mentions']
             ])),
             software=self.DISTRIBUTION.project_name,
             version=self.DISTRIBUTION.version,
         )
 
     def answer_help(self):
-        self.bot.head.comment(self.generate_comment())
+        self.current.head.comment(self.generate_comment())
 
     def end(self):
-        if self.bot.current['help-mentions']:
+        if self.current['help-mentions']:
             self.answer_help()
 
 
@@ -521,11 +524,11 @@ jenkins: reset-errors
 
     def process_instruction(self, instruction):
         if instruction == 'reset-errors':
-            self.bot.current['errors'] = []
+            self.current['errors'] = []
 
     def end(self):
-        for author, instruction, error in self.bot.current['errors']:
-            self.bot.head.comment(self.ERROR_COMMENT % dict(
+        for author, instruction, error in self.current['errors']:
+            self.current.head.comment(self.ERROR_COMMENT % dict(
                 mention='@' + author,
                 instruction=repr(instruction),
                 error=str(error),
@@ -553,16 +556,16 @@ jenkins: report-done
 
     def process_instruction(self, instruction):
         if instruction == 'report-done':
-            self.bot.current['report-done'] = True
+            self.current['report-done'] = True
 
     def end(self):
-        if self.bot.current['report-done']:
+        if self.current['report-done']:
             return
 
-        if not isinstance(self.bot.head, Branch):
+        if not isinstance(self.current.head, Branch):
             return
 
-        statuses = self.bot.head.get_statuses()
+        statuses = self.current.head.get_statuses()
         errored = [
             s for s in statuses.values()
             if s['state'] in {'failure', 'error'}
@@ -570,19 +573,19 @@ jenkins: report-done
         if not errored:
             return
 
-        branch_name = self.bot.head.ref[len('refs/heads/'):]
+        branch_name = self.current.head.ref[len('refs/heads/'):]
         builds = '- ' + '\n- '.join([s['target_url'] for s in errored])
-        issue = self.bot.head.repository.report_issue(
+        issue = self.current.head.repository.report_issue(
             title="%s is broken" % (branch_name,),
             body=self.ISSUE_TEMPLATE % dict(
-                abbrev=self.bot.head.sha[:7],
+                abbrev=self.current.head.sha[:7],
                 branch=branch_name,
                 builds=builds,
-                sha=self.bot.head.sha,
-                ref=self.bot.head.ref,
+                sha=self.current.head.sha,
+                ref=self.current.head.ref,
             )
         )
 
-        self.bot.head.comment(body=self.COMMENT_TEMPLATE % dict(
+        self.current.head.comment(body=self.COMMENT_TEMPLATE % dict(
             issue=issue['number']
         ))
