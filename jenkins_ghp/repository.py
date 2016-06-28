@@ -195,7 +195,9 @@ class Head(object):
             jobs.add(job)
 
         try:
-            config = GITHUB.fetch_file_contents(self.repository, 'jenkins.yml')
+            config = GITHUB.fetch_file_contents(
+                self.repository, 'jenkins.yml', ref=self.ref,
+            )
         except ApiNotFoundError:
             return []
 

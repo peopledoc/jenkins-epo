@@ -213,7 +213,9 @@ class LazyGithub(object):
                 raise ApiNotFoundError(path, {}, {})
             search = (search + '/' + needle).strip('/')
 
-        payload = cached_request(self.repos(repository).contents(path))
+        payload = cached_request(
+            self.repos(repository).contents(path), **kwargs
+        )
         return base64.b64decode(payload['content']).decode('utf-8')
 
 
