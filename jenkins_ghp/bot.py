@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 class Bot(object):
     DEFAULTS = {
         'errors': [],
+        'jobs': [],
     }
 
     def __init__(self, queue_empty=True):
@@ -48,19 +49,17 @@ class Bot(object):
         for ext in self.extensions.values():
             self.current.update(copy.deepcopy(ext.DEFAULTS))
             ext.current = self.current
+        return self
 
-        self.current.jobs = []
+    def run(self, head):
+        self.workon(head)
+
         for job in head.list_jobs():
             if isinstance(job, JobSpec):
                 job = JENKINS.create_job(job)
 
             if job and job.managed:
                 self.current.jobs.append(job)
-
-        return self
-
-    def run(self, head):
-        self.workon(head)
 
         for ext in self.extensions.values():
             ext.begin()
