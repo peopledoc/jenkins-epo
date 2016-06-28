@@ -77,7 +77,7 @@ class Bot(object):
             try:
                 payload = yaml.load(data)
             except yaml.error.YAMLError as e:
-                self.current['errors'].append((author, data, e))
+                self.current.errors.append((author, data, e))
                 continue
 
             data = payload.pop('jenkins')

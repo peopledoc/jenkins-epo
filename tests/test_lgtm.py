@@ -27,7 +27,7 @@ def test_deny_non_reviewer():
     ]
 
     bot = Bot().workon(pr)
-    bot.current['lgtm-processed'] = start
+    bot.current['lgtm_processed'] = start
     bot.process_instructions()
     assert not bot.extensions['builder'].check_lgtm()
     assert pr.comment.mock_calls
@@ -71,7 +71,7 @@ def test_skip_updated():
 
     bot = Bot().workon(pr)
     bot.process_instructions()
-    assert bot.current['lgtm-processed']
+    assert bot.current['lgtm_processed']
     assert not bot.extensions['builder'].check_lgtm()
     assert pr.comment.mock_calls
 
@@ -96,7 +96,7 @@ def test_skip_updated_processed():
 
     bot = Bot().workon(pr)
     bot.process_instructions()
-    assert bot.current['lgtm-processed']
+    assert bot.current['lgtm_processed']
     assert not bot.extensions['builder'].check_lgtm()
     assert not pr.comment.mock_calls
 
@@ -205,7 +205,7 @@ def test_skip_behind(check_lgtm):
     pr.list_jobs.return_value = []
 
     bot = Bot().workon(pr)
-    bot.current['lgtm-processed'] = start
+    bot.current['lgtm_processed'] = start
     assert not bot.extensions['builder'].check_mergeable()
     assert pr.comment.mock_calls
 
@@ -228,7 +228,7 @@ def test_skip_behind_processed(check_lgtm):
     pr.list_jobs.return_value = []
 
     bot = Bot().workon(pr)
-    bot.current['lgtm-processed'] = start + timedelta(hours=5)
+    bot.current['lgtm_processed'] = start + timedelta(hours=5)
     assert not bot.extensions['builder'].check_mergeable()
     assert not pr.comment.mock_calls
 

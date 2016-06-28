@@ -51,12 +51,12 @@ class BuilderExtension(Extension):
     """
 
     DEFAULTS = {
-        'jobs-match': [],
+        'jobs_match': [],
         'lgtm': [],
-        'lgtm-processed': None,
+        'lgtm_processed': None,
         'skip': [],
-        'skip-errors': [],
-        'rebuild-failed': None,
+        'skip_errors': [],
+        'rebuild_failed': None,
     }
     SETTINGS = {
         'GHP_LGTM_AUTHOR': False,
@@ -85,7 +85,7 @@ jenkins: lgtm-processed
 
         if isinstance(self.current.head, PullRequest):
             # Initialize LGTM processing
-            self.current['lgtm-processed'] = parse_datetime(
+            self.current.lgtm_processed = parse_datetime(
                 self.current.head.payload['created_at']
             )
 
@@ -95,8 +95,8 @@ jenkins: lgtm-processed
             if isinstance(patterns, str):
                 patterns = [patterns]
             patterns = patterns or self.SKIP_ALL
-            self.current['skip'] = skip = []
-            self.current['skip-errors'] = errors = []
+            self.current.skip = skip = []
+            self.current.skip_errors = errors = []
             for pattern in patterns:
                 try:
                     skip.append(re.compile(pattern))
@@ -108,21 +108,21 @@ jenkins: lgtm-processed
             if isinstance(patterns, str):
                 patterns = [patterns]
 
-            self.current['jobs-match'] = patterns
+            self.current.jobs_match = patterns
         elif instruction in {'lgtm', 'merge', 'opm'}:
             if hasattr(self.current.head, 'merge'):
-                if not self.current['lgtm']:
+                if not self.current.lgtm:
                     logger.debug("LGTM incoming.")
-                self.current['lgtm'].append(instruction)
+                self.current.lgtm.append(instruction)
         elif instruction == 'lgtm-processed':
-            self.current['lgtm-processed'] = instruction.date
+            self.current.lgtm_processed = instruction.date
         elif instruction == 'reset-skip-errors':
-            self.current['skip-errors'] = []
+            self.current.skip_errors = []
         elif instruction == 'rebuild':
-            self.current['rebuild-failed'] = instruction.date
+            self.current.rebuild_failed = instruction.date
 
     def end(self):
-        for instruction, pattern, error in self.current['skip-errors']:
+        for instruction, pattern, error in self.current.skip_errors:
             self.current.head.comment(self.ERROR_COMMENT % dict(
                 mention='@' + instruction.author,
                 pattern=pattern,
@@ -132,7 +132,7 @@ jenkins: lgtm-processed
         for job in self.current.jobs:
             not_built = self.current.head.filter_not_built_contexts(
                 job.list_contexts(),
-                rebuild_failed=self.current['rebuild-failed']
+                rebuild_failed=self.current.rebuild_failed
             )
 
             for context in not_built:
@@ -158,12 +158,12 @@ jenkins: lgtm-processed
         self.maybe_merge()
 
     def check_lgtm(self):
-        lgtms = self.current['lgtm'][:]
+        lgtms = self.current.lgtm[:]
         if not lgtms:
             return
 
         logger.debug("Validating LGTMs.")
-        processed_date = self.current['lgtm-processed']
+        processed_date = self.current.lgtm_processed
 
         lgtmers = {i.author for i in lgtms}
         new_refused = set()
@@ -259,7 +259,7 @@ jenkins: lgtm-processed
             logger.debug("Base updated since LGTM. Skipping merge.")
             unprocessed_lgtms = [
                 l for l in lgtms
-                if l.date > self.current['lgtm-processed']
+                if l.date > self.current.lgtm_processed
             ]
             if unprocessed_lgtms:
                 self.current.head.comment(self.LGTM_COMMENT % dict(
@@ -306,10 +306,10 @@ jenkins: lgtm-processed
             ))
 
     def skip(self, context):
-        for pattern in self.current['skip']:
+        for pattern in self.current.skip:
             if pattern.match(context):
                 return True
-        return not match(context, self.current['jobs-match'])
+        return not match(context, self.current.jobs_match)
 
     def status_for_new_context(self, context):
         new_status = {'context': context}
@@ -433,7 +433,7 @@ class FixStatusExtension(Extension):
             new_status = self.compute_actual_status(build, status)
             if new_status:
                 self.current.head.update_statuses(
-                    context=context, **new_status,
+                    context=context, **new_status
                 )
 
         if failed_contexts:
@@ -445,7 +445,7 @@ class FixStatusExtension(Extension):
 
 class HelpExtension(Extension):
     DEFAULTS = {
-        'help-mentions': set(),
+        'help_mentions': set(),
     }
     DISTRIBUTION = pkg_resources.get_distribution('jenkins_ghp')
     HELP = """\
@@ -477,9 +477,9 @@ Extensions: %(extensions)s
 
     def process_instruction(self, instruction):
         if instruction.name in ('help', 'man'):
-            self.current['help-mentions'].add(instruction.author)
+            self.current.help_mentions.add(instruction.author)
         elif instruction == 'help-reset':
-            self.current['help-mentions'] = set()
+            self.current.help_mentions = set()
 
     def generate_comment(self):
         docs = []
@@ -495,7 +495,7 @@ Extensions: %(extensions)s
             host=socket.getfqdn(),
             me=self.current.head.repository.SETTINGS.GHP_NAME,
             mentions=', '.join(sorted([
-                '@' + m for m in self.current['help-mentions']
+                '@' + m for m in self.current.help_mentions
             ])),
             software=self.DISTRIBUTION.project_name,
             version=self.DISTRIBUTION.version,
@@ -505,7 +505,7 @@ Extensions: %(extensions)s
         self.current.head.comment(self.generate_comment())
 
     def end(self):
-        if self.current['help-mentions']:
+        if self.current.help_mentions:
             self.answer_help()
 
 
@@ -524,10 +524,10 @@ jenkins: reset-errors
 
     def process_instruction(self, instruction):
         if instruction == 'reset-errors':
-            self.current['errors'] = []
+            self.current.errors = []
 
     def end(self):
-        for author, instruction, error in self.current['errors']:
+        for author, instruction, error in self.current.errors:
             self.current.head.comment(self.ERROR_COMMENT % dict(
                 mention='@' + author,
                 instruction=repr(instruction),
@@ -551,15 +551,15 @@ jenkins: report-done
 
     DEFAULTS = {
         # Issue URL where the failed builds are reported.
-        'report-done': False,
+        'report_done': False,
     }
 
     def process_instruction(self, instruction):
         if instruction == 'report-done':
-            self.current['report-done'] = True
+            self.current.report_done = True
 
     def end(self):
-        if self.current['report-done']:
+        if self.current.report_done:
             return
 
         if not isinstance(self.current.head, Branch):
