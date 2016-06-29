@@ -156,7 +156,6 @@ def test_self_lgtm():
     pr.commit = {'committer': {'date': (
         start.strftime('%Y-%m-%dT%H:%M:%SZ')
     )}}
-    pr.get_statuses.return_value = {'pending-job': {'state': 'success'}}
 
     bot = Bot().workon(pr)
     bot.process_instructions([
@@ -172,10 +171,8 @@ def test_skip_not_green(check_lgtm):
 
     check_lgtm.return_value = [Instruction('lgtm', None, 'reviewer', None)]
 
-    pr = Mock()
-    pr.get_statuses.return_value = {'pending-job': {'state': 'pending'}}
-
-    bot = Bot().workon(pr)
+    bot = Bot().workon(Mock())
+    bot.current.statuses = {'pending-job': {'state': 'pending'}}
     assert not bot.extensions['builder'].check_mergeable()
 
 
@@ -192,11 +189,11 @@ def test_skip_behind(check_lgtm):
     pr = Mock()
     pr.author = 'author'
     pr.payload = dict(base=dict(label='forker:fork'))
-    pr.get_statuses.return_value = {'pending-job': {'state': 'success'}}
     pr.is_behind.return_value = 4
 
     bot = Bot().workon(pr)
     bot.current.lgtm_processed = start
+    bot.current.statuses = {'pending-job': {'state': 'success'}}
     assert not bot.extensions['builder'].check_mergeable()
     assert pr.comment.mock_calls
 
@@ -214,11 +211,11 @@ def test_skip_behind_processed(check_lgtm):
     pr = Mock()
     pr.author = 'author'
     pr.payload = dict(base=dict(label='forker:fork'))
-    pr.get_statuses.return_value = {'pending-job': {'state': 'success'}}
     pr.is_behind.return_value = 4
 
     bot = Bot().workon(pr)
     bot.current.lgtm_processed = start + timedelta(hours=5)
+    bot.current.statuses = {'pending-job': {'state': 'success'}}
     assert not bot.extensions['builder'].check_mergeable()
     assert not pr.comment.mock_calls
 

@@ -248,9 +248,8 @@ jenkins: lgtm-processed
         if not lgtms:
             return
 
-        statuses = self.current.head.get_statuses()
         unsuccess = {
-            k: v for k, v in statuses.items()
+            k: v for k, v in self.current.statuses.items()
             if v['state'] != 'success'
         }
         if unsuccess:
@@ -397,8 +396,7 @@ class FixStatusExtension(Extension):
         )
 
         failed_contexts = []
-        statuses = self.current.head.get_statuses()
-        for context, status in sorted(statuses.items()):
+        for context, status in sorted(self.current.statuses.items()):
             if status['state'] == 'success':
                 continue
 
@@ -566,9 +564,8 @@ jenkins: report-done
         if not isinstance(self.current.head, Branch):
             return
 
-        statuses = self.current.head.get_statuses()
         errored = [
-            s for s in statuses.values()
+            s for s in self.current.statuses.values()
             if s['state'] in {'failure', 'error'}
         ]
         if not errored:
