@@ -184,22 +184,32 @@ class Repository(object):
 class Head(object):
     contexts_filter = [p for p in SETTINGS.GHP_JOBS.split(',') if p]
 
-    def __init__(self, repository, sha, ref):
+    def __init__(self, repository, ref, sha, commit):
         self.repository = repository
         self.sha = sha
         self.ref = ref
+        self.commit = commit
         self._status_cache = None
 
     @retry(wait_fixed=15000)
-    def get_commit(self):
-        logger.debug("Fetching commit %s", self.sha[:7])
-        data = cached_request(
+    def fetch_commit(self):
+        logger.debug("Fetching commit %s.", self.sha[:7])
+        payload = cached_request(
             GITHUB.repos(self.repository).commits(self.sha)
         )
-        if 'commit' not in data:
-            raise Exception('No commit data')
+        self.commit = payload['commit']
+        return self.commit
 
-        return data['commit']
+    @property
+    def is_outdated(self):
+        weeks = self.repository.SETTINGS.GHP_COMMIT_MAX_WEEKS
+        if not weeks:
+            return False
+
+        now = datetime.datetime.utcnow()
+        age = now - parse_datetime(self.commit['author']['date'])
+        maxage = datetime.timedelta(weeks=weeks)
+        return age > maxage
 
     def list_comments(self):
         raise NotImplemented
@@ -299,24 +309,13 @@ class Branch(Head):
         super(Branch, self).__init__(
             repository=repository,
             ref=payload['ref'],
-            sha=payload['object']['sha']
+            sha=payload['object']['sha'],
+            commit=commit,
         )
         self.payload = payload
-        self.commit = commit
 
     def __str__(self):
         return '%s (%s)' % (self.url, self.sha[:7])
-
-    @property
-    def is_outdated(self):
-        weeks = self.repository.SETTINGS.GHP_COMMIT_MAX_WEEKS
-        if not weeks:
-            return False
-
-        now = datetime.datetime.utcnow()
-        age = now - parse_datetime(self.commit['author']['date'])
-        maxage = datetime.timedelta(weeks=weeks)
-        return age > maxage
 
     @property
     def url(self):
@@ -346,11 +345,12 @@ class Branch(Head):
 class PullRequest(Head):
     _urgent_re = re.compile(r'^jenkins: *urgent$', re.MULTILINE)
 
-    def __init__(self, repository, payload):
+    def __init__(self, repository, payload, commit=None):
         super(PullRequest, self).__init__(
             repository,
             sha=payload['head']['sha'],
             ref=payload['head']['ref'],
+            commit=commit,
         )
         self.payload = payload
         body = (payload.get('body') or '').replace('\r', '')
@@ -370,17 +370,6 @@ class PullRequest(Head):
     @property
     def author(self):
         return self.payload['user']['login']
-
-    @property
-    def is_outdated(self):
-        if not self.repository.SETTINGS.GHP_COMMIT_MAX_WEEKS:
-            return False
-
-        now = datetime.datetime.utcnow()
-        commit = self.get_commit()
-        age = now - parse_datetime(commit['author']['date'])
-        maxage = datetime.timedelta(weeks=SETTINGS.GHP_COMMIT_MAX_WEEKS)
-        return age > maxage
 
     @retry(wait_fixed=15000)
     def comment(self, body):
