@@ -6,7 +6,6 @@ def test_skip_no_lgtm():
     from jenkins_ghp.bot import Bot
 
     pr = Mock()
-    pr.list_jobs.return_value = []
     pr.list_instructions.return_value = []
 
     bot = Bot().workon(pr)
@@ -21,7 +20,6 @@ def test_deny_non_reviewer():
 
     pr = Mock()
     pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer']
-    pr.list_jobs.return_value = []
     pr.list_instructions.return_value = [
         (start + timedelta(seconds=1), 'nonreviewer', 'jenkins: lgtm'),
     ]
@@ -40,7 +38,6 @@ def test_skip_lgtm_processed():
 
     pr = Mock()
     pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer']
-    pr.list_jobs.return_value = []
     pr.list_instructions.return_value = [
         (start + timedelta(seconds=1), 'nonreviewer', 'jenkins: lgtm'),
         (start + timedelta(seconds=2), 'bot', 'jenkins: lgtm-processed'),
@@ -60,7 +57,6 @@ def test_skip_updated():
     pr = Mock()
     pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer']
     pr.repository.SETTINGS.GHP_LGTM_AUTHOR = False
-    pr.list_jobs.return_value = []
     pr.list_instructions.return_value = [
         (start + timedelta(seconds=1), 'bot', 'jenkins: lgtm-processed'),
         (start + timedelta(seconds=2), 'reviewer', 'jenkins: lgtm'),
@@ -84,7 +80,6 @@ def test_skip_updated_processed():
     pr = Mock()
     pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer']
     pr.repository.SETTINGS.GHP_LGTM_AUTHOR = False
-    pr.list_jobs.return_value = []
     pr.list_instructions.return_value = [
         (start + timedelta(seconds=1), 'bot', 'jenkins: lgtm-processed'),
         (start + timedelta(seconds=2), 'reviewer', 'jenkins: lgtm'),
@@ -110,7 +105,6 @@ def test_skip_missing_lgtm():
     pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer1', 'reviewer2']
     pr.repository.SETTINGS.GHP_LGTM_AUTHOR = False
     pr.repository.SETTINGS.GHP_LGTM_QUORUM = 2
-    pr.list_jobs.return_value = []
     pr.list_instructions.return_value = [
         (start + timedelta(seconds=1), 'bot', 'jenkins: lgtm-processed'),
         (start + timedelta(seconds=2), 'reviewer1', 'jenkins: lgtm'),
@@ -133,7 +127,6 @@ def test_skip_dup_lgtm():
     pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer1', 'reviewer2']
     pr.repository.SETTINGS.GHP_LGTM_AUTHOR = False
     pr.repository.SETTINGS.GHP_LGTM_QUORUM = 2
-    pr.list_jobs.return_value = []
     pr.list_instructions.return_value = [
         (start + timedelta(seconds=1), 'bot', 'jenkins: lgtm-processed'),
         (start + timedelta(seconds=2), 'reviewer1', 'jenkins: lgtm'),
@@ -158,7 +151,6 @@ def test_self_lgtm():
     pr.repository.SETTINGS.GHP_REVIEWERS = ['author', 'reviewer']
     pr.repository.SETTINGS.GHP_LGTM_AUTHOR = True
     pr.repository.SETTINGS.GHP_LGTM_QUORUM = 1
-    pr.list_jobs.return_value = []
     pr.list_instructions.return_value = [
         (start + timedelta(seconds=1), 'bot', 'jenkins: lgtm-processed'),
         (start + timedelta(seconds=2), 'reviewer', 'jenkins: lgtm'),
@@ -180,7 +172,6 @@ def test_skip_not_green(check_lgtm):
     check_lgtm.return_value = [Instruction('lgtm', None, 'reviewer', None)]
 
     pr = Mock()
-    pr.list_jobs.return_value = []
     pr.get_statuses.return_value = {'pending-job': {'state': 'pending'}}
 
     bot = Bot().workon(pr)
@@ -202,7 +193,6 @@ def test_skip_behind(check_lgtm):
     pr.payload = dict(base=dict(label='forker:fork'))
     pr.get_statuses.return_value = {'pending-job': {'state': 'success'}}
     pr.is_behind.return_value = 4
-    pr.list_jobs.return_value = []
 
     bot = Bot().workon(pr)
     bot.current['lgtm_processed'] = start
@@ -225,7 +215,6 @@ def test_skip_behind_processed(check_lgtm):
     pr.payload = dict(base=dict(label='forker:fork'))
     pr.get_statuses.return_value = {'pending-job': {'state': 'success'}}
     pr.is_behind.return_value = 4
-    pr.list_jobs.return_value = []
 
     bot = Bot().workon(pr)
     bot.current['lgtm_processed'] = start + timedelta(hours=5)
@@ -240,7 +229,6 @@ def test_merge_fail(check_mergeable):
 
     pr = Mock()
     pr.author = 'author'
-    pr.list_jobs.return_value = []
     pr.list_instructions.return_value = []
     pr.merge.side_effect = ApiError('url', {}, dict(json=dict(
         message="unmergeable",
@@ -261,7 +249,6 @@ def test_merge_success(check_mergeable):
     ]
 
     pr = Mock()
-    pr.list_jobs.return_value = []
     pr.list_instructions.return_value = []
 
     bot = Bot().workon(pr)

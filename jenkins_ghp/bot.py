@@ -18,6 +18,7 @@ import logging
 import pkg_resources
 import yaml
 
+from .github import GITHUB, ApiNotFoundError
 from .jenkins import JENKINS
 from .repository import JobSpec
 from .settings import SETTINGS
@@ -30,6 +31,7 @@ logger = logging.getLogger(__name__)
 class Bot(object):
     DEFAULTS = {
         'errors': [],
+        'jobs': [],
     }
 
     def __init__(self, queue_empty=True):
@@ -42,25 +44,31 @@ class Bot(object):
             logger.debug("Loaded extension %s", ep.name)
 
     def workon(self, head):
-        logger.info("Working on %s", head)
+        logger.info("Working on %s.", head)
         self.current = Bunch(copy.deepcopy(self.DEFAULTS))
         self.current.head = head
         for ext in self.extensions.values():
             self.current.update(copy.deepcopy(ext.DEFAULTS))
             ext.current = self.current
+        return self
 
-        self.current.jobs = []
-        for job in head.list_jobs():
+    def run(self, head):
+        self.workon(head)
+
+        try:
+            jenkins_yml = GITHUB.fetch_file_contents(
+                head.repository, 'jenkins.yml', ref=head.ref,
+            )
+            logger.debug("Loading jenkins.yml.")
+        except ApiNotFoundError:
+            jenkins_yml = None
+
+        for job in head.repository.list_jobs(jenkins_yml):
             if isinstance(job, JobSpec):
                 job = JENKINS.create_job(job)
 
             if job and job.managed:
                 self.current.jobs.append(job)
-
-        return self
-
-    def run(self, head):
-        self.workon(head)
 
         for ext in self.extensions.values():
             ext.begin()

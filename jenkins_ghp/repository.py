@@ -18,7 +18,7 @@ import datetime
 import logging
 import re
 
-from github import ApiError, ApiNotFoundError
+from github import ApiError
 import yaml
 
 from .github import cached_request, GITHUB
@@ -155,6 +155,20 @@ class Repository(object):
             for context in job.list_contexts():
                 yield context
 
+    def list_jobs(self, jenkins_yml=None):
+        jenkins_yml = jenkins_yml or '{}'
+        jobs = set()
+
+        for job in self.jobs:
+            jobs.add(job)
+
+        config = yaml.load(jenkins_yml)
+        for name, params in config.items():
+            job = JobSpec(self, name, params)
+            jobs.add(job)
+
+        return list(jobs)
+
     @retry(wait_fixed=15000)
     def report_issue(self, title, body):
         if GITHUB.dry:
@@ -186,25 +200,6 @@ class Head(object):
             raise Exception('No commit data')
 
         return data['commit']
-
-    @retry(wait_fixed=15000)
-    def list_jobs(self):
-        jobs = set()
-
-        for job in self.repository.jobs:
-            jobs.add(job)
-
-        try:
-            config = GITHUB.fetch_file_contents(self.repository, 'jenkins.yml')
-        except ApiNotFoundError:
-            return []
-
-        config = yaml.load(config)
-        for name, params in config.items():
-            job = JobSpec(self.repository, name, params)
-            jobs.add(job)
-
-        return list(jobs)
 
     def list_comments(self):
         raise NotImplemented

@@ -65,3 +65,24 @@ def test_reviewers():
     assert 'contributor' not in reviewers
     assert 'pusher' in reviewers
     assert 'owner' in reviewers
+
+
+def test_list_jobs_no_yml():
+    from jenkins_ghp.repository import Repository
+
+    repo = Repository('owner', 'repo1')
+    jobs = repo.list_jobs(None)
+    assert [] == jobs
+
+
+def test_list_jobs_yml():
+    from jenkins_ghp.repository import Repository
+
+    repo = Repository('owner', 'repo1')
+    jobs = repo.list_jobs("""
+job1: |
+    py.test
+job2: |
+    tox -r
+    """.strip())
+    assert 2 == len(jobs)
