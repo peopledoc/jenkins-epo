@@ -191,8 +191,9 @@ jenkins: lgtm-processed
         if not lgtms:
             return logger.debug("No legal LGTMs. Skipping.")
 
-        commit = self.current.head.get_commit()
-        commit_date = parse_datetime(commit['committer']['date'])
+        commit_date = parse_datetime(
+            self.current.head.commit['committer']['date']
+        )
         outdated_lgtm = [l for l in lgtms if l.date < commit_date]
         lgtms = list(set(lgtms) - set(outdated_lgtm))
         if outdated_lgtm and not lgtms:

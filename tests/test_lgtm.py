@@ -63,7 +63,7 @@ def test_skip_updated():
     pr = Mock()
     pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer']
     pr.repository.SETTINGS.GHP_LGTM_AUTHOR = False
-    pr.get_commit.return_value = {'committer': {'date': (
+    pr.commit = {'committer': {'date': (
         (start + timedelta(seconds=4)).strftime('%Y-%m-%dT%H:%M:%SZ')
     )}}
 
@@ -85,7 +85,7 @@ def test_skip_updated_processed():
     pr = Mock()
     pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer']
     pr.repository.SETTINGS.GHP_LGTM_AUTHOR = False
-    pr.get_commit.return_value = {'committer': {'date': (
+    pr.commit = {'committer': {'date': (
         (start + timedelta(seconds=4)).strftime('%Y-%m-%dT%H:%M:%SZ')
     )}}
 
@@ -109,7 +109,7 @@ def test_skip_missing_lgtm():
     pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer1', 'reviewer2']
     pr.repository.SETTINGS.GHP_LGTM_AUTHOR = False
     pr.repository.SETTINGS.GHP_LGTM_QUORUM = 2
-    pr.get_commit.return_value = {'committer': {'date': (
+    pr.commit = {'committer': {'date': (
         start.strftime('%Y-%m-%dT%H:%M:%SZ')
     )}}
 
@@ -130,7 +130,7 @@ def test_skip_dup_lgtm():
     pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer1', 'reviewer2']
     pr.repository.SETTINGS.GHP_LGTM_AUTHOR = False
     pr.repository.SETTINGS.GHP_LGTM_QUORUM = 2
-    pr.get_commit.return_value = {'committer': {'date': (
+    pr.commit = {'committer': {'date': (
         start.strftime('%Y-%m-%dT%H:%M:%SZ')
     )}}
 
@@ -153,7 +153,7 @@ def test_self_lgtm():
     pr.repository.SETTINGS.GHP_REVIEWERS = ['author', 'reviewer']
     pr.repository.SETTINGS.GHP_LGTM_AUTHOR = True
     pr.repository.SETTINGS.GHP_LGTM_QUORUM = 1
-    pr.get_commit.return_value = {'committer': {'date': (
+    pr.commit = {'committer': {'date': (
         start.strftime('%Y-%m-%dT%H:%M:%SZ')
     )}}
     pr.get_statuses.return_value = {'pending-job': {'state': 'success'}}

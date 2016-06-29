@@ -62,11 +62,8 @@ def list_branches(repository):
             logger.warn("Branch %s not found in %s", branch, repository)
             continue
 
-        sha = ref['object']['sha']
-        logger.debug("Fetching commit %s", sha[:7])
-        data = cached_request(GITHUB.repos(repository).commits(sha))
-        commit = data['commit']
-        branch = Branch(repository, ref, commit)
+        branch = Branch(repository, ref)
+        branch.fetch_commit()
         if branch.is_outdated:
             logger.debug(
                 'Skipping branch %s because older than %s weeks',
@@ -95,6 +92,7 @@ def list_pulls(repository):
             pulls_o.append(PullRequest(repository, data))
 
     for pr in reversed(sorted(pulls_o, key=PullRequest.sort_key)):
+        pr.fetch_commit()
         if pr.is_outdated:
             logger.debug(
                 'Skipping PR %s because older than %s weeks.',
