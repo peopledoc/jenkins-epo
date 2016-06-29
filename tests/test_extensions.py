@@ -1,16 +1,22 @@
 from unittest.mock import Mock
 
 
+def comment(login='montecristo', **kwargs):
+    defaults = dict(
+        updated_at='2016-06-29T11:41:47Z',
+        body=None,
+        user=dict(login=login),
+    )
+    return dict(defaults, **kwargs)
+
+
 def test_compute_skip_unindented():
     from jenkins_ghp.bot import Bot
 
-    pr = Mock()
-    pr.list_instructions.return_value = [
-        (0, 0, 'jenkins:\nskip: [toto]\n'),
-    ]
-
-    bot = Bot().workon(pr)
-    bot.process_instructions()
+    bot = Bot().workon(Mock())
+    bot.process_instructions([
+        comment(body='```\njenkins:\nskip: [toto]\n```'),
+    ])
     skip = [re.pattern for re in bot.current.skip]
     assert ['toto'] == skip
 
@@ -19,13 +25,10 @@ def test_compute_skip_null():
     from jenkins_ghp.bot import Bot
     from jenkins_ghp.extensions import BuilderExtension
 
-    pr = Mock()
-    pr.list_instructions.return_value = [
-        (0, 0, 'jenkins: {skip: }'),
-    ]
-
-    bot = Bot().workon(pr)
-    bot.process_instructions()
+    bot = Bot().workon(Mock())
+    bot.process_instructions([
+        comment(body='jenkins: {skip: }'),
+    ])
     skip = [re.pattern for re in bot.current.skip]
     assert skip == list(BuilderExtension.SKIP_ALL)
 
@@ -34,19 +37,16 @@ def test_compute_skip():
     from jenkins_ghp.bot import Bot
     from jenkins_ghp.extensions import BuilderExtension
 
-    pr = Mock()
-    bot = Bot().workon(pr)
+    bot = Bot().workon(Mock())
 
-    pr.list_instructions.return_value = [(0, 0, 'jenkins: skip')]
-    bot.process_instructions()
+    bot.process_instructions([comment(body='jenkins: skip')])
     skip = [re.pattern for re in bot.current.skip]
     assert skip == list(BuilderExtension.SKIP_ALL)
 
-    pr.list_instructions.return_value = [
-        (0, 0, 'jenkins: {skip: }'),
-        (0, 0, 'jenkins: {skip: [this]}'),
-    ]
-    bot.process_instructions()
+    bot.process_instructions([
+        comment(body='jenkins: {skip: }'),
+        comment(body='jenkins: {skip: [this]}'),
+    ])
     skip = [re.pattern for re in bot.current.skip]
     assert skip == ['this']
 
@@ -54,54 +54,45 @@ def test_compute_skip():
 def test_compute_rebuild():
     from jenkins_ghp.bot import Bot
 
-    pr = Mock()
-    bot = Bot().workon(pr)
-
-    pr.list_instructions.return_value = [('DATE', 0, 'jenkins: rebuild')]
-    bot.process_instructions()
-    assert bot.current.rebuild_failed == 'DATE'
+    bot = Bot().workon(Mock())
+    bot.process_instructions([comment(body='jenkins: rebuild')])
+    assert bot.current.rebuild_failed
 
 
 def test_compute_help():
     from jenkins_ghp.bot import Bot
 
-    pr = Mock()
-    bot = Bot().workon(pr)
-
-    pr.list_instructions.return_value = [(0, 'asker', 'jenkins: help')]
-    bot.process_instructions()
+    bot = Bot().workon(Mock())
+    bot.process_instructions([
+        comment(login='asker', body='jenkins: help')
+    ])
     assert 'asker' in bot.current.help_mentions
 
-    pr.list_instructions.return_value = [
-        (0, 'asker1', 'jenkins: help'),
-        (0, 'bot', 'jenkins: help-reset'),
-    ]
-    bot.process_instructions()
+    bot.process_instructions([
+        comment(login='asker1', body='jenkins: help'),
+        comment(login='bot', body='jenkins: help-reset'),
+    ])
     assert not bot.current.help_mentions
 
-    pr.list_instructions.return_value = [
-        (0, 'asker1', 'jenkins: help'),
-        (0, 'asker2', 'jenkins: help'),
-    ]
-    bot.process_instructions()
+    bot.process_instructions([
+        comment(login='asker1', body='jenkins: help'),
+        comment(login='asker2', body='jenkins: man'),
+    ])
     assert 'asker1' in bot.current.help_mentions
     assert 'asker2' in bot.current.help_mentions
 
-    comment = bot.extensions['help'].generate_comment()
-    assert '@asker1' in comment
-    assert '@asker2' in comment
+    man = bot.extensions['help'].generate_comment()
+    assert '@asker1' in man
+    assert '@asker2' in man
 
 
 def test_skip_re():
     from jenkins_ghp.bot import Bot
 
-    pr = Mock()
-    pr.list_instructions.return_value = [
-        (None, None, """jenkins: {skip: ['toto.*', '(?!notthis)']}"""),
-    ]
-
-    bot = Bot().workon(pr)
-    bot.process_instructions()
+    bot = Bot().workon(Mock())
+    bot.process_instructions([
+        comment(body="""jenkins: {skip: ['toto.*', '(?!notthis)']}"""),
+    ])
     assert bot.extensions['builder'].skip('toto-doc')
     assert not bot.extensions['builder'].skip('notthis')
 
@@ -109,26 +100,20 @@ def test_skip_re():
 def test_skip_re_wrong():
     from jenkins_ghp.bot import Bot
 
-    pr = Mock()
-    pr.list_instructions.return_value = [
-        (None, None, '''jenkins: {skip: ['*toto)']}'''),
-    ]
-
-    bot = Bot().workon(pr)
-    bot.process_instructions()
+    bot = Bot().workon(Mock())
+    bot.process_instructions([
+        comment(body='''jenkins: {skip: ['*toto)']}'''),
+    ])
     assert not bot.extensions['builder'].skip('toto')
 
 
 def test_match_mixed():
     from jenkins_ghp.bot import Bot
 
-    pr = Mock()
-    pr.list_instructions.return_value = [
-        (None, None, """jenkins: {jobs: [-toto*, not*]}"""),
-    ]
-
-    bot = Bot().workon(pr)
-    bot.process_instructions()
+    bot = Bot().workon(Mock())
+    bot.process_instructions([
+        comment(body="""jenkins: {jobs: [-toto*, not*]}"""),
+    ])
     assert bot.extensions['builder'].skip('toto-doc')
     assert not bot.extensions['builder'].skip('notthis')
 
@@ -136,13 +121,10 @@ def test_match_mixed():
 def test_match_negate():
     from jenkins_ghp.bot import Bot
 
-    pr = Mock()
-    pr.list_instructions.return_value = [
-        (None, None, """jenkins: {jobs: ['*', -skip*]}"""),
-    ]
-
-    bot = Bot().workon(pr)
-    bot.process_instructions()
+    bot = Bot().workon(Mock())
+    bot.process_instructions([
+        comment(body="""jenkins: {jobs: ['*', -skip*]}"""),
+    ])
 
     assert bot.extensions['builder'].skip('skip')
     assert not bot.extensions['builder'].skip('new')

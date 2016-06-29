@@ -204,41 +204,6 @@ class Head(object):
     def list_comments(self):
         raise NotImplemented
 
-    instruction_re = re.compile(
-        '('
-        # Case beginning:  jenkins: ... or `jenkins: ...`
-        '\A`*jenkins:[^\n]*`*' '|'
-        # Case one middle line:  jenkins: ...
-        '(?!`)\njenkins:[^\n]*' '|'
-        # Case middle line teletype:  `jenkins: ...`
-        '\n`+jenkins:[^\n]*`+' '|'
-        # Case block code: ```\njenkins:\n  ...```
-        '```(?:yaml)?\njenkins:[\s\S]*?\n```'
-        ')'
-    )
-
-    @retry(wait_fixed=15000)
-    def list_instructions(self):
-        comments = self.list_comments()
-        instructions = []
-        for comment in comments:
-            if comment['body'] is None:
-                continue
-
-            body = comment['body'].replace('\r', '')
-
-            for instruction in self.instruction_re.findall(body):
-                instruction = instruction.strip().strip('`')
-                if instruction.startswith('yaml\n'):
-                    instruction = instruction[4:].strip()
-
-                instructions.append((
-                    parse_datetime(comment['updated_at']),
-                    comment['user']['login'],
-                    instruction,
-                ))
-        return instructions
-
     def filter_not_built_contexts(self, contexts, rebuild_failed=None):
         not_built = []
         for context in contexts:

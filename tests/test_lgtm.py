@@ -2,14 +2,24 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
 
+def lgtm(updated_at, login='bot', **kwargs):
+    defaults = dict(
+        updated_at=updated_at.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        body='jenkins: opm',
+        user=dict(login=login),
+    )
+    return dict(defaults, **kwargs)
+
+
+def processed(**kwargs):
+    return lgtm(login='bot', body='jenkins: lgtm-processed', **kwargs)
+
+
 def test_skip_no_lgtm():
     from jenkins_ghp.bot import Bot
 
-    pr = Mock()
-    pr.list_instructions.return_value = []
-
-    bot = Bot().workon(pr)
-    bot.process_instructions()
+    bot = Bot().workon(Mock())
+    bot.process_instructions([])
     assert not bot.extensions['builder'].check_lgtm()
 
 
@@ -18,33 +28,29 @@ def test_deny_non_reviewer():
 
     start = datetime.now()
 
-    pr = Mock()
-    pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer']
-    pr.list_instructions.return_value = [
-        (start + timedelta(seconds=1), 'nonreviewer', 'jenkins: lgtm'),
-    ]
-
-    bot = Bot().workon(pr)
-    bot.current['lgtm_processed'] = start
-    bot.process_instructions()
+    bot = Bot().workon(Mock())
+    bot.current.lgtm_processed = start
+    bot.current.head.repository.SETTINGS.GHP_REVIEWERS = ['reviewer']
+    bot.process_instructions([
+        lgtm(updated_at=start + timedelta(seconds=1), login='nonreviewer'),
+    ])
     assert not bot.extensions['builder'].check_lgtm()
-    assert pr.comment.mock_calls
+    assert bot.current.head.comment.mock_calls
 
 
-def test_skip_lgtm_processed():
+def test_deny_non_reviewer_processed():
     from jenkins_ghp.bot import Bot
 
     start = datetime.now()
 
     pr = Mock()
     pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer']
-    pr.list_instructions.return_value = [
-        (start + timedelta(seconds=1), 'nonreviewer', 'jenkins: lgtm'),
-        (start + timedelta(seconds=2), 'bot', 'jenkins: lgtm-processed'),
-    ]
 
     bot = Bot().workon(pr)
-    bot.process_instructions()
+    bot.process_instructions([
+        lgtm(updated_at=start + timedelta(hours=1), login='nonreviewer'),
+        processed(updated_at=start + timedelta(hours=2)),
+    ])
     assert not bot.extensions['builder'].check_lgtm()
     pr.comment.assert_not_called()
 
@@ -57,16 +63,15 @@ def test_skip_updated():
     pr = Mock()
     pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer']
     pr.repository.SETTINGS.GHP_LGTM_AUTHOR = False
-    pr.list_instructions.return_value = [
-        (start + timedelta(seconds=1), 'bot', 'jenkins: lgtm-processed'),
-        (start + timedelta(seconds=2), 'reviewer', 'jenkins: lgtm'),
-    ]
     pr.get_commit.return_value = {'committer': {'date': (
         (start + timedelta(seconds=4)).strftime('%Y-%m-%dT%H:%M:%SZ')
     )}}
 
     bot = Bot().workon(pr)
-    bot.process_instructions()
+    bot.process_instructions([
+        processed(updated_at=start + timedelta(seconds=1)),
+        lgtm(updated_at=start + timedelta(seconds=2), login='reviewer'),
+    ])
     assert bot.current['lgtm_processed']
     assert not bot.extensions['builder'].check_lgtm()
     assert pr.comment.mock_calls
@@ -80,18 +85,17 @@ def test_skip_updated_processed():
     pr = Mock()
     pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer']
     pr.repository.SETTINGS.GHP_LGTM_AUTHOR = False
-    pr.list_instructions.return_value = [
-        (start + timedelta(seconds=1), 'bot', 'jenkins: lgtm-processed'),
-        (start + timedelta(seconds=2), 'reviewer', 'jenkins: lgtm'),
-        (start + timedelta(seconds=6), 'bot', 'jenkins: lgtm-processed'),
-    ]
     pr.get_commit.return_value = {'committer': {'date': (
         (start + timedelta(seconds=4)).strftime('%Y-%m-%dT%H:%M:%SZ')
     )}}
 
     bot = Bot().workon(pr)
-    bot.process_instructions()
-    assert bot.current['lgtm_processed']
+    bot.process_instructions([
+        processed(updated_at=start + timedelta(seconds=1)),
+        lgtm(updated_at=start + timedelta(seconds=2), login='reviewer'),
+        processed(updated_at=start + timedelta(seconds=6)),
+    ])
+    assert bot.current.lgtm_processed
     assert not bot.extensions['builder'].check_lgtm()
     assert not pr.comment.mock_calls
 
@@ -105,16 +109,15 @@ def test_skip_missing_lgtm():
     pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer1', 'reviewer2']
     pr.repository.SETTINGS.GHP_LGTM_AUTHOR = False
     pr.repository.SETTINGS.GHP_LGTM_QUORUM = 2
-    pr.list_instructions.return_value = [
-        (start + timedelta(seconds=1), 'bot', 'jenkins: lgtm-processed'),
-        (start + timedelta(seconds=2), 'reviewer1', 'jenkins: lgtm'),
-    ]
     pr.get_commit.return_value = {'committer': {'date': (
         start.strftime('%Y-%m-%dT%H:%M:%SZ')
     )}}
 
     bot = Bot().workon(pr)
-    bot.process_instructions()
+    bot.process_instructions([
+        processed(updated_at=start + timedelta(seconds=1)),
+        lgtm(updated_at=start + timedelta(seconds=2), login='reviewer1'),
+    ])
     assert not bot.extensions['builder'].check_lgtm()
 
 
@@ -127,17 +130,16 @@ def test_skip_dup_lgtm():
     pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer1', 'reviewer2']
     pr.repository.SETTINGS.GHP_LGTM_AUTHOR = False
     pr.repository.SETTINGS.GHP_LGTM_QUORUM = 2
-    pr.list_instructions.return_value = [
-        (start + timedelta(seconds=1), 'bot', 'jenkins: lgtm-processed'),
-        (start + timedelta(seconds=2), 'reviewer1', 'jenkins: lgtm'),
-        (start + timedelta(seconds=3), 'reviewer1', 'jenkins: lgtm'),
-    ]
     pr.get_commit.return_value = {'committer': {'date': (
         start.strftime('%Y-%m-%dT%H:%M:%SZ')
     )}}
 
     bot = Bot().workon(pr)
-    bot.process_instructions()
+    bot.process_instructions([
+        processed(updated_at=start + timedelta(hours=1)),
+        lgtm(updated_at=start + timedelta(hours=2), login='reviewer1'),
+        lgtm(updated_at=start + timedelta(hours=3), login='reviewer1'),
+    ])
     assert not bot.extensions['builder'].check_lgtm()
 
 
@@ -151,17 +153,16 @@ def test_self_lgtm():
     pr.repository.SETTINGS.GHP_REVIEWERS = ['author', 'reviewer']
     pr.repository.SETTINGS.GHP_LGTM_AUTHOR = True
     pr.repository.SETTINGS.GHP_LGTM_QUORUM = 1
-    pr.list_instructions.return_value = [
-        (start + timedelta(seconds=1), 'bot', 'jenkins: lgtm-processed'),
-        (start + timedelta(seconds=2), 'reviewer', 'jenkins: lgtm'),
-    ]
     pr.get_commit.return_value = {'committer': {'date': (
         start.strftime('%Y-%m-%dT%H:%M:%SZ')
     )}}
     pr.get_statuses.return_value = {'pending-job': {'state': 'success'}}
 
     bot = Bot().workon(pr)
-    bot.process_instructions()
+    bot.process_instructions([
+        processed(updated_at=start + timedelta(hours=1)),
+        lgtm(updated_at=start + timedelta(hours=2), login='reviewer'),
+    ])
     assert not bot.extensions['builder'].check_lgtm()
 
 
@@ -195,7 +196,7 @@ def test_skip_behind(check_lgtm):
     pr.is_behind.return_value = 4
 
     bot = Bot().workon(pr)
-    bot.current['lgtm_processed'] = start
+    bot.current.lgtm_processed = start
     assert not bot.extensions['builder'].check_mergeable()
     assert pr.comment.mock_calls
 
@@ -217,7 +218,7 @@ def test_skip_behind_processed(check_lgtm):
     pr.is_behind.return_value = 4
 
     bot = Bot().workon(pr)
-    bot.current['lgtm_processed'] = start + timedelta(hours=5)
+    bot.current.lgtm_processed = start + timedelta(hours=5)
     assert not bot.extensions['builder'].check_mergeable()
     assert not pr.comment.mock_calls
 
@@ -229,13 +230,12 @@ def test_merge_fail(check_mergeable):
 
     pr = Mock()
     pr.author = 'author'
-    pr.list_instructions.return_value = []
     pr.merge.side_effect = ApiError('url', {}, dict(json=dict(
         message="unmergeable",
     )))
 
     bot = Bot().workon(pr)
-    bot.process_instructions()
+    bot.process_instructions([])
     bot.extensions['builder'].maybe_merge()
     assert pr.comment.mock_calls
 
@@ -248,10 +248,7 @@ def test_merge_success(check_mergeable):
         Instruction('lgtm', None, 'reviewer', None),
     ]
 
-    pr = Mock()
-    pr.list_instructions.return_value = []
-
-    bot = Bot().workon(pr)
-    bot.process_instructions()
+    bot = Bot().workon(Mock())
+    bot.process_instructions([])
     bot.extensions['builder'].maybe_merge()
-    assert pr.comment.mock_calls
+    assert bot.current.head.comment.mock_calls

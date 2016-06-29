@@ -16,13 +16,14 @@ import collections
 import copy
 import logging
 import pkg_resources
+import re
 import yaml
 
 from .github import GITHUB, ApiNotFoundError
 from .jenkins import JENKINS
 from .repository import JobSpec
 from .settings import SETTINGS
-from .utils import Bunch
+from .utils import Bunch, parse_datetime
 
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,19 @@ class Bot(object):
         'errors': [],
         'jobs': [],
     }
+
+    instruction_re = re.compile(
+        '('
+        # Case beginning:  jenkins: ... or `jenkins: ...`
+        '\A`*jenkins:[^\n]*`*' '|'
+        # Case one middle line:  jenkins: ...
+        '(?!`)\njenkins:[^\n]*' '|'
+        # Case middle line teletype:  `jenkins: ...`
+        '\n`+jenkins:[^\n]*`+' '|'
+        # Case block code: ```\njenkins:\n  ...```
+        '```(?:yaml)?\njenkins:[\s\S]*?\n```'
+        ')'
+    )
 
     def __init__(self, queue_empty=True):
         self.queue_empty = queue_empty
@@ -73,47 +87,66 @@ class Bot(object):
         for ext in self.extensions.values():
             ext.begin()
 
-        self.process_instructions()
+        self.process_instructions(
+            [self.current.head.payload] +
+            self.current.head.list_comments()
+        )
         logger.debug("Bot vars: %r", self.current)
 
         for ext in self.extensions.values():
             ext.end()
 
-    def process_instructions(self):
+    def parse_instructions(self, comments):
         process = True
-        for date, author, data in self.current.head.list_instructions():
-            try:
-                payload = yaml.load(data)
-            except yaml.error.YAMLError as e:
-                self.current.errors.append((author, data, e))
+        for comment in comments:
+            if comment['body'] is None:
                 continue
 
-            data = payload.pop('jenkins')
-            # If jenkins is empty, reset to dict
-            data = data or {}
-            # If spurious keys are passed, this may be an unindented yaml, just
-            # include it.
-            if payload:
-                data = dict(payload, **data)
+            body = comment['body'].replace('\r', '')
+            for stanza in self.instruction_re.findall(body):
+                stanza = stanza.strip().strip('`')
+                if stanza.startswith('yaml\n'):
+                    stanza = stanza[4:].strip()
 
-            if not data:
-                continue
-            if isinstance(data, str):
-                data = {data: None}
-            if isinstance(data, list):
-                data = collections.OrderedDict(zip(data, [None]*len(data)))
+                date = parse_datetime(comment['updated_at'])
+                author = comment['user']['login']
 
-            for name, args in data.items():
-                name = name.lower()
-                instruction = Instruction(name, args, author, date)
-                if not process:
-                    process = 'process' == instruction
+                try:
+                    payload = yaml.load(stanza)
+                except yaml.error.YAMLError as e:
+                    self.current.errors.append((author, stanza, e))
                     continue
-                elif instruction == 'ignore':
-                    process = False
-                else:
-                    for ext in self.extensions.values():
-                        ext.process_instruction(instruction)
+
+                data = payload.pop('jenkins')
+                # If jenkins is empty, reset to dict
+                data = data or {}
+                # If spurious keys are passed, this may be an unindented yaml,
+                # just include it.
+                if payload:
+                    data = dict(payload, **data)
+
+                if not data:
+                    continue
+                if isinstance(data, str):
+                    data = {data: None}
+                if isinstance(data, list):
+                    data = collections.OrderedDict(zip(data, [None]*len(data)))
+
+                for name, args in data.items():
+                    name = name.lower()
+                    instruction = Instruction(name, args, author, date)
+                    if not process:
+                        process = 'process' == instruction
+                        continue
+                    elif instruction == 'ignore':
+                        process = False
+                    else:
+                        yield instruction
+
+    def process_instructions(self, comments):
+        for instruction in self.parse_instructions(comments):
+            for ext in self.extensions.values():
+                ext.process_instruction(instruction)
 
 
 class Instruction(object):
