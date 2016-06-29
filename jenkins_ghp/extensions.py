@@ -131,13 +131,14 @@ jenkins: lgtm-processed
 
         for job in self.current.jobs:
             not_built = self.current.head.filter_not_built_contexts(
+                self.current.statuses,
                 job.list_contexts(),
                 rebuild_failed=self.current.rebuild_failed
             )
 
             for context in not_built:
-                self.current.head.update_statuses(
-                    target_url=job.baseurl,
+                self.current.head.push_statuses(
+                    self.current.statuses, target_url=job.baseurl,
                     **self.status_for_new_context(context)
                 )
 
@@ -148,9 +149,9 @@ jenkins: lgtm-processed
                 except Exception as e:
                     logger.warn("Failed to queue job %s: %s", job, e)
                     for context in queued_contexts:
-                        self.current.head.update_statuses(
-                            context=context,
-                            state='error',
+                        self.current.head.push_statuses(
+                            self.current.statuses,
+                            context=context, state='error',
                             description='Failed to queue job',
                             target_url=job.baseurl,
                         )
@@ -319,7 +320,7 @@ jenkins: lgtm-processed
                 'state': 'success',
             })
         else:
-            current_status = self.current.head.get_status_for(context)
+            current_status = self.current.statuses.get(context, {})
             already_queued = 'Queued' == current_status.get('description')
             queued = self.bot.queue_empty or already_queued
             new_status.update({
@@ -431,8 +432,8 @@ class FixStatusExtension(Extension):
 
             new_status = self.compute_actual_status(build, status)
             if new_status:
-                self.current.head.update_statuses(
-                    context=context, **new_status
+                self.current.head.push_statuses(
+                    self.current.statuses, context=context, **new_status
                 )
 
         if failed_contexts:

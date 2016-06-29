@@ -84,7 +84,7 @@ class Bot(object):
             if job and job.managed:
                 self.current.jobs.append(job)
 
-        self.current.statuses = self.current.head.get_statuses()
+        self.current.statuses = self.current.head.fetch_statuses()
         for ext in self.extensions.values():
             ext.begin()
 

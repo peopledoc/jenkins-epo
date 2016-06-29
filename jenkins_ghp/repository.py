@@ -214,10 +214,10 @@ class Head(object):
     def list_comments(self):
         raise NotImplemented
 
-    def filter_not_built_contexts(self, contexts, rebuild_failed=None):
+    def filter_not_built_contexts(self, statuses, contexts, rebuild_failed=None):  # noqa
         not_built = []
         for context in contexts:
-            status = self.get_status_for(context)
+            status = statuses.get(context, {})
             state = status.get('state')
             # Skip failed job, unless rebuild asked and old
             if state in {'error', 'failure'}:
@@ -246,7 +246,7 @@ class Head(object):
         return not_built
 
     @retry(wait_fixed=15000)
-    def get_statuses(self):
+    def fetch_statuses(self):
         if SETTINGS.GHP_IGNORE_STATUSES:
             logger.debug("Skip GitHub statuses")
             return {}
@@ -265,17 +265,9 @@ class Head(object):
                 self._status_cache = statuses
             return self._status_cache
 
-    def get_status_for(self, context):
-        return self.get_statuses().get(context, {})
-
     @retry(wait_fixed=15000)
-    def update_statuses(self, context, state, description, target_url=None):
-        current_statuses = self.get_statuses()
-
-        new_status = dict(
-            context=context, description=description,
-            state=state, target_url=target_url,
-        )
+    def push_status(self, current_statuses, context, **kwargs):
+        new_status = dict(context=context, **kwargs)
 
         if context in current_statuses:
             current_status = {k: current_statuses[context][k] for k in (
@@ -286,12 +278,14 @@ class Head(object):
         if GITHUB.dry:
             self._status_cache[context] = new_status
             return logger.info(
-                "Would update status %s to %s/%s", context, state, description,
+                "Would update status %s to %s/%s.",
+                context, new_status['state'], new_status['description'],
             )
 
         try:
             logger.info(
-                "Set GitHub status %s to %s/%s", context, state, description,
+                "Set GitHub status %s to %s/%s.",
+                context, new_status['state'], new_status['description'],
             )
             new_status = (
                 GITHUB.repos(self.repository).statuses(self.sha)
@@ -299,9 +293,7 @@ class Head(object):
             )
             self._status_cache[context] = new_status
         except ApiError:
-            logger.warn(
-                'Hit 1000 status updates on %s', self.sha
-            )
+            logger.warn('Hit 1000 status updates on %s.', self.sha)
 
 
 class Branch(Head):
