@@ -87,10 +87,7 @@ class Bot(object):
         for ext in self.extensions.values():
             ext.begin()
 
-        self.process_instructions(
-            [self.current.head.payload] +
-            self.current.head.list_comments()
-        )
+        self.process_instructions(self.current.head.list_comments())
         logger.debug("Bot vars: %r", self.current)
 
         for ext in self.extensions.values():
