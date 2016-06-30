@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 def test_load_ghp_yml():
@@ -86,3 +86,21 @@ job2: |
     tox -r
     """.strip())
     assert 2 == len(jobs)
+
+
+def test_process_status():
+    from jenkins_ghp.repository import Head
+
+    head = Head(Mock(), 'master', 'd0d0', None)
+    head.contexts_filter = []
+    head.process_statuses({'statuses': [
+        {
+            'context': 'job1',
+            'state': 'pending',
+            'target_url': 'http://jenkins/job/url',
+            'updated_at': '2016-06-27T11:58:31Z',
+            'description': 'Queued!',
+        },
+    ]})
+
+    assert 'job1' in head.statuses

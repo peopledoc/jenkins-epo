@@ -22,7 +22,7 @@ import socket
 
 from .bot import Extension
 from .jenkins import JENKINS
-from .repository import ApiError, Branch, PullRequest
+from .repository import ApiError, Branch, CommitStatus, PullRequest
 from .utils import match, parse_datetime
 
 
@@ -131,15 +131,13 @@ jenkins: lgtm-processed
 
         for job in self.current.jobs:
             not_built = self.current.head.filter_not_built_contexts(
-                self.current.statuses,
                 job.list_contexts(),
                 rebuild_failed=self.current.rebuild_failed
             )
 
             for context in not_built:
-                self.current.head.push_statuses(
-                    self.current.statuses, target_url=job.baseurl,
-                    **self.status_for_new_context(context)
+                self.current.head.maybe_update_status(
+                    self.status_for_new_context(job, context),
                 )
 
             queued_contexts = [c for c in not_built if not self.skip(c)]
@@ -147,14 +145,13 @@ jenkins: lgtm-processed
                 try:
                     job.build(self.current.head, queued_contexts)
                 except Exception as e:
-                    logger.warn("Failed to queue job %s: %s", job, e)
+                    logger.warn("Failed to queue job %s: %s.", job, e)
                     for context in queued_contexts:
-                        self.current.head.push_statuses(
-                            self.current.statuses,
+                        self.current.head.maybe_update_status(CommitStatus(
                             context=context, state='error',
-                            description='Failed to queue job',
+                            description='Failed to queue job.',
                             target_url=job.baseurl,
-                        )
+                        ))
 
         self.maybe_merge()
 
@@ -312,8 +309,8 @@ jenkins: lgtm-processed
                 return True
         return not match(context, self.current.jobs_match)
 
-    def status_for_new_context(self, context):
-        new_status = {'context': context}
+    def status_for_new_context(self, job, context):
+        new_status = CommitStatus(target_url=job.baseurl, context=context)
         if self.skip(context):
             new_status.update({
                 'description': 'Skipped',
@@ -356,15 +353,12 @@ class FixStatusExtension(Extension):
     }
 
     def compute_actual_status(self, build, current_status):
-        target_url = current_status['target_url']
         # If no build found, this may be an old CI build, or any other
         # unconfirmed build. Retrigger.
         jenkins_status = build.get_status() if build else 'ABORTED'
         if build and jenkins_status:
             state, description = self.status_map[jenkins_status]
-            if description == 'Backed':
-                target_url = None
-            else:
+            if description != 'Backed':
                 duration = format_duration(build._data['duration'])
                 try:
                     description = description % dict(
@@ -382,10 +376,10 @@ class FixStatusExtension(Extension):
             description = description.rstrip('.') + ellipsis
         else:
             # Don't touch
-            return {}
+            return CommitStatus()
 
-        return dict(
-            description=description, state=state, target_url=target_url,
+        return CommitStatus(
+            current_status, description=description, state=state,
         )
 
     def end(self):
@@ -397,7 +391,7 @@ class FixStatusExtension(Extension):
         )
 
         failed_contexts = []
-        for context, status in sorted(self.current.statuses.items()):
+        for context, status in self.current.statuses.items():
             if status['state'] == 'success':
                 continue
 
@@ -405,9 +399,9 @@ class FixStatusExtension(Extension):
             if status['description'] in {'Backed', 'New', 'Queued'}:
                 continue
 
-            updated_at = parse_datetime(status['updated_at'])
             # Don't poll Jenkins more than each 5 min.
-            if status['state'] == 'pending' and updated_at > fivemin_ago:
+            old = status['updated_at'] > fivemin_ago
+            if status['state'] == 'pending' and old:
                 logger.debug("Postpone Jenkins status polling.")
                 continue
 
@@ -432,9 +426,7 @@ class FixStatusExtension(Extension):
 
             new_status = self.compute_actual_status(build, status)
             if new_status:
-                self.current.head.push_statuses(
-                    self.current.statuses, context=context, **new_status
-                )
+                self.current.head.maybe_update_status(new_status)
 
         if failed_contexts:
             logger.warn(

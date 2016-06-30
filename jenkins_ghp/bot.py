@@ -17,6 +17,7 @@ import copy
 import logging
 import pkg_resources
 import re
+import reprlib
 import yaml
 
 from .github import GITHUB, ApiNotFoundError
@@ -84,12 +85,15 @@ class Bot(object):
             if job and job.managed:
                 self.current.jobs.append(job)
 
-        self.current.statuses = self.current.head.fetch_statuses()
+        payload = self.current.head.fetch_statuses()
+        self.current.head.process_statuses(payload)
+        self.current.statuses = self.current.head.statuses
         for ext in self.extensions.values():
             ext.begin()
 
         self.process_instructions(self.current.head.list_comments())
-        logger.debug("Bot vars: %r", self.current)
+        vars_repr = reprlib.Repr().repr1(self.current, 2)
+        logger.debug("Bot vars: %s", vars_repr)
 
         for ext in self.extensions.values():
             ext.end()

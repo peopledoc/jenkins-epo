@@ -29,6 +29,25 @@ from .utils import Bunch, match, parse_datetime, retry
 logger = logging.getLogger(__name__)
 
 
+class CommitStatus(dict):
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return str(self) == other
+        elif isinstance(other, dict):
+            known_keys = {'context', 'description', 'state', 'target_url'}
+            a = {k: self[k] for k in known_keys}
+            b = {k: other[k] for k in known_keys}
+            return a == b
+        else:
+            raise TypeError("Can't compare with %s.", type(other))
+
+    def __str__(self):
+        return self['context']
+
+    def __hash__(self):
+        return hash(str(self))
+
+
 class JobSpec(object):
     def __init__(self, repository, name, data=None):
         if isinstance(data, str):
@@ -191,15 +210,6 @@ class Head(object):
         self.commit = commit
         self._status_cache = None
 
-    @retry(wait_fixed=15000)
-    def fetch_commit(self):
-        logger.debug("Fetching commit %s.", self.sha[:7])
-        payload = cached_request(
-            GITHUB.repos(self.repository).commits(self.sha)
-        )
-        self.commit = payload['commit']
-        return self.commit
-
     @property
     def is_outdated(self):
         weeks = self.repository.SETTINGS.GHP_COMMIT_MAX_WEEKS
@@ -211,24 +221,43 @@ class Head(object):
         maxage = datetime.timedelta(weeks=weeks)
         return age > maxage
 
+    @retry(wait_fixed=15000)
+    def fetch_commit(self):
+        logger.debug("Fetching commit %s.", self.sha[:7])
+        payload = cached_request(
+            GITHUB.repos(self.repository).commits(self.sha)
+        )
+        self.commit = payload['commit']
+        return self.commit
+
+    @retry(wait_fixed=15000)
+    def fetch_statuses(self):
+        if SETTINGS.GHP_IGNORE_STATUSES:
+            logger.debug("Skip GitHub statuses.")
+            return {'statuses': []}
+        else:
+            logger.debug("Fetching statuses for %s.", self.sha[:7])
+            return cached_request(
+                GITHUB.repos(self.repository).status(self.sha),
+            )
+
     def list_comments(self):
         raise NotImplemented
 
-    def filter_not_built_contexts(self, statuses, contexts, rebuild_failed=None):  # noqa
+    def filter_not_built_contexts(self, contexts, rebuild_failed=None):
         not_built = []
         for context in contexts:
-            status = statuses.get(context, {})
+            status = self.statuses.get(context, CommitStatus())
             state = status.get('state')
             # Skip failed job, unless rebuild asked and old
             if state in {'error', 'failure'}:
-                failure_date = parse_datetime(status['updated_at'])
                 if not rebuild_failed:
                     continue
-                elif failure_date > rebuild_failed:
+                elif status['updated_at'] > rebuild_failed:
                     continue
                 else:
                     logger.debug(
-                        "Requeue failed context %s younger than %s",
+                        "Requeue context %s failed before %s.",
                         context, rebuild_failed.strftime('%Y-%m-%d %H:%M:%S')
                     )
             # Skip `Backed`, `New` and `Queued` jobs
@@ -245,54 +274,56 @@ class Head(object):
 
         return not_built
 
-    @retry(wait_fixed=15000)
-    def fetch_statuses(self):
-        if SETTINGS.GHP_IGNORE_STATUSES:
-            logger.debug("Skip GitHub statuses")
-            return {}
+    def process_statuses(self, payload):
+        self.statuses = {}
+        for status in payload['statuses']:
+            if not match(status['context'], self.contexts_filter):
+                continue
+            updated_at = parse_datetime(status.pop('updated_at'))
+            status = CommitStatus(status, updated_at=updated_at)
+            self.statuses[str(status)] = status
+        logger.debug(
+            "Got status for %s.",
+            [str(c) for c in sorted(self.statuses.keys(), key=str)]
+        )
+        return self.statuses
+
+    def maybe_update_status(self, status):
+        if status in self.statuses:
+            if self.statuses[status] == status:
+                return status
+
+        new_status = self.push_status(status)
+        if new_status:
+            status = CommitStatus(new_status)
+            self.statuses[str(status)] = status
         else:
-            if self._status_cache is None:
-                logger.debug("Fetching statuses for %s", self.sha[:7])
-                response = cached_request(
-                    GITHUB.repos(self.repository).status(self.sha),
-                )
-                statuses = {
-                    x['context']: x
-                    for x in response['statuses']
-                    if match(x['context'], self.contexts_filter)
-                }
-                logger.debug("Got status for %r", sorted(statuses.keys()))
-                self._status_cache = statuses
-            return self._status_cache
+            del self.statuses[status]
 
     @retry(wait_fixed=15000)
-    def push_status(self, current_statuses, context, **kwargs):
-        new_status = dict(context=context, **kwargs)
-
-        if context in current_statuses:
-            current_status = {k: current_statuses[context][k] for k in (
-                'context', 'description', 'state', 'target_url')}
-            if new_status == current_status:
-                return
-
+    def push_status(self, status):
+        kwargs = {
+            k: status[k]
+            for k in {'state', 'target_url', 'description', 'context'}
+            if k in status
+        }
         if GITHUB.dry:
-            self._status_cache[context] = new_status
-            return logger.info(
+            logger.info(
                 "Would update status %s to %s/%s.",
-                context, new_status['state'], new_status['description'],
+                status, status['state'], status['description'],
             )
+            return status
 
         try:
             logger.info(
                 "Set GitHub status %s to %s/%s.",
-                context, new_status['state'], new_status['description'],
+                status, status['state'], status['description'],
             )
-            new_status = (
-                GITHUB.repos(self.repository).statuses(self.sha)
-                .post(**new_status)
+            return (
+                GITHUB.repos(self.repository).statuses(self.sha).post(**kwargs)
             )
-            self._status_cache[context] = new_status
-        except ApiError:
+        except ApiError as e:
+            logger.debug('ApiError %r', e.response['json'])
             logger.warn('Hit 1000 status updates on %s.', self.sha)
 
 
