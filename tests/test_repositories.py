@@ -1,11 +1,11 @@
 from unittest.mock import Mock, patch
 
 
-def test_load_ghp_yml():
+def test_process_ghp_yml():
     from jenkins_ghp.repository import Repository
 
     repo = Repository('owner', 'repo1')
-    repo.load_settings(ghp_yml=repr(dict(
+    repo.process_settings(ghp_yml=repr(dict(
         branches=['master', 'develop'],
     )))
     wanted = ['refs/heads/master', 'refs/heads/develop']
@@ -13,24 +13,24 @@ def test_load_ghp_yml():
 
 
 @patch('jenkins_ghp.repository.SETTINGS')
-def test_load_protected_branches_env(SETTINGS):
+def test_process_protected_branches_env(SETTINGS):
     from jenkins_ghp.repository import Repository
 
     SETTINGS.GHP_REPOSITORIES = 'owner/repo1:master owner/repo2:stable'
 
     repo = Repository('owner', 'repo1')
-    repo.load_settings()
+    repo.process_settings()
     assert ['refs/heads/master'] == repo.SETTINGS.GHP_BRANCHES
 
 
 @patch('jenkins_ghp.repository.SETTINGS')
-def test_load_protected_branches(SETTINGS):
+def test_process_protected_branches(SETTINGS):
     from jenkins_ghp.repository import Repository
 
     SETTINGS.GHP_REPOSITORIES = ''
 
     repo = Repository('owner', 'repo1')
-    repo.load_settings(branches=[
+    repo.process_settings(branches=[
         {'name': 'master'},
     ])
     assert ['refs/heads/master'] == repo.SETTINGS.GHP_BRANCHES
@@ -40,7 +40,7 @@ def test_reviewers():
     from jenkins_ghp.repository import Repository
 
     repo = Repository('owner', 'repository')
-    repo.load_settings(collaborators=[
+    repo.process_settings(collaborators=[
         {'login': 'siteadmin', 'site_admin': True},
         {
             'login': 'contributor',

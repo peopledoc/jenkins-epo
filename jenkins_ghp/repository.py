@@ -21,7 +21,7 @@ import re
 from github import ApiError
 import yaml
 
-from .github import cached_request, GITHUB
+from .github import cached_request, GITHUB, ApiNotFoundError
 from .settings import SETTINGS
 from .utils import Bunch, match, parse_datetime, retry
 
@@ -104,7 +104,26 @@ class Repository(object):
     def url(self):
         return 'https://github.com/%s' % (self,)
 
-    def load_protected_branches(self, branches=None):
+    @retry(wait_fixed=15000)
+    def load_settings(self):
+        try:
+            ghp_yml = GITHUB.fetch_file_contents(self, '.github/ghp.yml')
+            logger.debug("Loading settings from .github/ghp.yml")
+        except ApiNotFoundError:
+            ghp_yml = None
+
+        collaborators = cached_request(GITHUB.repos(self).collaborators)
+        branches = cached_request(
+            GITHUB.repos(self).branches, protected='true',
+        )
+
+        self.process_settings(
+            branches=branches,
+            collaborators=collaborators,
+            ghp_yml=ghp_yml,
+        )
+
+    def process_protected_branches(self, branches=None):
         branches = [b['name'] for b in branches or []]
         logger.debug("Protected branches are %s", branches)
 
@@ -129,20 +148,20 @@ class Repository(object):
 
         return ['refs/heads/' + b for b in branches if b]
 
-    def load_reviewers(self, collaborators):
+    def process_reviewers(self, collaborators):
         return [c['login'] for c in collaborators or [] if (
             c['site_admin'] or
             c['permissions']['admin'] or
             c['permissions']['push']
         )]
 
-    def load_settings(self, branches=None, collaborators=None, ghp_yml=None):
+    def process_settings(self, branches=None, collaborators=None, ghp_yml=None):  # noqa
         if self.SETTINGS:
             return
 
         default_settings = dict(
-            GHP_BRANCHES=self.load_protected_branches(branches),
-            GHP_REVIEWERS=self.load_reviewers(collaborators),
+            GHP_BRANCHES=self.process_protected_branches(branches),
+            GHP_REVIEWERS=self.process_reviewers(collaborators),
         )
 
         ghp_yml = ghp_yml or '{}'

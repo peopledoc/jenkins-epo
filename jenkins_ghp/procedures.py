@@ -14,7 +14,7 @@
 
 import logging
 
-from .github import ApiNotFoundError, GITHUB, cached_request
+from .github import GITHUB, cached_request
 from .jenkins import JENKINS
 from .repository import Branch, PullRequest, Repository
 from .settings import SETTINGS
@@ -25,26 +25,6 @@ logger = logging.getLogger('jenkins_ghp')
 
 
 pr_filter = [p for p in str(SETTINGS.GHP_PR).split(',') if p]
-
-
-@retry(wait_fixed=15000)
-def fetch_settings(repository):
-    try:
-        ghp_yml = GITHUB.fetch_file_contents(repository, '.github/ghp.yml')
-        logger.debug("Loading settings from .github/ghp.yml")
-    except ApiNotFoundError:
-        ghp_yml = None
-
-    collaborators = cached_request(GITHUB.repos(repository).collaborators)
-    branches = cached_request(
-        GITHUB.repos(repository).branches, protected='true',
-    )
-
-    repository.load_settings(
-        branches=branches,
-        collaborators=collaborators,
-        ghp_yml=ghp_yml,
-    )
 
 
 @retry(wait_fixed=15000)
@@ -131,10 +111,10 @@ def list_repositories(with_settings=False):
     for repo in sorted(repositories.values(), key=str):
         try:
             if with_settings:
-                fetch_settings(repo)
+                repo.load_settings()
             yield repo
         except Exception as e:
-            logger.error("Failed to load %s settings: %r", repository, e)
+            logger.error("Failed to load %s repository: %r", repository, e)
 
 
 @retry(wait_fixed=15000)
