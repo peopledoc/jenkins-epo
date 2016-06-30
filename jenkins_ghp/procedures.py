@@ -14,92 +14,14 @@
 
 import logging
 
-from .github import ApiNotFoundError, GITHUB, cached_request
+from .github import GITHUB, cached_request
 from .jenkins import JENKINS
-from .repository import Branch, PullRequest, Repository
+from .repository import Repository
 from .settings import SETTINGS
-from .utils import match, retry
+from .utils import retry
 
 
-logger = logging.getLogger('jenkins_ghp')
-
-
-pr_filter = [p for p in str(SETTINGS.GHP_PR).split(',') if p]
-
-
-@retry(wait_fixed=15000)
-def fetch_settings(repository):
-    try:
-        ghp_yml = GITHUB.fetch_file_contents(repository, '.github/ghp.yml')
-        logger.debug("Loading settings from .github/ghp.yml")
-    except ApiNotFoundError:
-        ghp_yml = None
-
-    collaborators = cached_request(GITHUB.repos(repository).collaborators)
-    branches = cached_request(
-        GITHUB.repos(repository).branches, protected='true',
-    )
-
-    repository.load_settings(
-        branches=branches,
-        collaborators=collaborators,
-        ghp_yml=ghp_yml,
-    )
-
-
-@retry(wait_fixed=15000)
-def list_branches(repository):
-    branches = repository.SETTINGS.GHP_BRANCHES
-    if not branches:
-        logger.debug("No explicit branches configured for %s", repository)
-        return []
-
-    for branch in branches:
-        logger.debug("Search remote branch %s", branch)
-        try:
-            ref = cached_request(GITHUB.repos(repository).git(branch))
-        except ApiNotFoundError:
-            logger.warn("Branch %s not found in %s", branch, repository)
-            continue
-
-        branch = Branch(repository, ref)
-        branch.fetch_commit()
-        if branch.is_outdated:
-            logger.debug(
-                'Skipping branch %s because older than %s weeks',
-                branch, repository.SETTINGS.GHP_COMMIT_MAX_WEEKS,
-            )
-            continue
-        yield branch
-
-
-@retry(wait_fixed=15000)
-def list_pulls(repository):
-    logger.debug("Querying GitHub for %s PR.", repository)
-    try:
-        pulls = cached_request(GITHUB.repos(repository).pulls)
-    except Exception:
-        logger.exception("Failed to list PR for %s.", repository)
-        return []
-
-    pulls_o = []
-    for data in pulls:
-        if not match(data['html_url'], pr_filter):
-            logger.debug(
-                "Skipping %s (%s).", data['html_url'], data['head']['ref'],
-            )
-        else:
-            pulls_o.append(PullRequest(repository, data))
-
-    for pr in reversed(sorted(pulls_o, key=PullRequest.sort_key)):
-        pr.fetch_commit()
-        if pr.is_outdated:
-            logger.debug(
-                'Skipping PR %s because older than %s weeks.',
-                pr, SETTINGS.GHP_COMMIT_MAX_WEEKS,
-            )
-        else:
-            yield pr
+logger = logging.getLogger(__name__)
 
 
 def list_repositories(with_settings=False):
@@ -131,10 +53,10 @@ def list_repositories(with_settings=False):
     for repo in sorted(repositories.values(), key=str):
         try:
             if with_settings:
-                fetch_settings(repo)
+                repo.load_settings()
             yield repo
         except Exception as e:
-            logger.error("Failed to load %s settings: %r", repository, e)
+            logger.error("Failed to load %s repository: %r", repository, e)
 
 
 @retry(wait_fixed=15000)

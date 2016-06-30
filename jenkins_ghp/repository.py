@@ -21,7 +21,7 @@ import re
 from github import ApiError
 import yaml
 
-from .github import cached_request, GITHUB
+from .github import cached_request, GITHUB, ApiNotFoundError
 from .settings import SETTINGS
 from .utils import Bunch, match, parse_datetime, retry
 
@@ -70,6 +70,8 @@ class JobSpec(object):
 
 
 class Repository(object):
+    pr_filter = [p for p in str(SETTINGS.GHP_PR).split(',') if p]
+
     remote_re = re.compile(
         r'.*github.com[:/](?P<owner>[\w-]+)/(?P<name>[\w-]+).*'
     )
@@ -104,7 +106,89 @@ class Repository(object):
     def url(self):
         return 'https://github.com/%s' % (self,)
 
-    def load_protected_branches(self, branches=None):
+    @retry(wait_fixed=15000)
+    def load_branches(self):
+        branches = self.SETTINGS.GHP_BRANCHES
+        if not branches:
+            logger.debug("No explicit branches configured for %s.", self)
+            return []
+
+        for branch in branches:
+            logger.debug("Search remote branch %s.", branch)
+            try:
+                ref = cached_request(GITHUB.repos(self).git(branch))
+            except ApiNotFoundError:
+                logger.warn("Branch %s not found in %s.", branch, self)
+                continue
+
+            branch = Branch(self, ref)
+            branch.fetch_commit()
+            if branch.is_outdated:
+                logger.debug(
+                    'Skipping branch %s because older than %s weeks.',
+                    branch, self.SETTINGS.GHP_COMMIT_MAX_WEEKS,
+                )
+                continue
+            yield branch
+
+    @retry(wait_fixed=15000)
+    def load_pulls(self):
+        logger.debug("Querying GitHub for %s PR.", self)
+        try:
+            pulls = cached_request(GITHUB.repos(self).pulls)
+        except Exception:
+            logger.exception("Failed to list PR for %s.", self)
+            return []
+
+        pulls_o = []
+        for data in pulls:
+            if not match(data['html_url'], self.pr_filter):
+                logger.debug(
+                    "Skipping %s (%s).", data['html_url'], data['head']['ref'],
+                )
+            else:
+                pulls_o.append(PullRequest(self, data))
+
+        for pr in reversed(sorted(pulls_o, key=PullRequest.sort_key)):
+            pr.fetch_commit()
+            if pr.is_outdated:
+                logger.debug(
+                    'Skipping PR %s because older than %s weeks.',
+                    pr, SETTINGS.GHP_COMMIT_MAX_WEEKS,
+                )
+            else:
+                yield pr
+
+    @retry(wait_fixed=15000)
+    def load_settings(self):
+        try:
+            ghp_yml = GITHUB.fetch_file_contents(self, '.github/ghp.yml')
+            logger.debug("Loading settings from .github/ghp.yml")
+        except ApiNotFoundError:
+            ghp_yml = None
+
+        if 'reviewers:' in ghp_yml:
+            logger.debug("Reviewers defined manually.")
+            collaborators = []
+        else:
+            collaborators = cached_request(GITHUB.repos(self).collaborators)
+
+        # Save a call to GITHUB if branches is defined in YML.
+        if 'branches:' in ghp_yml:
+            logger.debug("Protected branches defined manually.")
+            branches = []
+        else:
+            branches = cached_request(
+                GITHUB.repos(self).branches, protected='true',
+            )
+
+        self.process_settings(
+            branches=branches,
+            collaborators=collaborators,
+            ghp_yml=ghp_yml,
+        )
+
+    def process_protected_branches(self, branches=None):
         branches = [b['name'] for b in branches or []]
         logger.debug("Protected branches are %s", branches)
 
@@ -129,20 +213,20 @@ class Repository(object):
 
         return ['refs/heads/' + b for b in branches if b]
 
-    def load_reviewers(self, collaborators):
+    def process_reviewers(self, collaborators):
         return [c['login'] for c in collaborators or [] if (
             c['site_admin'] or
             c['permissions']['admin'] or
             c['permissions']['push']
         )]
 
-    def load_settings(self, branches=None, collaborators=None, ghp_yml=None):
+    def process_settings(self, branches=None, collaborators=None, ghp_yml=None):  # noqa
         if self.SETTINGS:
             return
 
         default_settings = dict(
-            GHP_BRANCHES=self.load_protected_branches(branches),
-            GHP_REVIEWERS=self.load_reviewers(collaborators),
+            GHP_BRANCHES=self.process_protected_branches(branches),
+            GHP_REVIEWERS=self.process_reviewers(collaborators),
         )
 
         ghp_yml = ghp_yml or '{}'

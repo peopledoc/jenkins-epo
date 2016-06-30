@@ -20,12 +20,12 @@ import inspect
 import logging
 import sys
 
-from jenkins_ghp import procedures
 
 from .bot import Bot
 from .cache import CACHE
 from .jenkins import JENKINS
 from .settings import SETTINGS
+from . import procedures
 
 
 logger = logging.getLogger('jenkins_ghp')
@@ -87,7 +87,7 @@ def bot():
     for repository in procedures.list_repositories(with_settings=True):
         logger.info("Working on %s.", repository)
 
-        for branch in procedures.list_branches(repository):
+        for branch in repository.load_branches():
             try:
                 yield from check_queue(bot)
             except RestartLoop:
@@ -95,7 +95,7 @@ def bot():
                     break
             bot.run(branch)
 
-        for pr in procedures.list_pulls(repository):
+        for pr in repository.load_pulls():
             try:
                 yield from check_queue(bot)
             except RestartLoop:
@@ -124,7 +124,7 @@ def list_branches():
     procedures.whoami()
     for repository in procedures.list_repositories(with_settings=True):
         logger.info("Working on %s.", repository)
-        for branch in procedures.list_branches(repository):
+        for branch in repository.load_branches():
             print(branch)
 
 
@@ -133,7 +133,7 @@ def list_pr():
     procedures.whoami()
     for repository in procedures.list_repositories(with_settings=True):
         logger.info("Working on %s.", repository)
-        for pr in procedures.list_pulls(repository):
+        for pr in repository.load_pulls():
             print(pr)
 
 
