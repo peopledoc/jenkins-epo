@@ -559,7 +559,7 @@ jenkins: report-done
 
         errored = [
             s for s in self.current.statuses.values()
-            if s['state'] in {'failure', 'error'}
+            if s['state'] == 'failure'
         ]
         if not errored:
             return
