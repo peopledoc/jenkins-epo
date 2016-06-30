@@ -21,7 +21,7 @@ from .settings import SETTINGS
 from .utils import retry
 
 
-logger = logging.getLogger('jenkins_ghp')
+logger = logging.getLogger(__name__)
 
 
 def list_repositories(with_settings=False):
