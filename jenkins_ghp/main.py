@@ -95,7 +95,7 @@ def bot():
                     break
             bot.run(branch)
 
-        for pr in procedures.list_pulls(repository):
+        for pr in repository.load_pulls():
             try:
                 yield from check_queue(bot)
             except RestartLoop:
@@ -133,7 +133,7 @@ def list_pr():
     procedures.whoami()
     for repository in procedures.list_repositories(with_settings=True):
         logger.info("Working on %s.", repository)
-        for pr in procedures.list_pulls(repository):
+        for pr in repository.load_pulls():
             print(pr)
 
 

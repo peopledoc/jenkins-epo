@@ -70,6 +70,8 @@ class JobSpec(object):
 
 
 class Repository(object):
+    pr_filter = [p for p in str(SETTINGS.GHP_PR).split(',') if p]
+
     remote_re = re.compile(
         r'.*github.com[:/](?P<owner>[\w-]+)/(?P<name>[\w-]+).*'
     )
@@ -128,6 +130,34 @@ class Repository(object):
                 )
                 continue
             yield branch
+
+    @retry(wait_fixed=15000)
+    def load_pulls(self):
+        logger.debug("Querying GitHub for %s PR.", self)
+        try:
+            pulls = cached_request(GITHUB.repos(self).pulls)
+        except Exception:
+            logger.exception("Failed to list PR for %s.", self)
+            return []
+
+        pulls_o = []
+        for data in pulls:
+            if not match(data['html_url'], self.pr_filter):
+                logger.debug(
+                    "Skipping %s (%s).", data['html_url'], data['head']['ref'],
+                )
+            else:
+                pulls_o.append(PullRequest(self, data))
+
+        for pr in reversed(sorted(pulls_o, key=PullRequest.sort_key)):
+            pr.fetch_commit()
+            if pr.is_outdated:
+                logger.debug(
+                    'Skipping PR %s because older than %s weeks.',
+                    pr, SETTINGS.GHP_COMMIT_MAX_WEEKS,
+                )
+            else:
+                yield pr
 
     @retry(wait_fixed=15000)
     def load_settings(self):

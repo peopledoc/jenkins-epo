@@ -16,44 +16,12 @@ import logging
 
 from .github import GITHUB, cached_request
 from .jenkins import JENKINS
-from .repository import PullRequest, Repository
+from .repository import Repository
 from .settings import SETTINGS
-from .utils import match, retry
+from .utils import retry
 
 
 logger = logging.getLogger('jenkins_ghp')
-
-
-pr_filter = [p for p in str(SETTINGS.GHP_PR).split(',') if p]
-
-
-@retry(wait_fixed=15000)
-def list_pulls(repository):
-    logger.debug("Querying GitHub for %s PR.", repository)
-    try:
-        pulls = cached_request(GITHUB.repos(repository).pulls)
-    except Exception:
-        logger.exception("Failed to list PR for %s.", repository)
-        return []
-
-    pulls_o = []
-    for data in pulls:
-        if not match(data['html_url'], pr_filter):
-            logger.debug(
-                "Skipping %s (%s).", data['html_url'], data['head']['ref'],
-            )
-        else:
-            pulls_o.append(PullRequest(repository, data))
-
-    for pr in reversed(sorted(pulls_o, key=PullRequest.sort_key)):
-        pr.fetch_commit()
-        if pr.is_outdated:
-            logger.debug(
-                'Skipping PR %s because older than %s weeks.',
-                pr, SETTINGS.GHP_COMMIT_MAX_WEEKS,
-            )
-        else:
-            yield pr
 
 
 def list_repositories(with_settings=False):
