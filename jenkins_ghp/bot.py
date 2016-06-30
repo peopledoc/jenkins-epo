@@ -98,7 +98,7 @@ class Bot(object):
         logger.debug("Bot vars: %s", vars_repr)
 
         for ext in self.extensions.values():
-            ext.end()
+            ext.run()
 
     def parse_instructions(self, comments):
         process = True
@@ -193,5 +193,5 @@ class Extension(object):
     def process_instruction(self, instruction):
         pass
 
-    def end(self):
+    def run(self):
         pass

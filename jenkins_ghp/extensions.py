@@ -121,7 +121,7 @@ jenkins: lgtm-processed
         elif instruction == 'rebuild':
             self.current.rebuild_failed = instruction.date
 
-    def end(self):
+    def run(self):
         for instruction, pattern, error in self.current.skip_errors:
             self.current.head.comment(self.ERROR_COMMENT % dict(
                 mention='@' + instruction.author,
@@ -369,7 +369,7 @@ class FixStatusExtension(Extension):
             current_status, description=description, state=state,
         )
 
-    def end(self):
+    def run(self):
         fivemin_ago = (
             datetime.datetime.utcnow() -
             datetime.timedelta(
@@ -483,7 +483,7 @@ Extensions: %(extensions)s
     def answer_help(self):
         self.current.head.comment(self.generate_comment())
 
-    def end(self):
+    def run(self):
         if self.current.help_mentions:
             self.answer_help()
 
@@ -505,7 +505,7 @@ jenkins: reset-errors
         if instruction == 'reset-errors':
             self.current.errors = []
 
-    def end(self):
+    def run(self):
         for author, instruction, error in self.current.errors:
             self.current.head.comment(self.ERROR_COMMENT % dict(
                 mention='@' + author,
@@ -537,7 +537,7 @@ jenkins: report-done
         if instruction == 'report-done':
             self.current.report_done = True
 
-    def end(self):
+    def run(self):
         if self.current.report_done:
             return
 
