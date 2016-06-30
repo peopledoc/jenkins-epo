@@ -112,10 +112,20 @@ class Repository(object):
         except ApiNotFoundError:
             ghp_yml = None
 
-        collaborators = cached_request(GITHUB.repos(self).collaborators)
-        branches = cached_request(
-            GITHUB.repos(self).branches, protected='true',
-        )
+        if 'reviewers:' in ghp_yml:
+            logger.debug("Reviewers defined manually.")
+            collaborators = []
+        else:
+            collaborators = cached_request(GITHUB.repos(self).collaborators)
+
+        # Save a call to GITHUB if branches is defined in YML.
+        if 'branches:' in ghp_yml:
+            logger.debug("Protected branches defined manually.")
+            branches = []
+        else:
+            branches = cached_request(
+                GITHUB.repos(self).branches, protected='true',
+            )
 
         self.process_settings(
             branches=branches,
