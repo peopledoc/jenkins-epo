@@ -63,6 +63,7 @@ def test_skip_updated():
     pr = Mock()
     pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer']
     pr.repository.SETTINGS.GHP_LGTM_AUTHOR = False
+    pr.repository.SETTINGS.GHP_LGTM_QUORUM = 1
     pr.commit = {'committer': {'date': (
         (start + timedelta(seconds=4)).strftime('%Y-%m-%dT%H:%M:%SZ')
     )}}
@@ -74,30 +75,6 @@ def test_skip_updated():
     ])
     assert bot.current['lgtm_processed']
     assert not bot.extensions['builder'].check_lgtm()
-    assert pr.comment.mock_calls
-
-
-def test_skip_updated_processed():
-    from jenkins_ghp.bot import Bot
-
-    start = datetime.now()
-
-    pr = Mock()
-    pr.repository.SETTINGS.GHP_REVIEWERS = ['reviewer']
-    pr.repository.SETTINGS.GHP_LGTM_AUTHOR = False
-    pr.commit = {'committer': {'date': (
-        (start + timedelta(seconds=4)).strftime('%Y-%m-%dT%H:%M:%SZ')
-    )}}
-
-    bot = Bot().workon(pr)
-    bot.process_instructions([
-        processed(updated_at=start + timedelta(seconds=1)),
-        lgtm(updated_at=start + timedelta(seconds=2), login='reviewer'),
-        processed(updated_at=start + timedelta(seconds=6)),
-    ])
-    assert bot.current.lgtm_processed
-    assert not bot.extensions['builder'].check_lgtm()
-    assert not pr.comment.mock_calls
 
 
 def test_skip_missing_lgtm():

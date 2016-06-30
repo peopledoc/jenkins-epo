@@ -193,29 +193,13 @@ jenkins: lgtm-processed
             self.current.head.commit['committer']['date']
         )
         outdated_lgtm = [l for l in lgtms if l.date < commit_date]
+        if outdated_lgtm:
+            logger.debug("Some LGTMs are outdated.")
         lgtms = list(set(lgtms) - set(outdated_lgtm))
-        if outdated_lgtm and not lgtms:
-            logger.debug("PR updated since LGTM. Skipping.")
-            unanswerd_lgtm = [
-                l for l in outdated_lgtm if l.date > processed_date
-            ]
-            if unanswerd_lgtm:
-                mentions = sorted(set([
-                    '@' + l.author for l in unanswerd_lgtm
-                ]))
-                self.current.head.comment(self.LGTM_COMMENT % dict(
-                    emoji=random.choice((':up:', ':point_up:')),
-                    mention=', '.join(mentions),
-                    message=(
-                        "PR has been updated since your acknowledgement. "
-                        "I don't merge updated PR."
-                    ),
-                ))
-            return
 
         lgtmers = {i.author for i in lgtms}
         if len(lgtms) > len(lgtmers):
-            logger.debug("Deduplicate LGTMs")
+            logger.debug("Deduplicate LGTMs.")
             lgtms = [
                 [l for l in lgtms if l.author == a][0] for a in lgtmers
             ]
@@ -228,7 +212,10 @@ jenkins: lgtm-processed
             if not self_lgtm:
                 return logger.debug("Author's LGTM missing. Skipping.")
 
-        logger.debug("Accepted LGTMs from %s", [l.author for l in lgtms])
+        logger.debug(
+            "Accepted LGTMs from %s.",
+            ', '.join([l.author for l in lgtms])
+        )
 
         return lgtms
 
