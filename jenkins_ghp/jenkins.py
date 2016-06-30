@@ -133,6 +133,9 @@ class Job(object):
         xpath_query = './/triggers/hudson.triggers.SCMTrigger'
         self.polled_by_jenkins = bool(self.config.findall(xpath_query))
 
+    def __repr__(self):
+        return '<%s %s>' % (self.__class__.__name__, self.name)
+
     def __eq__(self, other):
         return self.name == other.name
 

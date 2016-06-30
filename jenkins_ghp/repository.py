@@ -41,6 +41,9 @@ class CommitStatus(dict):
         else:
             raise TypeError("Can't compare with %s.", type(other))
 
+    def __repr__(self):
+        return '<%s %s>' % (self.__class__.__name__, self['state'])
+
     def __str__(self):
         return self['context']
 
@@ -336,6 +339,9 @@ class Branch(Head):
             commit=commit,
         )
         self.payload = payload
+
+    def __repr__(self):
+        return '<%s %s>' % (self.__class__.__name__, self.ref)
 
     def __str__(self):
         return '%s (%s)' % (self.url, self.sha[:7])

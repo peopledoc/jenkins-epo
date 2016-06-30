@@ -92,7 +92,9 @@ class Bot(object):
             ext.begin()
 
         self.process_instructions(self.current.head.list_comments())
-        vars_repr = reprlib.Repr().repr1(self.current, 2)
+        repr_ = reprlib.Repr()
+        repr_.maxdict = repr_.maxlist = repr_.maxother = 64
+        vars_repr = repr_.repr1(dict(self.current), 2)
         logger.debug("Bot vars: %s", vars_repr)
 
         for ext in self.extensions.values():
