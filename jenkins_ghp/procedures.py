@@ -16,7 +16,7 @@ import logging
 
 from .github import GITHUB, cached_request
 from .jenkins import JENKINS
-from .repository import Branch, PullRequest, Repository
+from .repository import PullRequest, Repository
 from .settings import SETTINGS
 from .utils import match, retry
 
@@ -25,32 +25,6 @@ logger = logging.getLogger('jenkins_ghp')
 
 
 pr_filter = [p for p in str(SETTINGS.GHP_PR).split(',') if p]
-
-
-@retry(wait_fixed=15000)
-def list_branches(repository):
-    branches = repository.SETTINGS.GHP_BRANCHES
-    if not branches:
-        logger.debug("No explicit branches configured for %s", repository)
-        return []
-
-    for branch in branches:
-        logger.debug("Search remote branch %s", branch)
-        try:
-            ref = cached_request(GITHUB.repos(repository).git(branch))
-        except ApiNotFoundError:
-            logger.warn("Branch %s not found in %s", branch, repository)
-            continue
-
-        branch = Branch(repository, ref)
-        branch.fetch_commit()
-        if branch.is_outdated:
-            logger.debug(
-                'Skipping branch %s because older than %s weeks',
-                branch, repository.SETTINGS.GHP_COMMIT_MAX_WEEKS,
-            )
-            continue
-        yield branch
 
 
 @retry(wait_fixed=15000)
