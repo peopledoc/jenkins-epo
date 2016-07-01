@@ -1,4 +1,5 @@
 .cache
+.coverage
 .ghp*.db
 .ghp*.lock
 /*.egg-info/

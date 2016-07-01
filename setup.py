@@ -44,7 +44,7 @@ setup(
     },
     extras_require={
         'release': ['wheel', 'zest.releaser'],
-        'test': ['freezegun', 'pytest', 'pytest-logging'],
+        'test': ['freezegun', 'pytest', 'pytest-cov', 'pytest-logging'],
     },
     install_requires=[
         'githubpy',
