@@ -1,10 +1,11 @@
-/build/
 .cache
-/dist/
-/*.egg-info/
+.coverage
 .ghp*.db
 .ghp*.lock
-__pycache__/
-/my-*
+/*.egg-info/
 /.tox/
+/build/
+/dist/
+/my-*
+__pycache__/
 junit.xml
