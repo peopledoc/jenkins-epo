@@ -24,6 +24,7 @@ from .bot import Extension
 from .jenkins import JENKINS
 from .repository import ApiError, Branch, CommitStatus, PullRequest
 from .utils import match, parse_datetime
+from . import io
 
 
 logger = logging.getLogger(__name__)
@@ -121,7 +122,10 @@ jenkins: lgtm-processed
         elif instruction == 'rebuild':
             self.current.rebuild_failed = instruction.date
 
-    def end(self):
+    def run(self):
+        if False:
+            yield None
+
         for instruction, pattern, error in self.current.skip_errors:
             self.current.head.comment(self.ERROR_COMMENT % dict(
                 mention='@' + instruction.author,
@@ -369,7 +373,10 @@ class FixStatusExtension(Extension):
             current_status, description=description, state=state,
         )
 
-    def end(self):
+    def run(self):
+        if False:
+            yield None
+
         fivemin_ago = (
             datetime.datetime.utcnow() -
             datetime.timedelta(
@@ -480,12 +487,9 @@ Extensions: %(extensions)s
             version=self.DISTRIBUTION.version,
         )
 
-    def answer_help(self):
-        self.current.head.comment(self.generate_comment())
-
-    def end(self):
+    def run(self):
         if self.current.help_mentions:
-            self.answer_help()
+            yield io.WriteComment(self.generate_comment())
 
 
 class ErrorExtension(Extension):
@@ -505,9 +509,9 @@ jenkins: reset-errors
         if instruction == 'reset-errors':
             self.current.errors = []
 
-    def end(self):
+    def run(self):
         for author, instruction, error in self.current.errors:
-            self.current.head.comment(self.ERROR_COMMENT % dict(
+            yield io.WriteComment(body=self.ERROR_COMMENT % dict(
                 mention='@' + author,
                 instruction=repr(instruction),
                 error=str(error),
@@ -537,7 +541,10 @@ jenkins: report-done
         if instruction == 'report-done':
             self.current.report_done = True
 
-    def end(self):
+    def run(self):
+        if False:
+            yield None
+
         if self.current.report_done:
             return
 
@@ -564,6 +571,6 @@ jenkins: report-done
             )
         )
 
-        self.current.head.comment(body=self.COMMENT_TEMPLATE % dict(
+        yield io.WriteComment(body=self.COMMENT_TEMPLATE % dict(
             issue=issue['number']
         ))

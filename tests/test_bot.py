@@ -1,3 +1,6 @@
+from unittest.mock import Mock, patch
+
+
 def test_parse():
     from jenkins_ghp.bot import Bot
 
@@ -76,3 +79,44 @@ jenkins: unix_eof
     assert 'indent' in haystack
     assert 'colored' in haystack
     assert 'unix_eof' in haystack
+
+
+@patch('jenkins_ghp.bot.GITHUB')
+def test_io_execution(GITHUB):
+    from jenkins_ghp.bot import Bot, Extension
+
+    bot = Bot()
+
+    class TestExtension(Extension):
+        success_io = Mock()
+
+        none_io = Mock()
+        none_io.run.return_value = None
+
+        raising_io = Mock()
+        raising_io.run.side_effect = Exception()
+
+        def run(self):
+            res = yield self.success_io
+            assert res
+
+            res = yield self.none_io
+            assert res is None
+
+            try:
+                yield self.raising_io
+            except Exception as e:
+                assert e is self.raising_io.run.side_effect
+
+    ext = TestExtension('mock', bot)
+    bot.extensions = {'mock': ext}
+
+    pr = Mock()
+    pr.repository.list_jobs.return_value = []
+    pr.list_comments.return_value = []
+
+    bot.run(pr)
+
+    assert TestExtension.success_io.run.mock_calls
+    assert TestExtension.none_io.run.mock_calls
+    assert TestExtension.raising_io.run.mock_calls

@@ -18,6 +18,7 @@ import logging
 import pkg_resources
 import re
 import reprlib
+import sys
 import yaml
 
 from .github import GITHUB, ApiNotFoundError
@@ -98,7 +99,20 @@ class Bot(object):
         logger.debug("Bot vars: %s", vars_repr)
 
         for ext in self.extensions.values():
-            ext.end()
+            generator = ext.run()
+            io = None
+            while True:
+                try:
+                    if not io:
+                        io = next(generator)
+                    try:
+                        res = io.run(self.current)
+                    except Exception:
+                        io = generator.throw(*sys.exc_info())
+                    else:
+                        io = generator.send(res)
+                except StopIteration:
+                    break
 
     def parse_instructions(self, comments):
         process = True
@@ -193,5 +207,5 @@ class Extension(object):
     def process_instruction(self, instruction):
         pass
 
-    def end(self):
+    def run(self):
         pass
