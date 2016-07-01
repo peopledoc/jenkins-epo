@@ -83,7 +83,7 @@ Development
    :target: https://circleci.com/gh/novafloss/jenkins-github-poller
    :alt: CI Status
 
-.. |CodeCov| image:: https://img.shields.io/codecov/c/github/novafloss/jenkins-github-poller.svg?maxAge=2592000
+.. |CodeCov| image:: https://codecov.io/gh/novafloss/jenkins-github-poller/branch/master/graph/badge.svg
    :target: https://codecov.io/gh/novafloss/jenkins-github-poller
    :alt: Code coverage
 
