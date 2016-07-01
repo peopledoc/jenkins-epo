@@ -81,7 +81,8 @@ def test_compute_help():
     assert 'asker1' in bot.current.help_mentions
     assert 'asker2' in bot.current.help_mentions
 
-    man = bot.extensions['help'].generate_comment()
+    ios = list(bot.extensions['help'].run())
+    man = ios[0].body
     assert '@asker1' in man
     assert '@asker2' in man
 
