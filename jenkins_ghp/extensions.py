@@ -127,7 +127,7 @@ jenkins: lgtm-processed
             yield None
 
         for instruction, pattern, error in self.current.skip_errors:
-            self.current.head.comment(self.ERROR_COMMENT % dict(
+            yield io.WriteComment(body=self.ERROR_COMMENT % dict(
                 mention='@' + instruction.author,
                 pattern=pattern,
                 error=str(error),
@@ -183,7 +183,7 @@ jenkins: lgtm-processed
                     new_refused.add(author)
 
         if new_refused:
-            self.current.head.comment(self.LGTM_COMMENT % dict(
+            yield io.WriteComment(body=self.LGTM_COMMENT % dict(
                 emoji=random.choice((':confused:', ':disappointed:')),
                 mention=', '.join(sorted(['@' + a for a in new_refused])),
                 message="you're not allowed to acknowledge PR",
@@ -251,7 +251,7 @@ jenkins: lgtm-processed
                 if l.date > self.current.lgtm_processed
             ]
             if unprocessed_lgtms:
-                self.current.head.comment(self.LGTM_COMMENT % dict(
+                yield io.WriteComment(body=self.LGTM_COMMENT % dict(
                     emoji=random.choice((':confused:', ':disappointed:')),
                     mention='@' + self.current.head.author,
                     message=(
@@ -274,7 +274,7 @@ jenkins: lgtm-processed
             self.current.head.merge()
         except ApiError as e:
             logger.warn("Failed to merge: %s", e.response['json']['message'])
-            self.current.head.comment(self.LGTM_COMMENT % dict(
+            yield io.WriteComment(body=self.LGTM_COMMENT % dict(
                 emoji=random.choice((':confused:', ':disappointed:')),
                 mention='@' + self.current.head.author,
                 message="I can't merge: `%s`" % (
@@ -283,7 +283,7 @@ jenkins: lgtm-processed
             ))
         else:
             logger.warn("Merged!")
-            self.current.head.comment(self.LGTM_COMMENT % dict(
+            yield io.WriteComment(body=self.LGTM_COMMENT % dict(
                 emoji=random.choice((
                     ':smiley:', ':sunglasses:', ':thumbup:',
                     ':ok_hand:', ':surfer:', ':white_check_mark:',
