@@ -46,22 +46,13 @@ class BuilderExtension(Extension):
 
     # Requeue past failed jobs
     jenkins: rebuild
-
-    # Acknowledge for auto-merge
-    jenkins: opm
     """
 
     DEFAULTS = {
         'jobs_match': [],
-        'lgtm': [],
-        'lgtm_processed': None,
         'skip': [],
         'skip_errors': [],
         'rebuild_failed': None,
-    }
-    SETTINGS = {
-        'GHP_LGTM_AUTHOR': False,
-        'GHP_LGTM_QUORUM': 1,
     }
     SKIP_ALL = ('.*',)
     BUILD_ALL = ['*']
@@ -73,22 +64,6 @@ Sorry %(mention)s, I don't understand your pattern `%(pattern)r`: `%(error)s`.
 jenkins: reset-skip-errors
 -->
 """
-    LGTM_COMMENT = """
-%(mention)s, %(message)s %(emoji)s
-
-<!--
-jenkins: lgtm-processed
--->
-"""
-
-    def begin(self):
-        super(BuilderExtension, self).begin()
-
-        if isinstance(self.current.head, PullRequest):
-            # Initialize LGTM processing
-            self.current.lgtm_processed = parse_datetime(
-                self.current.head.payload['created_at']
-            )
 
     def process_instruction(self, instruction):
         if instruction == 'skip':
@@ -110,24 +85,14 @@ jenkins: lgtm-processed
                 patterns = [patterns]
 
             self.current.jobs_match = patterns
-        elif instruction in {'lgtm', 'merge', 'opm'}:
-            if hasattr(self.current.head, 'merge'):
-                if not self.current.lgtm:
-                    logger.debug("LGTM incoming.")
-                self.current.lgtm.append(instruction)
-        elif instruction == 'lgtm-processed':
-            self.current.lgtm_processed = instruction.date
         elif instruction == 'reset-skip-errors':
             self.current.skip_errors = []
         elif instruction == 'rebuild':
             self.current.rebuild_failed = instruction.date
 
     def run(self):
-        if False:
-            yield None
-
         for instruction, pattern, error in self.current.skip_errors:
-            self.current.head.comment(self.ERROR_COMMENT % dict(
+            yield io.WriteComment(body=self.ERROR_COMMENT % dict(
                 mention='@' + instruction.author,
                 pattern=pattern,
                 error=str(error),
@@ -156,143 +121,6 @@ jenkins: lgtm-processed
                             description='Failed to queue job.',
                             target_url=job.baseurl,
                         ))
-
-        self.maybe_merge()
-
-    def check_lgtm(self):
-        lgtms = self.current.lgtm[:]
-        if not lgtms:
-            return
-
-        logger.debug("Validating LGTMs.")
-        processed_date = self.current.lgtm_processed
-
-        lgtmers = {i.author for i in lgtms}
-        new_refused = set()
-        for author in list(lgtmers):
-            if author in self.current.head.repository.SETTINGS.GHP_REVIEWERS:
-                logger.info("Accept @%s as reviewer.", author)
-            else:
-                lgtmers.remove(author)
-                logger.info("Refuse LGTM from @%s.", author)
-                unanswerd_lgtm = [
-                    l for l in lgtms
-                    if l.author == author and l.date > processed_date
-                ]
-                if unanswerd_lgtm:
-                    new_refused.add(author)
-
-        if new_refused:
-            self.current.head.comment(self.LGTM_COMMENT % dict(
-                emoji=random.choice((':confused:', ':disappointed:')),
-                mention=', '.join(sorted(['@' + a for a in new_refused])),
-                message="you're not allowed to acknowledge PR",
-            ))
-
-        lgtms = [i for i in lgtms if i.author in lgtmers]
-        if not lgtms:
-            return logger.debug("No legal LGTMs. Skipping.")
-
-        commit_date = parse_datetime(
-            self.current.head.commit['committer']['date']
-        )
-        outdated_lgtm = [l for l in lgtms if l.date < commit_date]
-        if outdated_lgtm:
-            logger.debug("Some LGTMs are outdated.")
-        lgtms = list(set(lgtms) - set(outdated_lgtm))
-
-        lgtmers = {i.author for i in lgtms}
-        if len(lgtms) > len(lgtmers):
-            logger.debug("Deduplicate LGTMs.")
-            lgtms = [
-                [l for l in lgtms if l.author == a][0] for a in lgtmers
-            ]
-
-        if len(lgtms) < self.current.head.repository.SETTINGS.GHP_LGTM_QUORUM:
-            return logger.debug("Missing LGTMs quorum. Skipping.")
-
-        if self.current.head.repository.SETTINGS.GHP_LGTM_AUTHOR:
-            self_lgtm = self.current.head.author in {i.author for i in lgtms}
-            if not self_lgtm:
-                return logger.debug("Author's LGTM missing. Skipping.")
-
-        logger.debug(
-            "Accepted LGTMs from %s.",
-            ', '.join([l.author for l in lgtms])
-        )
-
-        return lgtms
-
-    def check_mergeable(self):
-        # This function loop the checklist for an automergeable PR. The
-        # checklist summary is:
-        #
-        # 1. LGTM quorum is ok ;
-        # 2. All managed status are green ;
-        # 3. PR is not behind base branch.
-        #
-        # If any item of the checklist fails, PR must be merge manually.
-
-        lgtms = self.check_lgtm()
-        if not lgtms:
-            return
-
-        unsuccess = {
-            k: v for k, v in self.current.statuses.items()
-            if v['state'] != 'success'
-        }
-        if unsuccess:
-            return logger.debug("PR not green. Postpone merge.")
-
-        if self.current.head.is_behind():
-            logger.debug("Base updated since LGTM. Skipping merge.")
-            unprocessed_lgtms = [
-                l for l in lgtms
-                if l.date > self.current.lgtm_processed
-            ]
-            if unprocessed_lgtms:
-                self.current.head.comment(self.LGTM_COMMENT % dict(
-                    emoji=random.choice((':confused:', ':disappointed:')),
-                    mention='@' + self.current.head.author,
-                    message=(
-                        "%(base)s has been updated and this PR is now behind. "
-                        "I don't merge behind PR." % dict(
-                            base=self.current.head.payload['base']['label'],
-                        )
-                    ),
-                ))
-            return
-
-        return lgtms
-
-    def maybe_merge(self):
-        lgtms = self.check_mergeable()
-        if not lgtms:
-            return
-
-        try:
-            self.current.head.merge()
-        except ApiError as e:
-            logger.warn("Failed to merge: %s", e.response['json']['message'])
-            self.current.head.comment(self.LGTM_COMMENT % dict(
-                emoji=random.choice((':confused:', ':disappointed:')),
-                mention='@' + self.current.head.author,
-                message="I can't merge: `%s`" % (
-                    e.response['json']['message']
-                ),
-            ))
-        else:
-            logger.warn("Merged!")
-            self.current.head.comment(self.LGTM_COMMENT % dict(
-                emoji=random.choice((
-                    ':smiley:', ':sunglasses:', ':thumbup:',
-                    ':ok_hand:', ':surfer:', ':white_check_mark:',
-                )),
-                mention=', '.join(sorted(set([
-                    '@' + l.author for l in lgtms
-                ]))),
-                message="merged %s for you!" % (self.current.head.ref),
-            ))
 
     def skip(self, context):
         for pattern in self.current.skip:
@@ -515,6 +343,135 @@ jenkins: reset-errors
                 mention='@' + author,
                 instruction=repr(instruction),
                 error=str(error),
+            ))
+
+
+class MergerExtension(Extension):
+    """
+    # Acknowledge for auto-merge
+    jenkins: opm
+    """
+
+    DEFAULTS = {
+        'lgtm': {},
+        'lgtm_denied': [],
+        'lgtm_processed': None,
+        'merge_failed': None,
+    }
+    SETTINGS = {
+        'GHP_LGTM_AUTHOR': False,
+        'GHP_LGTM_QUORUM': 1,
+    }
+
+    LGTM_COMMENT = """
+%(mention)s, %(message)s %(emoji)s
+
+<!--
+jenkins: lgtm-processed
+-->
+"""
+
+    def begin(self):
+        super(MergerExtension, self).begin()
+
+        if isinstance(self.current.head, PullRequest):
+            # Initialize LGTM processing
+            self.current.lgtm_processed = parse_datetime(
+                self.current.head.payload['created_at']
+            )
+            self.current.commit_date = parse_datetime(
+                self.current.head.commit['committer']['date']
+            )
+            self.current.is_behind = self.current.head.is_behind()
+
+    def process_instruction(self, instruction):
+        if instruction in {'lgtm', 'merge', 'opm'}:
+            self.process_lgtm(instruction)
+        elif instruction == 'lgtm-processed':
+            self.current.lgtm_denied[:] = []
+            self.current.lgtm_processed = instruction.date
+        elif instruction == 'merge-failed':
+            if instruction.date > self.current.commit_date:
+                self.current.merge_failed = instruction.date
+
+    def process_lgtm(self, lgtm):
+        if not hasattr(self.current.head, 'merge'):
+            return logger.debug("LGTM on a non PR. Weird!")
+
+        if self.current.is_behind:
+            return logger.debug("Skip LGTM on outdated PR.")
+
+        if lgtm.date < self.current.commit_date:
+            return logger.debug("Skip outdated LGTM.")
+
+        if lgtm.author in self.current.SETTINGS.GHP_REVIEWERS:
+            logger.info("Accept @%s as reviewer.", lgtm.author)
+            self.current.lgtm[lgtm.author] = lgtm
+        else:
+            logger.info("Refuse LGTM from @%s.", lgtm.author)
+            self.current.lgtm_denied.append(lgtm)
+
+    def check_lgtms(self):
+        lgtms = self.current.lgtm
+        if not lgtms:
+            return
+
+        if len(lgtms) < self.current.SETTINGS.GHP_LGTM_QUORUM:
+            return logger.debug("Missing LGTMs quorum. Skipping.")
+
+        if self.current.SETTINGS.GHP_LGTM_AUTHOR:
+            self_lgtm = self.current.head.author in lgtms
+            if not self_lgtm:
+                return logger.debug("Author's LGTM missing. Skipping.")
+        return True
+
+    def check_statuses(self):
+        unsuccess = {
+            k: v for k, v in self.current.statuses.items()
+            if v['state'] != 'success'
+        }
+        return not unsuccess
+
+    def run(self):
+        denied = {i.author for i in self.current.lgtm_denied}
+        if denied:
+            yield io.WriteComment(body=self.LGTM_COMMENT % dict(
+                emoji=random.choice((':confused:', ':disappointed:')),
+                mention=', '.join(sorted(['@' + a for a in denied])),
+                message="you're not allowed to acknowledge PR",
+            ))
+
+        if not self.check_lgtms():
+            return
+        reviewers = sorted(self.current.lgtm)
+        logger.debug("Accepted LGTMs from %s.", ', '.join(reviewers))
+
+        if not self.check_statuses():
+            return logger.debug("PR not green. Postpone merge.")
+
+        if self.current.merge_failed:
+            return logger.debug("Merge already failed. Skipping.")
+
+        try:
+            self.current.head.merge()
+        except ApiError as e:
+            logger.warn("Failed to merge: %s", e.response['json']['message'])
+            yield io.WriteComment(body=self.LGTM_COMMENT % dict(
+                emoji=random.choice((':confused:', ':disappointed:')),
+                mention='@' + self.current.head.author,
+                message="I can't merge: `%s`" % (
+                    e.response['json']['message']
+                ),
+            ))
+        else:
+            logger.warn("Merged %s!", self.current.head.ref)
+            yield io.WriteComment(body=self.LGTM_COMMENT % dict(
+                emoji=random.choice((
+                    ':smiley:', ':sunglasses:', ':thumbup:',
+                    ':ok_hand:', ':surfer:', ':white_check_mark:',
+                )),
+                mention=', '.join(['@' + a for a in reviewers]),
+                message="merged %s for you!" % (self.current.head.ref),
             ))
 
 

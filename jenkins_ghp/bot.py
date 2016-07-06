@@ -63,6 +63,8 @@ class Bot(object):
         logger.info("Working on %s.", head)
         self.current = Bunch(copy.deepcopy(self.DEFAULTS))
         self.current.head = head
+        self.current.repository = head.repository
+        self.current.SETTINGS = head.repository.SETTINGS
         for ext in self.extensions.values():
             self.current.update(copy.deepcopy(ext.DEFAULTS))
             ext.current = self.current
@@ -152,7 +154,7 @@ class Bot(object):
 
                 for name, args in data.items():
                     name = name.lower()
-                    instruction = Instruction(name, args, author, date)
+                    instruction = Instruction(author, name, args, date)
                     if not process:
                         process = 'process' == instruction
                         continue
@@ -168,7 +170,7 @@ class Bot(object):
 
 
 class Instruction(object):
-    def __init__(self, name, args, author, date):
+    def __init__(self, author, name, args=None, date=None):
         self.name = name
         self.args = args
         self.author = author

@@ -39,6 +39,7 @@ setup(
             'error = jenkins_ghp.extensions:ErrorExtension',
             'fix = jenkins_ghp.extensions:FixStatusExtension',
             'help = jenkins_ghp.extensions:HelpExtension',
+            'merger = jenkins_ghp.extensions:MergerExtension',
             'report = jenkins_ghp.extensions:ReportExtension',
         ],
     },
