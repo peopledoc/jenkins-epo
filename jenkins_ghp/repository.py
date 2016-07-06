@@ -165,7 +165,7 @@ class Repository(object):
             ghp_yml = GITHUB.fetch_file_contents(self, '.github/ghp.yml')
             logger.debug("Loading settings from .github/ghp.yml")
         except ApiNotFoundError:
-            ghp_yml = None
+            ghp_yml = "{}"
 
         if 'reviewers:' in ghp_yml:
             logger.debug("Reviewers defined manually.")
