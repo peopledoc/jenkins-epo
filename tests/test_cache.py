@@ -38,3 +38,13 @@ def test_corruptions(dbopen, fcntl):
 
     my.storage.keys.return_value = ['key']
     my.purge()
+
+
+@patch('jenkins_ghp.cache.fcntl')
+@patch('jenkins_ghp.cache.shelve.open')
+def test_save(dbopen, fcntl):
+    from jenkins_ghp.cache import FileCache
+
+    my = FileCache()
+    my.save()
+    assert my.storage.sync.mock_calls
