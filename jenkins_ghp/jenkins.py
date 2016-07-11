@@ -12,7 +12,6 @@
 # You should have received a copy of the GNU General Public License along with
 # jenkins-ghp.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
 import logging
 import json
 import re
@@ -21,7 +20,6 @@ from xml.etree import ElementTree as ET
 from jenkinsapi.build import Build
 from jenkinsapi.jenkins import Jenkins
 from jenkinsapi.custom_exceptions import UnknownJob
-import jinja2
 import requests
 
 from .settings import SETTINGS
@@ -85,33 +83,15 @@ class LazyJenkins(object):
         try:
             api_instance = self._instance.get_job(job_spec.name)
         except UnknownJob:
-            env = jinja2.Environment(
-                loader=jinja2.FileSystemLoader(
-                    os.path.join(os.path.dirname(__file__), 'jobs')
-                )
-            )
-            template = env.get_template('freestyle.xml')
-            config = template.render(
-                name=job_spec.name,
-                assigned_node=job_spec.data.get(
-                    'node', SETTINGS.GHP_JOBS_NODE,
-                ),
-                command=SETTINGS.GHP_JOBS_COMMAND,
-                owner=job_spec.repository.owner,
-                repository=job_spec.repository.name,
-                credentials=SETTINGS.GHP_JOBS_CREDENTIALS,
-                publish=(
-                    not SETTINGS.GHP_DRY_RUN and not SETTINGS.GHP_GITHUB_RO
-                ),
-            )
+            config = job_spec.as_xml()
             if SETTINGS.GHP_DRY_RUN:
-                logger.info("Would create new Jenkins job %s", job_spec)
+                logger.info("Would create new Jenkins job %s.", job_spec)
                 return None
 
             api_instance = self._instance.create_job(job_spec.name, config)
-            logger.info("Created new Jenkins job %s", job_spec.name)
+            logger.warning("Created new Jenkins job %s.", job_spec.name)
         else:
-            logger.debug("Not updating existing job %s", job_spec.name)
+            logger.debug("Not updating existing job %s.", job_spec.name)
 
         job = Job.factory(api_instance)
         job_spec.repository.jobs.append(job)
@@ -123,6 +103,14 @@ JENKINS = LazyJenkins()
 
 class Job(object):
     jobs_filter = [p for p in SETTINGS.GHP_JOBS.split(',') if p]
+
+    @staticmethod
+    def factory(instance):
+        if 'activeConfigurations' in instance._data:
+            cls = MatrixJob
+        else:
+            cls = FreestyleJob
+        return cls(instance)
 
     def __init__(self, api_instance):
         self._instance = api_instance
@@ -136,11 +124,17 @@ class Job(object):
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.name)
 
+    def __str__(self):
+        return self._instance.name
+
     def __eq__(self, other):
-        return self.name == other.name
+        return str(self) == str(other)
 
     def __hash__(self):
         return hash(str(self))
+
+    def __getattr__(self, name):
+        return getattr(self._instance, name)
 
     @property
     def managed(self):
@@ -196,20 +190,6 @@ class Job(object):
                 logger.warn("Can't find a revision param in %s", self)
 
         return self._revision_param
-
-    @staticmethod
-    def factory(instance):
-        if 'activeConfigurations' in instance._data:
-            cls = MatrixJob
-        else:
-            cls = FreestyleJob
-        return cls(instance)
-
-    def __getattr__(self, name):
-        return getattr(self._instance, name)
-
-    def __str__(self):
-        return self._instance.name
 
 
 class FreestyleJob(Job):

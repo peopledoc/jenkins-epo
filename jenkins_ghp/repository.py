@@ -19,6 +19,7 @@ import logging
 import re
 
 from github import ApiError
+from jenkins_yml import Job as JobSpec
 import yaml
 
 from .github import cached_request, GITHUB, ApiNotFoundError
@@ -46,24 +47,6 @@ class CommitStatus(dict):
 
     def __str__(self):
         return self['context']
-
-    def __hash__(self):
-        return hash(str(self))
-
-
-class JobSpec(object):
-    def __init__(self, repository, name, data=None):
-        if isinstance(data, str):
-            data = dict(script=data)
-        self.data = data or {}
-        self.name = name
-        self.repository = repository
-
-    def __str__(self):
-        return self.name
-
-    def __eq__(self, other):
-        return self.name == other.name
 
     def __hash__(self):
         return hash(str(self))
@@ -264,13 +247,19 @@ class Repository(object):
     def list_jobs(self, jenkins_yml=None):
         jenkins_yml = jenkins_yml or '{}'
         jobs = set()
+        defaults = dict(
+            node=SETTINGS.GHP_JOBS_NODE,
+            command=SETTINGS.GHP_JOBS_COMMAND,
+            github_repository=self.url,
+            scm_credentials=SETTINGS.GHP_JOBS_CREDENTIALS,
+            set_commit_status=not SETTINGS.GHP_DRY_RUN,
+        )
 
         for job in self.jobs:
             jobs.add(job)
 
-        config = yaml.load(jenkins_yml)
-        for name, params in config.items():
-            job = JobSpec(self, name, params)
+        for job in JobSpec.parse_all(jenkins_yml, defaults=defaults):
+            job.repository = self
             jobs.add(job)
 
         return list(jobs)
