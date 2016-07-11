@@ -110,6 +110,7 @@ def bot():
                     raise
 
     CACHE.purge()
+    CACHE.save()
 
 
 def list_jobs():

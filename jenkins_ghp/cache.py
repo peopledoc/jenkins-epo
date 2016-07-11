@@ -86,6 +86,7 @@ class FileCache(Cache):
             self.storage = shelve.open(self.CACHE_PATH, mode)
 
     def close(self):
+        self.save()
         self.storage.close()
         if self.lock:
             fcntl.lockf(self.lock, fcntl.LOCK_UN)
@@ -95,6 +96,10 @@ class FileCache(Cache):
     def destroy(self):
         self.close()
         os.unlink(self.CACHE_PATH + '.db')
+
+    def save(self):
+        self.storage.sync()
+        logger.debug("Saved %s.", self.CACHE_PATH)
 
     def set(self, key, value):
         if not self.lock:
@@ -120,7 +125,6 @@ class FileCache(Cache):
 
     def __del__(self):
         self.close()
-        logger.debug("Saved %s", self.CACHE_PATH)
 
 
 CACHE = FileCache()
