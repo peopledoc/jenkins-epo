@@ -98,7 +98,7 @@ class LazyJenkins(object):
                 ),
                 command=SETTINGS.GHP_JOBS_COMMAND,
                 owner=job_spec.repository.owner,
-                repository=job_spec.repository.repository,
+                repository=job_spec.repository.name,
                 credentials=SETTINGS.GHP_JOBS_CREDENTIALS,
                 publish=(
                     not SETTINGS.GHP_DRY_RUN and not SETTINGS.GHP_GITHUB_RO
