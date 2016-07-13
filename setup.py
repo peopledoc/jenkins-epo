@@ -50,6 +50,7 @@ setup(
     install_requires=[
         'githubpy',
         'jenkinsapi',
+        'jenkins-yml[renderer]',
         'jinja2',
         'pyyaml',
         'retrying',
