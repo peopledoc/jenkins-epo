@@ -56,7 +56,7 @@ def list_repositories(with_settings=False):
                 repo.load_settings()
             yield repo
         except Exception as e:
-            logger.error("Failed to load %s repository: %r", repository, e)
+            logger.error("Failed to load %s repository: %r", repo, e)
 
 
 @retry(wait_fixed=15000)
