@@ -51,7 +51,6 @@ setup(
         'githubpy',
         'jenkinsapi',
         'jenkins-yml[renderer]',
-        'jinja2',
         'pyyaml',
         'retrying',
     ],
