@@ -32,7 +32,7 @@ if 'install' in sys.argv or 0 != os.getuid():
 
 setup(
     name='jenkins-ghp',
-    version='1.31',
+    version='1.32.dev0',
     entry_points={
         'console_scripts': ['jenkins-ghp=jenkins_ghp.script:entrypoint'],
         'jenkins_ghp.bot.extensions': [
