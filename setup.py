@@ -22,7 +22,7 @@ import sys
 
 setup_kwargs = dict()
 
-if 'install' in sys.argv or 0 != os.getuid():
+if 'install' not in sys.argv or 0 != os.getuid():
     setup_kwargs.update(dict(
         data_files=[
             ('lib/systemd/system', ['jenkins-ghp.service']),
