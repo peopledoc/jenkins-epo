@@ -199,6 +199,9 @@ class FreestyleJob(Job):
     def build(self, pr, contexts):
         params = {}
         log = str(self)
+        for param in self.get_params():
+            params[param['name']] = param['defaultParameterValue']['value']
+
         if self.revision_param:
             params[self.revision_param] = pr.ref
             log += ' for %s' % pr.ref
@@ -206,7 +209,7 @@ class FreestyleJob(Job):
         if SETTINGS.GHP_DRY_RUN:
             return logger.info("Would queue %s", log)
 
-        self._instance.invoke(build_params=params)
+        self._instance.invoke(build_params=params, delay=0, cause='GHP')
         logger.info("Queued new build %s", log)
 
 
@@ -237,6 +240,19 @@ class MatrixJob(Job):
     def build(self, pr, contexts):
         data = {'parameter': [], 'statusCode': '303', 'redirectTo': '.'}
 
+        managed_params = {self.revision_param, self.configuration_param}
+        for param in self.get_params():
+            if param['name'] in managed_params:
+                continue
+
+            if 'value' not in param['defaultParameterValue']:
+                continue
+
+            data['parameter'].append({
+                'name': param['name'],
+                'value': param['defaultParameterValue']['value'],
+            })
+
         if self.revision_param:
             data['parameter'].append({
                 'name': self.revision_param,
@@ -264,7 +280,7 @@ class MatrixJob(Job):
             return
 
         res = requests.post(
-            self._instance._data['url'] + '/build?delay=0sec',
+            self._instance._data['url'] + '/build?delay=0sec&cause=GHP',
             data={'json': json.dumps(data)}
         )
         if res.status_code != 200:
