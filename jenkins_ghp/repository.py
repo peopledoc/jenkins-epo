@@ -244,9 +244,9 @@ class Repository(object):
             for context in job.list_contexts():
                 yield context
 
-    def list_jobs(self, jenkins_yml=None):
+    def list_job_specs(self, jenkins_yml=None):
         jenkins_yml = jenkins_yml or '{}'
-        jobs = set()
+        ret = {}
         defaults = dict(
             node=SETTINGS.GHP_JOBS_NODE,
             command=SETTINGS.GHP_JOBS_COMMAND,
@@ -256,13 +256,13 @@ class Repository(object):
         )
 
         for job in self.jobs:
-            jobs.add(job)
+            ret[str(job)] = job.spec
 
         for job in JobSpec.parse_all(jenkins_yml, defaults=defaults):
             job.repository = self
-            jobs.add(job)
+            ret[str(job)] = job
 
-        return list(jobs)
+        return ret
 
     @retry(wait_fixed=15000)
     def report_issue(self, title, body):

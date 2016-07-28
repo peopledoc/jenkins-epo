@@ -67,19 +67,29 @@ def test_reviewers():
     assert 'owner' in reviewers
 
 
-def test_list_jobs_no_yml():
+def test_list_job_specs_from_jenkins():
     from jenkins_ghp.repository import Repository
 
     repo = Repository('owner', 'repo1')
-    jobs = repo.list_jobs(None)
-    assert [] == jobs
+    repo.jobs = [Mock()]
+
+    jobs = repo.list_job_specs(None)
+    assert 1 == len(jobs)
 
 
-def test_list_jobs_yml():
+def test_list_job_specs_no_yml():
     from jenkins_ghp.repository import Repository
 
     repo = Repository('owner', 'repo1')
-    jobs = repo.list_jobs("""
+    jobs = repo.list_job_specs(None)
+    assert {} == jobs
+
+
+def test_list_job_specs_yml():
+    from jenkins_ghp.repository import Repository
+
+    repo = Repository('owner', 'repo1')
+    jobs = repo.list_job_specs("""
 job1: |
     py.test
 job2: |

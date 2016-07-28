@@ -15,11 +15,11 @@
 import logging
 import json
 import re
-from xml.etree import ElementTree as ET
 
 from jenkinsapi.build import Build
 from jenkinsapi.jenkins import Jenkins
 from jenkinsapi.custom_exceptions import UnknownJob
+from jenkins_yml import Job as JobSpec
 import requests
 
 from .settings import SETTINGS
@@ -93,9 +93,7 @@ class LazyJenkins(object):
         else:
             logger.debug("Not updating existing job %s.", job_spec.name)
 
-        job = Job.factory(api_instance)
-        job_spec.repository.jobs.append(job)
-        return job
+        return Job.factory(api_instance)
 
 
 JENKINS = LazyJenkins()
@@ -114,7 +112,8 @@ class Job(object):
 
     def __init__(self, api_instance):
         self._instance = api_instance
-        self.config = ET.fromstring(self._instance.get_config())
+        self.config = self._instance._get_config_element_tree()
+        self.spec = JobSpec.from_xml(self.name, self.config)
 
         xpath_query = './/triggers/com.cloudbees.jenkins.GitHubPushTrigger'
         self.push_trigger = bool(self.config.findall(xpath_query))
@@ -196,12 +195,9 @@ class FreestyleJob(Job):
     def list_contexts(self):
         yield self._instance.name
 
-    def build(self, pr, contexts):
-        params = {}
+    def build(self, pr, spec, contexts):
         log = str(self)
-        for param in self.get_params():
-            params[param['name']] = param['defaultParameterValue']['value']
-
+        params = spec.config['parameters'].copy()
         if self.revision_param:
             params[self.revision_param] = pr.ref
             log += ' for %s' % pr.ref
@@ -237,21 +233,11 @@ class MatrixJob(Job):
         for c in self._instance._data['activeConfigurations']:
             yield '%s/%s' % (self._instance.name, c['name'])
 
-    def build(self, pr, contexts):
+    def build(self, pr, spec, contexts):
         data = {'parameter': [], 'statusCode': '303', 'redirectTo': '.'}
 
-        managed_params = {self.revision_param, self.configuration_param}
-        for param in self.get_params():
-            if param['name'] in managed_params:
-                continue
-
-            if 'value' not in param['defaultParameterValue']:
-                continue
-
-            data['parameter'].append({
-                'name': param['name'],
-                'value': param['defaultParameterValue']['value'],
-            })
+        for name, value in spec.config['parameters'].items():
+            data['parameter'].append({'name': name, 'value': value})
 
         if self.revision_param:
             data['parameter'].append({

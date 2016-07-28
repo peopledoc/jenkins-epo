@@ -81,6 +81,46 @@ jenkins: unix_eof
     assert 'unix_eof' in haystack
 
 
+@patch('jenkins_ghp.bot.JENKINS')
+@patch('jenkins_ghp.bot.GITHUB')
+def test_run_new_job(GITHUB, JENKINS):
+    from jenkins_ghp.bot import Bot
+
+    bot = Bot()
+    bot.extensions = {}
+
+    pr = Mock()
+
+    new_job = Mock()
+    pr.repository.list_job_specs.return_value = {'new-job': new_job}
+    pr.repository.jobs = []
+    pr.list_comments.return_value = []
+
+    bot.run(pr)
+
+    assert JENKINS.create_job.mock_calls
+
+
+@patch('jenkins_ghp.bot.GITHUB')
+def test_run_jenkins_job(GITHUB):
+    from jenkins_ghp.bot import Bot
+
+    bot = Bot()
+    bot.extensions = {}
+
+    pr = Mock()
+
+    jenkins_job = Mock()
+    jenkins_job.name = 'jenkins-job'
+    pr.repository.list_job_specs.return_value = {}
+    pr.repository.jobs = [jenkins_job]
+    pr.list_comments.return_value = []
+
+    bot.run(pr)
+
+    assert 'jenkins-job' in bot.current.job_specs
+
+
 @patch('jenkins_ghp.bot.GITHUB')
 def test_io_execution(GITHUB):
     from jenkins_ghp.bot import Bot, Extension
@@ -112,7 +152,8 @@ def test_io_execution(GITHUB):
     bot.extensions = {'mock': ext}
 
     pr = Mock()
-    pr.repository.list_jobs.return_value = []
+    pr.repository.list_job_specs.return_value = {}
+    pr.repository.jobs = []
     pr.list_comments.return_value = []
 
     bot.run(pr)
