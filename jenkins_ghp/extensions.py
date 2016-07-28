@@ -114,7 +114,7 @@ jenkins: reset-skip-errors
                 try:
                     job.build(self.current.head, queued_contexts)
                 except Exception as e:
-                    logger.warn("Failed to queue job %s: %s.", job, e)
+                    logger.exception("Failed to queue job %s: %s.", job, e)
                     for context in queued_contexts:
                         self.current.head.maybe_update_status(CommitStatus(
                             context=context, state='error',
