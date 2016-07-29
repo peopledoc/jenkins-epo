@@ -190,6 +190,20 @@ class Job(object):
 
         return self._revision_param
 
+    @property
+    def node_param(self):
+        if not hasattr(self, '_node_param'):
+            self._node_param = None
+            for param in self.get_params():
+                if param['_class'].endswith('.LabelParameterDefinition'):
+                    self._node_param = param['name']
+                    logger.info(
+                        "Using %s param to target node for %s.",
+                        self._node_param, self,
+                    )
+                    break
+        return self._node_param
+
 
 class FreestyleJob(Job):
     def list_contexts(self):
@@ -201,6 +215,12 @@ class FreestyleJob(Job):
         if self.revision_param:
             params[self.revision_param] = pr.ref
             log += ' for %s' % pr.ref
+
+        if 'node' in spec.config:
+            if self.node_param:
+                params[self.node_param] = spec.config['node']
+            else:
+                logger.warning("Can't assign build to node %s.", spec.node)
 
         if SETTINGS.GHP_DRY_RUN:
             return logger.info("Would queue %s", log)
