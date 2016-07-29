@@ -23,7 +23,6 @@ import yaml
 
 from .github import GITHUB, ApiNotFoundError
 from .jenkins import JENKINS
-from .repository import JobSpec
 from .settings import SETTINGS
 from .utils import Bunch, parse_datetime
 
@@ -34,7 +33,7 @@ logger = logging.getLogger(__name__)
 class Bot(object):
     DEFAULTS = {
         'errors': [],
-        'jobs': [],
+        'jobs': {},
     }
 
     instruction_re = re.compile(
@@ -81,12 +80,14 @@ class Bot(object):
         except ApiNotFoundError:
             jenkins_yml = None
 
-        for job in head.repository.list_jobs(jenkins_yml):
-            if isinstance(job, JobSpec):
-                job = JENKINS.create_job(job)
-
-            if job and job.managed:
-                self.current.jobs.append(job)
+        self.current.job_specs = head.repository.list_job_specs(jenkins_yml)
+        self.current.jobs = {job.name: job for job in head.repository.jobs}
+        for spec in self.current.job_specs.values():
+            if spec.name not in self.current.jobs:
+                self.current.jobs[spec.name] = JENKINS.create_job(spec)
+        for job in self.current.jobs.values():
+            if job.name not in self.current.job_specs:
+                self.current.job_specs[job.name] = job.spec
 
         payload = self.current.head.fetch_statuses()
         self.current.head.process_statuses(payload)
