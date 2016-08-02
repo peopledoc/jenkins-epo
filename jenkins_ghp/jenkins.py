@@ -220,7 +220,9 @@ class FreestyleJob(Job):
             if self.node_param:
                 params[self.node_param] = spec.config['node']
             else:
-                logger.warning("Can't assign build to node %s.", spec.node)
+                logger.warning(
+                    "Can't assign build to node %s.", spec.config['node'],
+                )
 
         if SETTINGS.GHP_DRY_RUN:
             return logger.info("Would queue %s", log)
