@@ -36,6 +36,18 @@ class Bot(object):
         'jobs': {},
     }
 
+    PARSE_ERROR_COMMENT = """\
+%(instruction)s
+
+Sorry %(mention)s, I don't understand what you mean:
+
+```
+%(error)s
+```
+
+See `jenkins: help` for documentation.
+"""  # noqa
+
     instruction_re = re.compile(
         '('
         # Case beginning:  jenkins: ... or `jenkins: ...`
@@ -84,7 +96,9 @@ class Bot(object):
         self.current.jobs = {job.name: job for job in head.repository.jobs}
         for spec in self.current.job_specs.values():
             if spec.name not in self.current.jobs:
-                self.current.jobs[spec.name] = JENKINS.create_job(spec)
+		job = JENKINS.create_job(spec)
+                if job:
+                    self.current.jobs[spec.name] = job
         for job in self.current.jobs.values():
             if job.name not in self.current.job_specs:
                 self.current.job_specs[job.name] = job.spec
