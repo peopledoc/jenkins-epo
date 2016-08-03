@@ -24,7 +24,6 @@ from .bot import Extension
 from .jenkins import JENKINS
 from .repository import ApiError, Branch, CommitStatus, PullRequest
 from .utils import match, parse_datetime
-from . import io
 
 
 logger = logging.getLogger(__name__)
@@ -92,7 +91,7 @@ jenkins: reset-skip-errors
 
     def run(self):
         for instruction, pattern, error in self.current.skip_errors:
-            yield io.WriteComment(body=self.ERROR_COMMENT % dict(
+            self.current.head.comment(body=self.ERROR_COMMENT % dict(
                 mention='@' + instruction.author,
                 pattern=pattern,
                 error=str(error),
@@ -206,9 +205,6 @@ class FixStatusExtension(Extension):
         )
 
     def run(self):
-        if False:
-            yield None
-
         fivemin_ago = (
             datetime.datetime.utcnow() -
             datetime.timedelta(
@@ -321,7 +317,7 @@ Extensions: %(extensions)s
 
     def run(self):
         if self.current.help_mentions:
-            yield io.WriteComment(self.generate_comment())
+            self.current.head.comment(body=self.generate_comment())
 
 
 class ErrorExtension(Extension):
@@ -343,9 +339,6 @@ jenkins: reset-errors
             ]
 
     def run(self):
-        if False:
-            yield None
-
         for error in self.current.errors:
             self.current.head.comment(body=self.ERROR_COMMENT % dict(
                 emoji=random.choice((
@@ -441,7 +434,7 @@ jenkins: lgtm-processed
     def run(self):
         denied = {i.author for i in self.current.lgtm_denied}
         if denied:
-            yield io.WriteComment(body=self.LGTM_COMMENT % dict(
+            self.current.head.comment(body=self.LGTM_COMMENT % dict(
                 emoji=random.choice((':confused:', ':disappointed:')),
                 mention=', '.join(sorted(['@' + a for a in denied])),
                 message="you're not allowed to acknowledge PR",
@@ -462,7 +455,7 @@ jenkins: lgtm-processed
             self.current.head.merge()
         except ApiError as e:
             logger.warn("Failed to merge: %s", e.response['json']['message'])
-            yield io.WriteComment(body=self.LGTM_COMMENT % dict(
+            self.current.head.comment(body=self.LGTM_COMMENT % dict(
                 emoji=random.choice((':confused:', ':disappointed:')),
                 mention='@' + self.current.head.author,
                 message="I can't merge: `%s`" % (
@@ -471,14 +464,6 @@ jenkins: lgtm-processed
             ))
         else:
             logger.warn("Merged %s!", self.current.head.ref)
-            yield io.WriteComment(body=self.LGTM_COMMENT % dict(
-                emoji=random.choice((
-                    ':smiley:', ':sunglasses:', ':thumbup:',
-                    ':ok_hand:', ':surfer:', ':white_check_mark:',
-                )),
-                mention=', '.join(['@' + a for a in reviewers]),
-                message="merged %s for you!" % (self.current.head.ref),
-            ))
 
 
 class ReportExtension(Extension):
@@ -505,9 +490,6 @@ jenkins: report-done
             self.current.report_done = True
 
     def run(self):
-        if False:
-            yield None
-
         if self.current.report_done:
             return
 
@@ -534,6 +516,6 @@ jenkins: report-done
             )
         )
 
-        yield io.WriteComment(body=self.COMMENT_TEMPLATE % dict(
+        self.current.head.comment(body=self.COMMENT_TEMPLATE % dict(
             issue=issue['number']
         ))

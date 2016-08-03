@@ -81,8 +81,9 @@ def test_compute_help():
     assert 'asker1' in bot.current.help_mentions
     assert 'asker2' in bot.current.help_mentions
 
-    ios = list(bot.extensions['help'].run())
-    man = ios[0].body
+    bot.extensions['help'].run()
+
+    man = bot.current.head.comment.call_args[1]['body']
     assert '@asker1' in man
     assert '@asker2' in man
 
@@ -106,6 +107,9 @@ def test_skip_re_wrong():
         comment(body='''jenkins: {skip: ['*toto)']}'''),
     ])
     assert not bot.extensions['builder'].skip('toto')
+    assert bot.current.skip_errors
+    bot.extensions['builder'].run()
+    assert bot.current.head.comment.mock_calls
 
 
 def test_match_mixed():
@@ -146,8 +150,7 @@ def test_errors():
     bot = Bot().workon(Mock())
     bot.current.errors = [Error('message', Mock())]
 
-    for i in bot.extensions['error'].run():
-        pass
+    bot.extensions['error'].run()
 
     assert bot.current.head.comment.mock_calls
 
@@ -164,7 +167,31 @@ def test_errors_reset():
         body='''jenkins: reset-errors''', updated_at='2016-08-03T17:58:47Z',
     )])
 
-    for i in bot.extensions['error'].run():
-        pass
+    bot.extensions['error'].run()
 
     assert not bot.current.head.comment.mock_calls
+
+
+def test_report():
+    from jenkins_ghp.extensions import ReportExtension, Branch
+
+    ext = ReportExtension('merger', Mock())
+    ext.current = Mock()
+    ext.current.head = Mock(spec=Branch)
+    ext.current.head.sha = 'c0defada'
+    ext.current.head.ref = 'refs/heads/branch'
+    ext.current.head.repository = Mock()
+    ext.current.head.repository.report_issue.return_value = {
+        'number': '1',
+    }
+    ext.current.report_done = None
+    ext.current.statuses = {
+        'job1': {
+            'state': 'failure',
+            'target_url': 'build_url',
+        },
+    }
+    ext.run()
+
+    assert ext.current.head.comment.mock_calls
+    assert ext.current.head.repository.report_issue.mock_calls

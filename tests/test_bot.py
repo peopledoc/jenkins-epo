@@ -172,35 +172,16 @@ def test_run_job_existant(GITHUB, JENKINS):
     assert not JENKINS.create_job.mock_calls
 
 
+@patch('jenkins_ghp.bot.JENKINS')
 @patch('jenkins_ghp.bot.GITHUB')
-def test_io_execution(GITHUB):
-    from jenkins_ghp.bot import Bot, Extension
+def test_run_extension(GITHUB, JENKINS):
+    from jenkins_ghp.bot import Bot
+
+    ext = Mock()
+    ext.DEFAULTS = {}
 
     bot = Bot()
-
-    class TestExtension(Extension):
-        success_io = Mock()
-
-        none_io = Mock()
-        none_io.run.return_value = None
-
-        raising_io = Mock()
-        raising_io.run.side_effect = Exception()
-
-        def run(self):
-            res = yield self.success_io
-            assert res
-
-            res = yield self.none_io
-            assert res is None
-
-            try:
-                yield self.raising_io
-            except Exception as e:
-                assert e is self.raising_io.run.side_effect
-
-    ext = TestExtension('mock', bot)
-    bot.extensions = {'mock': ext}
+    bot.extensions = {'ext': ext}
 
     pr = Mock()
     pr.commit = dict(committer=dict(date='2016-08-03T16:47:52Z'))
@@ -210,6 +191,4 @@ def test_io_execution(GITHUB):
 
     bot.run(pr)
 
-    assert TestExtension.success_io.run.mock_calls
-    assert TestExtension.none_io.run.mock_calls
-    assert TestExtension.raising_io.run.mock_calls
+    assert ext.run.mock_calls

@@ -18,7 +18,6 @@ import logging
 import pkg_resources
 import re
 import reprlib
-import sys
 import yaml
 
 from .github import GITHUB, ApiNotFoundError
@@ -152,20 +151,7 @@ Failed to create Jenkins job `%(name)s`.
         logger.debug("Bot vars: %s", vars_repr)
 
         for ext in self.extensions.values():
-            generator = ext.run()
-            io = None
-            while True:
-                try:
-                    if not io:
-                        io = next(generator)
-                    try:
-                        res = io.run(self.current)
-                    except Exception:
-                        io = generator.throw(*sys.exc_info())
-                    else:
-                        io = generator.send(res)
-                except StopIteration:
-                    break
+            ext.run()
 
     def parse_instructions(self, comments):
         process = True
