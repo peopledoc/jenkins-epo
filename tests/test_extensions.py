@@ -138,3 +138,33 @@ def test_duration_format():
     assert '23 sec' == format_duration(23000)
     assert '5 min 4.2 sec' == format_duration(304200)
     assert '2 h 5 min 4.2 sec' == format_duration(7504200)
+
+
+def test_errors():
+    from jenkins_ghp.bot import Bot, Error
+
+    bot = Bot().workon(Mock())
+    bot.current.errors = [Error('message', Mock())]
+
+    for i in bot.extensions['error'].run():
+        pass
+
+    assert bot.current.head.comment.mock_calls
+
+
+def test_errors_reset():
+    from jenkins_ghp.bot import Bot, Error
+    from jenkins_ghp.utils import parse_datetime
+
+    bot = Bot().workon(Mock())
+    bot.current.errors = [
+        Error('message', parse_datetime('2016-08-03T15:58:47Z')),
+    ]
+    bot.process_instructions([comment(
+        body='''jenkins: reset-errors''', updated_at='2016-08-03T17:58:47Z',
+    )])
+
+    for i in bot.extensions['error'].run():
+        pass
+
+    assert not bot.current.head.comment.mock_calls

@@ -36,6 +36,27 @@ class Bot(object):
         'jobs': {},
     }
 
+    PARSE_ERROR_COMMENT = """\
+%(instruction)s
+
+Sorry %(mention)s, I don't understand what you mean:
+
+```
+%(error)s
+```
+
+See `jenkins: help` for documentation.
+"""  # noqa
+
+    CREATE_JOB_ERROR_COMMENT = """\
+Failed to create Jenkins job `%(name)s`.
+
+```
+%(error)s
+%(detail)s
+```
+"""
+
     instruction_re = re.compile(
         '('
         # Case beginning:  jenkins: ... or `jenkins: ...`
@@ -69,8 +90,12 @@ class Bot(object):
             ext.current = self.current
         return self
 
-    def run(self, head):
-        self.workon(head)
+    def prepare_jobs(self):
+        head = self.current.head
+
+        self.current.commit_date = parse_datetime(
+            head.commit['committer']['date']
+        )
 
         try:
             jenkins_yml = GITHUB.fetch_file_contents(
@@ -82,12 +107,37 @@ class Bot(object):
 
         self.current.job_specs = head.repository.list_job_specs(jenkins_yml)
         self.current.jobs = {job.name: job for job in head.repository.jobs}
+
         for spec in self.current.job_specs.values():
-            if spec.name not in self.current.jobs:
-                self.current.jobs[spec.name] = JENKINS.create_job(spec)
+            if spec.name in self.current.jobs:
+                continue
+
+            try:
+                job = JENKINS.create_job(spec)
+            except Exception as e:
+                detail = (
+                    e.args[0]
+                    .replace('\\n', '\n')
+                    .replace('\\t', '\t')
+                )
+                logger.error("Failed to create job %r:\n%s", spec.name, detail)
+                self.current.errors.append(Error(
+                    self.CREATE_JOB_ERROR_COMMENT % dict(
+                        name=spec.name, error=e, detail=detail,
+                    ),
+                    self.current.commit_date,
+                ))
+            else:
+                if job:
+                    self.current.jobs[spec.name] = job
+
         for job in self.current.jobs.values():
             if job.name not in self.current.job_specs:
                 self.current.job_specs[job.name] = job.spec
+
+    def run(self, head):
+        self.workon(head)
+        self.prepare_jobs()
 
         payload = self.current.head.fetch_statuses()
         self.current.head.process_statuses(payload)
@@ -212,3 +262,9 @@ class Extension(object):
 
     def run(self):
         pass
+
+
+class Error(object):
+    def __init__(self, body, date):
+        self.body = body
+        self.date = date

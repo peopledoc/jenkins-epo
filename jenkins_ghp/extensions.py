@@ -326,11 +326,9 @@ Extensions: %(extensions)s
 
 class ErrorExtension(Extension):
     ERROR_COMMENT = """
-:see_no_evil: :bangbang:
+%(emoji)s
 
-Sorry %(mention)s, I don't understand what you mean by `%(instruction)s`: `%(error)s`.
-
-See `jenkins: help` for documentation.
+%(error)s
 
 <!--
 jenkins: reset-errors
@@ -339,14 +337,21 @@ jenkins: reset-errors
 
     def process_instruction(self, instruction):
         if instruction == 'reset-errors':
-            self.current.errors = []
+            self.current.errors = [
+                e for e in self.current.errors
+                if e.date > instruction.date
+            ]
 
     def run(self):
-        for author, instruction, error in self.current.errors:
-            yield io.WriteComment(body=self.ERROR_COMMENT % dict(
-                mention='@' + author,
-                instruction=repr(instruction),
-                error=str(error),
+        if False:
+            yield None
+
+        for error in self.current.errors:
+            self.current.head.comment(body=self.ERROR_COMMENT % dict(
+                emoji=random.choice((
+                    ':see_no_evil:', ':bangbang:', ':confused:',
+                )),
+                error=error.body,
             ))
 
 
@@ -382,9 +387,6 @@ jenkins: lgtm-processed
             # Initialize LGTM processing
             self.current.lgtm_processed = parse_datetime(
                 self.current.head.payload['created_at']
-            )
-            self.current.commit_date = parse_datetime(
-                self.current.head.commit['committer']['date']
             )
             self.current.is_behind = self.current.head.is_behind()
 
