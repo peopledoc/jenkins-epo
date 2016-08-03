@@ -40,6 +40,10 @@ def test_deny_non_reviewer():
     assert not ext.current.lgtm
     assert ext.current.lgtm_denied
 
+    ext.run()
+
+    assert ext.current.head.comment.mock_calls
+
 
 def test_deny_non_reviewer_processed():
     from jenkins_ghp.bot import Instruction
@@ -156,9 +160,9 @@ def test_merge_fail():
         message="unmergeable",
     )))
 
-    ios = list(ext.run())
-    assert ios
-    body = ios[0].body
+    ext.run()
+    assert ext.current.head.comment.mock_calls
+    body = ext.current.head.comment.call_args[1]['body']
     assert '@author' in body
 
 
@@ -186,8 +190,8 @@ def test_merge_already_failed():
     ext.current.statuses = {}
     ext.current.head.author = 'author'
 
-    ios = list(ext.run())
-    assert not ios
+    ext.run()
+    assert not ext.current.head.merge.mock_calls
 
 
 def test_merge_failed_updated():
@@ -222,8 +226,6 @@ def test_merge_success():
     ext.current.head.author = 'author'
     ext.current.head.ref = 'branchname'
 
-    ios = list(ext.run())
+    ext.run()
     assert ext.current.head.merge.mock_calls
-    assert ios
-    body = ios[0].body
-    assert '@reviewer' in body
+    assert not ext.current.head.comment.mock_calls
