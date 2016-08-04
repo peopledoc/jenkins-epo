@@ -81,6 +81,29 @@ jenkins: unix_eof
     assert 'unix_eof' in haystack
 
 
+def test_parse_error():
+    from jenkins_ghp.bot import Bot
+
+    updated_at = '2016-06-29T11:20:21Z'
+    bot = Bot()
+    bot.workon(Mock())
+
+    instructions = list(bot.parse_instructions([
+        {
+            'number': '123',
+            'head': {'sha': 'c0cac01a', 'ref': 'toto'},
+            'updated_at': updated_at,
+            'body': 'jenkins: {skip: skip: }',
+            'user': {'login': 'reporter'},
+        },
+    ]))
+
+    assert not instructions
+    assert 1 == len(bot.current.errors)
+    error = bot.current.errors[0]
+    assert '@reporter' in error.body
+
+
 @patch('jenkins_ghp.bot.JENKINS')
 @patch('jenkins_ghp.bot.GITHUB')
 def test_run_new_job(GITHUB, JENKINS):
