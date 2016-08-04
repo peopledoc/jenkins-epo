@@ -232,21 +232,25 @@ class FreestyleJob(Job):
 
 
 class MatrixJob(Job):
-    def __init__(self, *a, **kw):
-        super(MatrixJob, self).__init__(*a, **kw)
+    @property
+    def combination_param(self):
+        if not hasattr(self, '_combination_param'):
+            self._combination_param = None
+            for prop in self._instance._data['property']:
+                if 'parameterDefinitions' not in prop:
+                    continue
 
-        self.configuration_param = None
-        for prop in self._instance._data['property']:
-            if 'parameterDefinitions' not in prop:
-                continue
+                for param in prop['parameterDefinitions']:
+                    type_ = param['type']
+                    if type_ != 'MatrixCombinationsParameterDefinition':
+                        continue
 
-            for param in prop['parameterDefinitions']:
-                if param['type'] == 'MatrixCombinationsParameterDefinition':
-                    self.configuration_param = param['name']
+                    self._combination_param = param['name']
                     logger.debug(
-                        "Using %s param to select configurations for %s",
-                        self.configuration_param, self
+                        "Using %s param to select combinations for %s",
+                        self.combination_param, self
                     )
+        return self._combination_param
 
     def list_contexts(self):
         if not self._instance._data['activeConfigurations']:
@@ -267,14 +271,14 @@ class MatrixJob(Job):
                 'value': pr.ref,
             })
 
-        if self.configuration_param:
+        if self.combination_param:
             conf_index = len(str(self))+1
             confs = [
                 c['name'] for c in self._instance._data['activeConfigurations']
             ]
             not_built = [c[conf_index:] for c in contexts]
             data['parameter'].append({
-                'name': self.configuration_param,
+                'name': self.combination_param,
                 'values': [
                     'true' if c in not_built else 'false'
                     for c in confs
