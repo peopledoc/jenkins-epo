@@ -8,6 +8,8 @@ import pytest
 @patch('jenkins_ghp.cache.SETTINGS')
 def test_purge(SETTINGS):
     SETTINGS.GHP_LOOP = 10
+    SETTINGS.GHP_CACHE_LIFE = 10
+    SETTINGS.GHP_REPOSITORIES = 'owner/repository1 owner/repository2'
 
     from jenkins_ghp.cache import MemoryCache
 
@@ -18,7 +20,7 @@ def test_purge(SETTINGS):
         data = cache.get('key')
         assert 'data' == data
 
-        time.tick(timedelta(seconds=21))
+        time.tick(timedelta(seconds=60))
         cache.purge()
         with pytest.raises(KeyError):
             cache.get('key')
