@@ -98,8 +98,9 @@ jenkins: reset-skip-errors
             ))
 
         for job in self.current.jobs.values():
+            spec = self.current.job_specs[job.name]
             not_built = self.current.head.filter_not_built_contexts(
-                job.list_contexts(),
+                job.list_contexts(spec),
                 rebuild_failed=self.current.rebuild_failed
             )
 
@@ -111,11 +112,7 @@ jenkins: reset-skip-errors
             queued_contexts = [c for c in not_built if not self.skip(c)]
             if queued_contexts and self.bot.queue_empty:
                 try:
-                    job.build(
-                        self.current.head,
-                        self.current.job_specs[job.name],
-                        queued_contexts,
-                    )
+                    job.build(self.current.head, spec, queued_contexts)
                 except Exception as e:
                     logger.exception("Failed to queue job %s: %s.", job, e)
                     for context in queued_contexts:

@@ -197,7 +197,7 @@ class Job(object):
             for param in self.get_params():
                 if param['_class'].endswith('.LabelParameterDefinition'):
                     self._node_param = param['name']
-                    logger.info(
+                    logger.debug(
                         "Using %s param to target node for %s.",
                         self._node_param, self,
                     )
@@ -206,7 +206,7 @@ class Job(object):
 
 
 class FreestyleJob(Job):
-    def list_contexts(self):
+    def list_contexts(self, spec):
         yield self._instance.name
 
     def build(self, pr, spec, contexts):
@@ -236,28 +236,43 @@ class MatrixJob(Job):
     def combination_param(self):
         if not hasattr(self, '_combination_param'):
             self._combination_param = None
-            for prop in self._instance._data['property']:
-                if 'parameterDefinitions' not in prop:
+            for param in self._instance.get_params():
+                if param['type'] != 'MatrixCombinationsParameterDefinition':
                     continue
 
-                for param in prop['parameterDefinitions']:
-                    type_ = param['type']
-                    if type_ != 'MatrixCombinationsParameterDefinition':
-                        continue
-
-                    self._combination_param = param['name']
-                    logger.debug(
-                        "Using %s param to select combinations for %s",
-                        self.combination_param, self
-                    )
+                self._combination_param = param['name']
+                logger.debug(
+                    "Using %s param to select combinations for %s.",
+                    self._combination_param, self
+                )
         return self._combination_param
 
-    def list_contexts(self):
+    @property
+    def node_axis(self):
+        if not hasattr(self, '_node_axis'):
+            self._node_axis = None
+            xpath = './/axes/hudson.matrix.LabelAxis/name'
+            elements = self.config.findall(xpath)
+            if elements:
+                self._node_axis = elements[0].text
+                logger.debug(
+                    "Using %s axis to select node for %s.",
+                    self._node_axis, self,
+                )
+
+        return self._node_axis
+
+    def list_contexts(self, spec):
         if not self._instance._data['activeConfigurations']:
             raise Exception("No active configuration for %s" % self)
 
+        node = None
+        if self.node_axis and 'node' in spec.config:
+            node = '%s=%s' % (self.node_axis, spec.config['node'])
+
         for c in self._instance._data['activeConfigurations']:
-            yield '%s/%s' % (self._instance.name, c['name'])
+            if not node or node in c['name']:
+                yield '%s/%s' % (self._instance.name, c['name'])
 
     def build(self, pr, spec, contexts):
         data = {'parameter': [], 'statusCode': '303', 'redirectTo': '.'}
