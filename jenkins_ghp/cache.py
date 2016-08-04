@@ -32,10 +32,12 @@ class Cache(object):
 
     def purge(self):
         # Each data is assigned a last-seen-valid date. So if this date is old,
-        # this mean we didn't check the validity of the data. For example, the
-        # PR has been closed or a HEAD of the branch has been updated. So we
-        # can safely drop all data not validated for two rounds.
-        rounds_delta = 2 * SETTINGS.GHP_LOOP or 2000
+        # this mean we didn't check the validity of the data.  We consider a
+        # repository take less 60s to process. If the last-seen hasn't been
+        # updated, this mean that the query wont happen anymore (PR is closed,
+        # etc.)
+        repo_count = len(SETTINGS.GHP_REPOSITORIES.split(' '))
+        rounds_delta = 2 * (SETTINGS.GHP_LOOP or 20) + 60 * repo_count
         limit = time.time() - rounds_delta
         cleaned = 0
         for key in list(self.storage.keys()):
