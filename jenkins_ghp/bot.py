@@ -171,7 +171,15 @@ Failed to create Jenkins job `%(name)s`.
                 try:
                     payload = yaml.load(stanza)
                 except yaml.error.YAMLError as e:
-                    self.current.errors.append((author, stanza, e))
+                    quote = '> '.join(
+                        ['', '```\n'] +
+                        stanza.lstrip().splitlines(True) +
+                        ['```'],
+                    )
+                    body = self.PARSE_ERROR_COMMENT % dict(
+                        error=e, instruction=quote, mention='@' + author,
+                    )
+                    self.current.errors.append(Error(body, date))
                     continue
 
                 data = payload.pop('jenkins')
