@@ -41,6 +41,7 @@ class EnvironmentSettings(Bunch):
 SETTINGS = EnvironmentSettings(defaults={
     'GHP_ALWAYS_QUEUE': False,
     'GHP_CACHE_PATH': '.ghp-cache',
+    'GHP_CACHE_LIFE': 30,
     'GHP_COMMIT_MAX_WEEKS': '',
     # Drop into Pdb on unhandled exception
     'GHP_DEBUG': False,

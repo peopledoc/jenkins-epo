@@ -36,8 +36,11 @@ class Cache(object):
         # repository take less 60s to process. If the last-seen hasn't been
         # updated, this mean that the query wont happen anymore (PR is closed,
         # etc.)
-        repo_count = len(SETTINGS.GHP_REPOSITORIES.split(' '))
-        rounds_delta = 2 * (SETTINGS.GHP_LOOP or 20) + 60 * repo_count
+        repo_count = len(SETTINGS.GHP_REPOSITORIES.split())
+        rounds_delta = (
+            2 * (SETTINGS.GHP_LOOP or 20) +
+            SETTINGS.GHP_CACHE_LIFE * repo_count
+        )
         limit = time.time() - rounds_delta
         cleaned = 0
         for key in list(self.storage.keys()):
