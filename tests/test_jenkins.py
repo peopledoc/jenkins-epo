@@ -31,7 +31,8 @@ def test_freestyle_node_param():
     api_instance = Mock(spec=['_get_config_element_tree', 'get_params'])
     api_instance.name = 'freestyle'
     api_instance.get_params.return_value = [
-        {'name': 'N', '_class': '...LabelParameterDefinition'},
+        {'name': 'P', 'type': 'StringParameter'},
+        {'name': 'N', 'type': 'LabelParameterDefinition'},
     ]
     xml = api_instance._get_config_element_tree.return_value
     xml.findall.return_value = []

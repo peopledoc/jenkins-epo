@@ -195,13 +195,15 @@ class Job(object):
         if not hasattr(self, '_node_param'):
             self._node_param = None
             for param in self.get_params():
-                if param['_class'].endswith('.LabelParameterDefinition'):
-                    self._node_param = param['name']
-                    logger.debug(
-                        "Using %s param to target node for %s.",
-                        self._node_param, self,
-                    )
-                    break
+                if param['type'] != 'LabelParameterDefinition':
+                    continue
+
+                self._node_param = param['name']
+                logger.debug(
+                    "Using %s param to target node for %s.",
+                    self._node_param, self,
+                )
+                break
         return self._node_param
 
 
