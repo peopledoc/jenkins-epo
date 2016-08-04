@@ -195,18 +195,20 @@ class Job(object):
         if not hasattr(self, '_node_param'):
             self._node_param = None
             for param in self.get_params():
-                if param['_class'].endswith('.LabelParameterDefinition'):
-                    self._node_param = param['name']
-                    logger.info(
-                        "Using %s param to target node for %s.",
-                        self._node_param, self,
-                    )
-                    break
+                if param['type'] != 'LabelParameterDefinition':
+                    continue
+
+                self._node_param = param['name']
+                logger.debug(
+                    "Using %s param to target node for %s.",
+                    self._node_param, self,
+                )
+                break
         return self._node_param
 
 
 class FreestyleJob(Job):
-    def list_contexts(self):
+    def list_contexts(self, spec):
         yield self._instance.name
 
     def build(self, pr, spec, contexts):
@@ -232,28 +234,47 @@ class FreestyleJob(Job):
 
 
 class MatrixJob(Job):
-    def __init__(self, *a, **kw):
-        super(MatrixJob, self).__init__(*a, **kw)
+    @property
+    def combination_param(self):
+        if not hasattr(self, '_combination_param'):
+            self._combination_param = None
+            for param in self._instance.get_params():
+                if param['type'] != 'MatrixCombinationsParameterDefinition':
+                    continue
 
-        self.configuration_param = None
-        for prop in self._instance._data['property']:
-            if 'parameterDefinitions' not in prop:
-                continue
+                self._combination_param = param['name']
+                logger.debug(
+                    "Using %s param to select combinations for %s.",
+                    self._combination_param, self
+                )
+        return self._combination_param
 
-            for param in prop['parameterDefinitions']:
-                if param['type'] == 'MatrixCombinationsParameterDefinition':
-                    self.configuration_param = param['name']
-                    logger.debug(
-                        "Using %s param to select configurations for %s",
-                        self.configuration_param, self
-                    )
+    @property
+    def node_axis(self):
+        if not hasattr(self, '_node_axis'):
+            self._node_axis = None
+            xpath = './/axes/hudson.matrix.LabelAxis/name'
+            elements = self.config.findall(xpath)
+            if elements:
+                self._node_axis = elements[0].text
+                logger.debug(
+                    "Using %s axis to select node for %s.",
+                    self._node_axis, self,
+                )
 
-    def list_contexts(self):
+        return self._node_axis
+
+    def list_contexts(self, spec):
         if not self._instance._data['activeConfigurations']:
             raise Exception("No active configuration for %s" % self)
 
+        node = None
+        if self.node_axis and 'node' in spec.config:
+            node = '%s=%s' % (self.node_axis, spec.config['node'])
+
         for c in self._instance._data['activeConfigurations']:
-            yield '%s/%s' % (self._instance.name, c['name'])
+            if not node or node in c['name']:
+                yield '%s/%s' % (self._instance.name, c['name'])
 
     def build(self, pr, spec, contexts):
         data = {'parameter': [], 'statusCode': '303', 'redirectTo': '.'}
@@ -267,14 +288,14 @@ class MatrixJob(Job):
                 'value': pr.ref,
             })
 
-        if self.configuration_param:
+        if self.combination_param:
             conf_index = len(str(self))+1
             confs = [
                 c['name'] for c in self._instance._data['activeConfigurations']
             ]
             not_built = [c[conf_index:] for c in contexts]
             data['parameter'].append({
-                'name': self.configuration_param,
+                'name': self.combination_param,
                 'values': [
                     'true' if c in not_built else 'false'
                     for c in confs
