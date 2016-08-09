@@ -53,6 +53,7 @@ def list_repositories(with_settings=False):
     for repo in sorted(repositories.values(), key=str):
         try:
             if with_settings:
+                logger.info("Loading %s.", repo)
                 repo.load_settings()
             yield repo
         except Exception as e:

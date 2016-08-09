@@ -33,6 +33,7 @@ class Bot(object):
     DEFAULTS = {
         'errors': [],
         'jobs': {},
+        'job_specs': {},
     }
 
     PARSE_ERROR_COMMENT = """\
@@ -109,17 +110,27 @@ Failed to create Jenkins job `%(name)s`.
 
         for spec in self.current.job_specs.values():
             if spec.name in self.current.jobs:
-                continue
+                current_job = self.current.jobs[spec.name]
+                if current_job.spec.contains(spec):
+                    continue
+
+                jenkins_spec = current_job.spec.merge(spec)
+                executer = JENKINS.update_job
+            else:
+                jenkins_spec = spec
+                executer = JENKINS.create_job
 
             try:
-                job = JENKINS.create_job(spec)
+                job = executer(jenkins_spec)
             except Exception as e:
                 detail = (
                     e.args[0]
                     .replace('\\n', '\n')
                     .replace('\\t', '\t')
                 )
-                logger.error("Failed to create job %r:\n%s", spec.name, detail)
+                logger.error(
+                    "Failed to manage job %r:\n%s", spec.name, detail
+                )
                 self.current.errors.append(Error(
                     self.CREATE_JOB_ERROR_COMMENT % dict(
                         name=spec.name, error=e, detail=detail,
@@ -130,8 +141,11 @@ Failed to create Jenkins job `%(name)s`.
                 if job:
                     self.current.jobs[spec.name] = job
 
+        head.repository.jobs = self.current.jobs.values()
+
         for job in self.current.jobs.values():
             if job.name not in self.current.job_specs:
+                logger.debug("Using Jenkins job spec for %s.", job)
                 self.current.job_specs[job.name] = job.spec
 
     def run(self, head):

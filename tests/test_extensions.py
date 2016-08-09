@@ -112,6 +112,23 @@ def test_skip_re_wrong():
     assert bot.current.head.comment.mock_calls
 
 
+def test_build():
+    from jenkins_ghp.bot import Bot
+
+    bot = Bot().workon(Mock())
+    job = Mock()
+    spec = Mock()
+    spec.name = 'job'
+    head = bot.current.head
+    head.filter_not_built_contexts.return_value = ['job']
+
+    bot.current.job_specs = {'job': spec}
+    bot.current.jobs = {'job': job}
+    bot.current.statuses = {}
+
+    bot.extensions['builder'].run()
+
+
 def test_match_mixed():
     from jenkins_ghp.bot import Bot
 
