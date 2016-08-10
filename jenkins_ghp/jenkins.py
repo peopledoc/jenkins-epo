@@ -149,10 +149,6 @@ class Job(object):
             logger.debug("%s filtered.", self)
             return False
 
-        if not self.is_enabled():
-            logger.debug("%s disabled.", self)
-            return False
-
         if SETTINGS.GHP_JOBS_AUTO and self.polled_by_jenkins:
             logger.debug("%s is polled by Jenkins.", self)
             return False

@@ -99,6 +99,9 @@ jenkins: reset-skip-errors
 
         for spec in self.current.job_specs.values():
             job = self.current.jobs[spec.name]
+            if not job.is_enabled():
+                self.current.skip.append(re.compile(spec.name))
+
             not_built = self.current.head.filter_not_built_contexts(
                 job.list_contexts(spec),
                 rebuild_failed=self.current.rebuild_failed

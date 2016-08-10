@@ -112,6 +112,24 @@ def test_skip_re_wrong():
     assert bot.current.head.comment.mock_calls
 
 
+def test_skip_disabled_job():
+    from jenkins_ghp.bot import Bot
+
+    bot = Bot().workon(Mock())
+    job = Mock()
+    job.is_enabled.return_value = False
+    spec = Mock()
+    spec.name = 'job-disabled'
+    bot.current.job_specs = {'job-disabled': spec}
+    bot.current.jobs = {'job-disabled': job}
+    bot.current.head.filter_not_built_contexts.return_value = ['job-disabled']
+
+    bot.extensions['builder'].run()
+
+    assert bot.extensions['builder'].skip('job-disabled')
+    assert not job.build.mock_calls
+
+
 def test_build():
     from jenkins_ghp.bot import Bot
 

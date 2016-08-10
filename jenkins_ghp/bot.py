@@ -111,6 +111,9 @@ Failed to create Jenkins job `%(name)s`.
         for spec in self.current.job_specs.values():
             if spec.name in self.current.jobs:
                 current_job = self.current.jobs[spec.name]
+                if not current_job.is_enabled():
+                    continue
+
                 if current_job.spec.contains(spec):
                     continue
 
