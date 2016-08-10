@@ -153,12 +153,6 @@ class Job(object):
             logger.debug("%s is polled by Jenkins.", self)
             return False
 
-        # This option works only with webhook, so we can safely use it to
-        # mark a job for jenkins-ghp.
-        if SETTINGS.GHP_JOBS_AUTO and not self.push_trigger:
-            logger.debug("Trigger on push disabled on %s.", self)
-            return False
-
         return True
 
     @property
