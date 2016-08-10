@@ -12,13 +12,13 @@
 # You should have received a copy of the GNU General Public License along with
 # jenkins-ghp.  If not, see <http://www.gnu.org/licenses/>.
 
+from itertools import product
 import logging
 import json
 import re
 
 from jenkinsapi.build import Build
 from jenkinsapi.jenkins import Jenkins
-from jenkinsapi.custom_exceptions import UnknownJob
 from jenkins_yml import Job as JobSpec
 import requests
 
@@ -32,8 +32,8 @@ logger = logging.getLogger(__name__)
 class LazyJenkins(object):
     build_url_re = re.compile(r'.*/job/(?P<job>.*?)/.*(?P<buildno>\d+)/?')
 
-    def __init__(self):
-        self._instance = None
+    def __init__(self, instance=None):
+        self._instance = instance
 
     def __getattr__(self, name):
         self.load()
@@ -80,18 +80,26 @@ class LazyJenkins(object):
 
     @retry
     def create_job(self, job_spec):
-        try:
-            api_instance = self._instance.get_job(job_spec.name)
-        except UnknownJob:
-            config = job_spec.as_xml()
-            if SETTINGS.GHP_DRY_RUN:
-                logger.info("Would create new Jenkins job %s.", job_spec)
-                return None
+        config = job_spec.as_xml()
+        if SETTINGS.GHP_DRY_RUN:
+            logger.info("Would create new Jenkins job %s.", job_spec)
+            return None
 
-            api_instance = self._instance.create_job(job_spec.name, config)
-            logger.warning("Created new Jenkins job %s.", job_spec.name)
-        else:
-            logger.debug("Not updating existing job %s.", job_spec.name)
+        api_instance = self._instance.create_job(job_spec.name, config)
+        logger.warning("Created new Jenkins job %s.", job_spec.name)
+
+        return Job.factory(api_instance)
+
+    @retry
+    def update_job(self, job_spec):
+        api_instance = self._instance.get_job(job_spec.name)
+        config = job_spec.as_xml()
+        if SETTINGS.GHP_DRY_RUN:
+            logger.info("Would update Jenkins job %s.", job_spec)
+            return Job.factory(api_instance)
+
+        api_instance.update_config(config)
+        logger.warning("Updated Jenkins job %s.", job_spec.name)
 
         return Job.factory(api_instance)
 
@@ -139,10 +147,6 @@ class Job(object):
     def managed(self):
         if not match(self.name, self.jobs_filter):
             logger.debug("%s filtered.", self)
-            return False
-
-        if not self.is_enabled():
-            logger.debug("%s disabled.", self)
             return False
 
         if SETTINGS.GHP_JOBS_AUTO and self.polled_by_jenkins:
@@ -265,16 +269,35 @@ class MatrixJob(Job):
         return self._node_axis
 
     def list_contexts(self, spec):
-        if not self._instance._data['activeConfigurations']:
-            raise Exception("No active configuration for %s" % self)
+        axis = []
+        if self.node_axis:
+            if 'node' in spec.config:
+                node = spec.config['node']
+            else:
+                node = sorted(spec.config['merged_nodes'])[0]
 
-        node = None
-        if self.node_axis and 'node' in spec.config:
-            node = '%s=%s' % (self.node_axis, spec.config['node'])
+            axis.append(['%s=%s' % (self.node_axis, node)])
 
-        for c in self._instance._data['activeConfigurations']:
-            if not node or node in c['name']:
-                yield '%s/%s' % (self._instance.name, c['name'])
+        for name, values in spec.config['axis'].items():
+            axis.append(['%s=%s' % (name, v) for v in sorted(values)])
+
+        for name, values in self.spec.config['axis'].items():
+            if name in spec.config['axis']:
+                continue
+            axis.append(['%s=%s' % (name, values[0])])
+
+        combinations = [','.join(sorted(a)) for a in product(*axis)]
+        active_combinations = [
+            c['name']
+            for c in self._instance._data['activeConfigurations']
+        ]
+
+        for name in combinations:
+            if name not in active_combinations:
+                logger.warn("%s not active in Jenkins. Skipping.", name)
+                continue
+
+            yield '%s/%s' % (self._instance.name, name)
 
     def build(self, pr, spec, contexts):
         data = {'parameter': [], 'statusCode': '303', 'redirectTo': '.'}

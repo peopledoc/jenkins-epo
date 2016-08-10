@@ -182,6 +182,7 @@ def test_run_job_existant(GITHUB, JENKINS):
 
     jenkins_job1 = Mock()
     jenkins_job1.name = 'job1'
+    jenkins_job1.spec.contains.return_value = True
 
     yml_job1 = Mock()
     yml_job1.name = 'job1'
@@ -193,6 +194,63 @@ def test_run_job_existant(GITHUB, JENKINS):
 
     bot.run(pr)
     assert not JENKINS.create_job.mock_calls
+    assert not JENKINS.update_job.mock_calls
+
+
+@patch('jenkins_ghp.bot.JENKINS')
+@patch('jenkins_ghp.bot.GITHUB')
+def test_run_job_disabled(GITHUB, JENKINS):
+    from jenkins_ghp.bot import Bot
+
+    bot = Bot()
+    bot.extensions = {}
+
+    pr = Mock()
+
+    jenkins_job1 = Mock()
+    jenkins_job1.name = 'job1'
+    jenkins_job1.is_enabled.return_value = False
+
+    yml_job1 = Mock()
+    yml_job1.name = 'job1'
+
+    pr.commit = dict(committer=dict(date='2016-08-03T16:47:52Z'))
+    pr.repository.list_job_specs.return_value = {'job1': yml_job1}
+    pr.repository.jobs = [jenkins_job1]
+    pr.list_comments.return_value = []
+
+    bot.run(pr)
+    assert not JENKINS.create_job.mock_calls
+    assert not JENKINS.update_job.mock_calls
+    assert jenkins_job1.is_enabled.mock_calls
+    assert not jenkins_job1.contains.mock_calls
+
+
+@patch('jenkins_ghp.bot.JENKINS')
+@patch('jenkins_ghp.bot.GITHUB')
+def test_update_job(GITHUB, JENKINS):
+    from jenkins_ghp.bot import Bot
+
+    bot = Bot()
+    bot.extensions = {}
+
+    pr = Mock()
+
+    jenkins_job1 = Mock()
+    jenkins_job1.name = 'job1'
+    jenkins_job1.spec.contains.return_value = False
+
+    yml_job1 = Mock()
+    yml_job1.name = 'job1'
+
+    pr.commit = dict(committer=dict(date='2016-08-03T16:47:52Z'))
+    pr.repository.list_job_specs.return_value = {'job1': yml_job1}
+    pr.repository.jobs = [jenkins_job1]
+    pr.list_comments.return_value = []
+
+    bot.run(pr)
+    assert not JENKINS.create_job.mock_calls
+    assert JENKINS.update_job.mock_calls
 
 
 @patch('jenkins_ghp.bot.JENKINS')
