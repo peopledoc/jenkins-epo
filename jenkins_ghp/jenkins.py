@@ -18,6 +18,7 @@ import json
 import re
 
 from jenkinsapi.build import Build
+from jenkinsapi.custom_exceptions import NotConfiguredSCM
 from jenkinsapi.jenkins import Jenkins
 from jenkins_yml import Job as JobSpec
 import requests
@@ -151,6 +152,12 @@ class Job(object):
 
         if SETTINGS.GHP_JOBS_AUTO and self.polled_by_jenkins:
             logger.debug("%s is polled by Jenkins.", self)
+            return False
+
+        try:
+            self.get_scm_url()
+        except NotConfiguredSCM:
+            logger.debug("%s has no Git.", self)
             return False
 
         return True

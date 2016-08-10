@@ -1,6 +1,18 @@
 from unittest.mock import Mock, patch
 
 
+def test_managed_no_scm():
+    from jenkins_ghp.jenkins import FreestyleJob, NotConfiguredSCM
+
+    api_instance = Mock()
+    xml = api_instance._get_config_element_tree.return_value
+    xml.findall.return_value = []
+    api_instance.get_scm_url.side_effect = NotConfiguredSCM()
+
+    job = FreestyleJob(api_instance)
+    assert not job.managed
+
+
 @patch('jenkins_ghp.jenkins.SETTINGS')
 def test_freestyle_build(SETTINGS):
     from jenkins_ghp.jenkins import FreestyleJob
