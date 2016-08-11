@@ -83,11 +83,11 @@ class LazyJenkins(object):
     def create_job(self, job_spec):
         config = job_spec.as_xml()
         if SETTINGS.GHP_DRY_RUN:
-            logger.info("Would create new Jenkins job %s.", job_spec)
+            logger.warn("Would create new Jenkins job %s.", job_spec)
             return None
 
         api_instance = self._instance.create_job(job_spec.name, config)
-        logger.warning("Created new Jenkins job %s.", job_spec.name)
+        logger.warn("Created new Jenkins job %s.", job_spec.name)
 
         return Job.factory(api_instance)
 
@@ -96,11 +96,11 @@ class LazyJenkins(object):
         api_instance = self._instance.get_job(job_spec.name)
         config = job_spec.as_xml()
         if SETTINGS.GHP_DRY_RUN:
-            logger.info("Would update Jenkins job %s.", job_spec)
+            logger.warn("Would update Jenkins job %s.", job_spec)
             return Job.factory(api_instance)
 
         api_instance.update_config(config)
-        logger.warning("Updated Jenkins job %s.", job_spec.name)
+        logger.warn("Updated Jenkins job %s.", job_spec.name)
 
         return Job.factory(api_instance)
 
@@ -227,7 +227,7 @@ class FreestyleJob(Job):
             if self.node_param:
                 params[self.node_param] = spec.config['node']
             else:
-                logger.warning(
+                logger.warn(
                     "Can't assign build to node %s.", spec.config['node'],
                 )
 
@@ -295,7 +295,7 @@ class MatrixJob(Job):
 
         for name in combinations:
             if name not in active_combinations:
-                logger.warn("%s not active in Jenkins. Skipping.", name)
+                logger.debug("%s not active in Jenkins. Skipping.", name)
                 continue
 
             yield '%s/%s' % (self._instance.name, name)
