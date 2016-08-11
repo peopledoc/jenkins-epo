@@ -1,6 +1,19 @@
 from unittest.mock import Mock, patch
 
 
+@patch('jenkins_ghp.repository.cached_request')
+def test_from_name(cached_request):
+    from jenkins_ghp.repository import Repository
+
+    cached_request.return_value = {
+        'clone_url': 'https://github.com/newowner/newname.git'
+    }
+
+    repo = Repository.from_name('oldowner', 'oldname')
+    assert 'newowner' == repo.owner
+    assert 'newname' == repo.name
+
+
 def test_process_ghp_yml():
     from jenkins_ghp.repository import Repository
 

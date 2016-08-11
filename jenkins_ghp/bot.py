@@ -149,7 +149,7 @@ Failed to create Jenkins job `%(name)s`.
                 if job:
                     self.current.jobs[spec.name] = job
 
-        head.repository.jobs = self.current.jobs.values()
+        head.repository.jobs = list(self.current.jobs.values())
 
         for job in self.current.jobs.values():
             if job.name not in self.current.job_specs:
