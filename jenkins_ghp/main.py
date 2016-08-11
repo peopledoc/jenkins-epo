@@ -85,8 +85,6 @@ def bot():
     bot = Bot(queue_empty=None)
 
     for repository in procedures.list_repositories(with_settings=True):
-        logger.info("Working on %s.", repository)
-
         for branch in repository.load_branches():
             try:
                 yield from check_queue(bot)
@@ -124,7 +122,6 @@ def list_branches():
     """List branches to build"""
     procedures.whoami()
     for repository in procedures.list_repositories(with_settings=True):
-        logger.info("Working on %s.", repository)
         for branch in repository.load_branches():
             print(branch)
 
@@ -133,7 +130,6 @@ def list_pr():
     """List GitHub PR polled"""
     procedures.whoami()
     for repository in procedures.list_repositories(with_settings=True):
-        logger.info("Working on %s.", repository)
         for pr in repository.load_pulls():
             print(pr)
 
