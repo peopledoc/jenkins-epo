@@ -297,14 +297,14 @@ Extensions: %(extensions)s
 
     def generate_comment(self):
         docs = []
-        for ext in self.bot.extensions.values():
+        for ext in self.bot.extensions:
             doc = ext.__class__.__doc__
             if not doc:
                 continue
             docs.append(inspect.cleandoc(doc))
         help_ = '\n\n'.join(docs)
         return self.HELP % dict(
-            extensions=','.join(sorted(self.bot.extensions.keys())),
+            extensions=','.join(sorted(self.bot.extensions_map.keys())),
             help=help_,
             host=socket.getfqdn(),
             me=self.current.head.repository.SETTINGS.GHP_NAME,
