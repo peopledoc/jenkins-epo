@@ -23,6 +23,7 @@ import sys
 
 from .bot import Bot
 from .cache import CACHE
+from .github import GITHUB
 from .jenkins import JENKINS
 from .settings import SETTINGS
 from . import procedures
@@ -109,6 +110,10 @@ def bot():
 
     CACHE.purge()
     CACHE.save()
+    logger.info(
+        "GitHub poll done. %s remaining API calls.",
+        GITHUB.x_ratelimit_remaining,
+    )
 
 
 def list_jobs():

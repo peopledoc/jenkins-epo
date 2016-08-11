@@ -71,5 +71,8 @@ def list_repositories(with_settings=False):
 @retry(wait_fixed=15000)
 def whoami():
     user = cached_request(GITHUB.user)
-    logger.info("I'm @%s on GitHub.", user['login'])
+    logger.info(
+        "I'm @%s on GitHub. %s remaining API calls.",
+        user['login'], GITHUB.x_ratelimit_remaining,
+    )
     return user['login']
