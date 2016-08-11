@@ -331,8 +331,9 @@ class Head(object):
         for context in contexts:
             status = self.statuses.get(context, CommitStatus())
             state = status.get('state')
+            description = status.get('description')
             # Skip failed job, unless rebuild asked and old
-            if state in {'error', 'failure'}:
+            if state in {'error', 'failure'} or description == 'Skipped':
                 if not rebuild_failed:
                     continue
                 elif status['updated_at'] > rebuild_failed:
@@ -346,7 +347,7 @@ class Head(object):
             elif state == 'pending':
                 # Jenkins deduplicate jobs in the queue. So it's safe to keep
                 # triggering the job in case the queue was flushed.
-                if status['description'] not in {'Backed', 'New', 'Queued'}:
+                if description not in {'Backed', 'New', 'Queued'}:
                     continue
             # Skip other known states
             elif state:
