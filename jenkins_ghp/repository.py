@@ -60,6 +60,12 @@ class Repository(object):
     )
 
     @classmethod
+    @retry(wait_fixed=15000)
+    def from_name(cls, owner, name):
+        data = cached_request(GITHUB.repos(owner)(name))
+        return cls.from_remote(data['clone_url'])
+
+    @classmethod
     def from_remote(cls, remote_url):
         match = cls.remote_re.match(remote_url)
         if not match:

@@ -26,18 +26,26 @@ logger = logging.getLogger(__name__)
 
 def list_repositories(with_settings=False):
     repositories = {}
-    jobs = JENKINS.get_jobs()
 
     env_repos = filter(None, SETTINGS.GHP_REPOSITORIES.split(' '))
     for entry in env_repos:
         repository, branches = (entry + ':').split(':', 1)
+        if repository in repositories:
+            continue
         owner, name = repository.split('/')
-        repositories[repository] = Repository(owner, name)
+        repositories[repository] = Repository.from_name(owner, name)
         logger.debug("Managing %s.", repository)
 
+    jobs = JENKINS.get_jobs()
     for job in jobs:
         for remote in job.get_scm_url():
             repository = Repository.from_remote(remote)
+            if repository not in repositories:
+                # Maybe we have the old name, so first, resolve it.
+                repository = Repository.from_name(
+                    repository.owner, repository.name
+                )
+
             if repository not in repositories:
                 logger.debug("Managing %s.", repository)
                 repositories[repository] = repository
