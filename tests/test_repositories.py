@@ -1,3 +1,4 @@
+from datetime import datetime
 from unittest.mock import Mock, patch
 
 
@@ -132,3 +133,51 @@ def test_process_status(push_status):
     push_status.return_value = None
 
     head.maybe_update_status(CommitStatus(context='context'))
+
+
+def test_filter_contextes():
+    from jenkins_ghp.repository import Head
+
+    rebuild_failed = datetime(2016, 8, 11, 16)
+
+    head = Head(Mock(), None, None, None)
+    head.statuses = {
+        'backed': {'state': 'pending', 'description': 'Backed'},
+        'errored': {
+            'state': 'error',
+            'updated_at': datetime(2016, 8, 11, 10),
+        },
+        'failed': {
+            'state': 'failure',
+            'updated_at': datetime(2016, 8, 11, 10),
+        },
+        'green': {'state': 'success', 'description': 'Success!'},
+        'newfailed': {
+            'state': 'error',
+            'updated_at': datetime(2016, 8, 11, 20),
+        },
+        'queued': {'state': 'pending', 'description': 'Queued'},
+        'running': {'state': 'pending', 'description': 'build #789'},
+        'skipped': {
+            'state': 'success', 'description': 'Skipped',
+            'updated_at': datetime(2016, 8, 11, 10),
+        },
+    }
+
+    not_built = head.filter_not_built_contexts(
+        [
+            'backed', 'errored', 'failed', 'green', 'newfailed', 'notbuilt',
+            'queued', 'running', 'skipped',
+        ],
+        rebuild_failed,
+    )
+
+    assert 'backed' in not_built
+    assert 'errored' in not_built
+    assert 'failed' in not_built
+    assert 'green' not in not_built
+    assert 'newfailed' not in not_built
+    assert 'not_built' not in not_built
+    assert 'queued' in not_built
+    assert 'running' not in not_built
+    assert 'skipped' in not_built
