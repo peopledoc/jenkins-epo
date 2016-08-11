@@ -72,12 +72,17 @@ Failed to create Jenkins job `%(name)s`.
 
     def __init__(self, queue_empty=True):
         self.queue_empty = queue_empty
-        self.extensions = {}
+
+        self.extensions_map = {}
         for ep in pkg_resources.iter_entry_points(__name__ + '.extensions'):
             cls = ep.load()
-            self.extensions[ep.name] = ext = cls(ep.name, self)
+            self.extensions_map[ep.name] = ext = cls(ep.name, self)
             SETTINGS.load(ext.SETTINGS)
-            logger.debug("Loaded extension %s", ep.name)
+            logger.debug("Loaded extension %r.", ext)
+
+        self.extensions = sorted(
+            self.extensions_map.values(), key=Extension.sort_key
+        )
 
     def workon(self, head):
         logger.info("Working on %s.", head)
@@ -85,7 +90,7 @@ Failed to create Jenkins job `%(name)s`.
         self.current.head = head
         self.current.repository = head.repository
         self.current.SETTINGS = head.repository.SETTINGS
-        for ext in self.extensions.values():
+        for ext in self.extensions:
             self.current.update(copy.deepcopy(ext.DEFAULTS))
             ext.current = self.current
         return self
@@ -158,7 +163,7 @@ Failed to create Jenkins job `%(name)s`.
         payload = self.current.head.fetch_statuses()
         self.current.head.process_statuses(payload)
         self.current.statuses = self.current.head.statuses
-        for ext in self.extensions.values():
+        for ext in self.extensions:
             ext.begin()
 
         self.process_instructions(self.current.head.list_comments())
@@ -167,7 +172,7 @@ Failed to create Jenkins job `%(name)s`.
         vars_repr = repr_.repr1(dict(self.current), 2)
         logger.debug("Bot vars: %s", vars_repr)
 
-        for ext in self.extensions.values():
+        for ext in self.extensions:
             ext.run()
 
     def parse_instructions(self, comments):
@@ -227,7 +232,7 @@ Failed to create Jenkins job `%(name)s`.
 
     def process_instructions(self, comments):
         for instruction in self.parse_instructions(comments):
-            for ext in self.extensions.values():
+            for ext in self.extensions:
                 ext.process_instruction(instruction)
 
 
@@ -258,12 +263,20 @@ class Instruction(object):
 
 
 class Extension(object):
+    stage = '50'
+
     DEFAULTS = {}
     SETTINGS = {}
 
     def __init__(self, name, bot):
         self.name = name
         self.bot = bot
+
+    def __repr__(self):
+        return '<%s %s>' % (self.__class__.__name__, self.name)
+
+    def sort_key(self):
+        return self.stage, self.name
 
     def begin(self):
         self.bot.current.update(copy.deepcopy(self.DEFAULTS))

@@ -81,7 +81,7 @@ def test_compute_help():
     assert 'asker1' in bot.current.help_mentions
     assert 'asker2' in bot.current.help_mentions
 
-    bot.extensions['help'].run()
+    bot.extensions_map['help'].run()
 
     man = bot.current.head.comment.call_args[1]['body']
     assert '@asker1' in man
@@ -95,8 +95,8 @@ def test_skip_re():
     bot.process_instructions([
         comment(body="""jenkins: {skip: ['toto.*', '(?!notthis)']}"""),
     ])
-    assert bot.extensions['builder'].skip('toto-doc')
-    assert not bot.extensions['builder'].skip('notthis')
+    assert bot.extensions_map['builder'].skip('toto-doc')
+    assert not bot.extensions_map['builder'].skip('notthis')
 
 
 def test_skip_re_wrong():
@@ -106,9 +106,9 @@ def test_skip_re_wrong():
     bot.process_instructions([
         comment(body='''jenkins: {skip: ['*toto)']}'''),
     ])
-    assert not bot.extensions['builder'].skip('toto')
+    assert not bot.extensions_map['builder'].skip('toto')
     assert bot.current.skip_errors
-    bot.extensions['builder'].run()
+    bot.extensions_map['builder'].run()
     assert bot.current.head.comment.mock_calls
 
 
@@ -124,9 +124,9 @@ def test_skip_disabled_job():
     bot.current.jobs = {'job-disabled': job}
     bot.current.head.filter_not_built_contexts.return_value = ['job-disabled']
 
-    bot.extensions['builder'].run()
+    bot.extensions_map['builder'].run()
 
-    assert bot.extensions['builder'].skip('job-disabled')
+    assert bot.extensions_map['builder'].skip('job-disabled')
     assert not job.build.mock_calls
 
 
@@ -144,7 +144,7 @@ def test_build():
     bot.current.jobs = {'job': job}
     bot.current.statuses = {}
 
-    bot.extensions['builder'].run()
+    bot.extensions_map['builder'].run()
 
 
 def test_match_mixed():
@@ -154,8 +154,8 @@ def test_match_mixed():
     bot.process_instructions([
         comment(body="""jenkins: {jobs: [-toto*, not*]}"""),
     ])
-    assert bot.extensions['builder'].skip('toto-doc')
-    assert not bot.extensions['builder'].skip('notthis')
+    assert bot.extensions_map['builder'].skip('toto-doc')
+    assert not bot.extensions_map['builder'].skip('notthis')
 
 
 def test_match_negate():
@@ -166,8 +166,8 @@ def test_match_negate():
         comment(body="""jenkins: {jobs: ['*', -skip*]}"""),
     ])
 
-    assert bot.extensions['builder'].skip('skip')
-    assert not bot.extensions['builder'].skip('new')
+    assert bot.extensions_map['builder'].skip('skip')
+    assert not bot.extensions_map['builder'].skip('new')
 
 
 def test_duration_format():
@@ -185,7 +185,7 @@ def test_errors():
     bot = Bot().workon(Mock())
     bot.current.errors = [Error('message', Mock())]
 
-    bot.extensions['error'].run()
+    bot.extensions_map['error'].run()
 
     assert bot.current.head.comment.mock_calls
 
@@ -202,7 +202,7 @@ def test_errors_reset():
         body='''jenkins: reset-errors''', updated_at='2016-08-03T17:58:47Z',
     )])
 
-    bot.extensions['error'].run()
+    bot.extensions_map['error'].run()
 
     assert not bot.current.head.comment.mock_calls
 

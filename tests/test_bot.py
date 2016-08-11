@@ -253,16 +253,21 @@ def test_update_job(GITHUB, JENKINS):
     assert JENKINS.update_job.mock_calls
 
 
+@patch('jenkins_ghp.bot.pkg_resources')
 @patch('jenkins_ghp.bot.JENKINS')
 @patch('jenkins_ghp.bot.GITHUB')
-def test_run_extension(GITHUB, JENKINS):
+def test_run_extension(GITHUB, JENKINS, pkg_resources):
     from jenkins_ghp.bot import Bot
 
-    ext = Mock()
+    ep = Mock()
+    ep.name = 'ext'
+    pkg_resources.iter_entry_points.return_value = [ep]
+    ext = ep.load.return_value.return_value
     ext.DEFAULTS = {}
+    ext.SETTINGS = {}
 
     bot = Bot()
-    bot.extensions = {'ext': ext}
+    assert 'ext' in bot.extensions_map
 
     pr = Mock()
     pr.commit = dict(committer=dict(date='2016-08-03T16:47:52Z'))
