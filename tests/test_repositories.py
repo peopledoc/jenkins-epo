@@ -111,8 +111,9 @@ job2: |
     assert 2 == len(jobs)
 
 
-def test_process_status():
-    from jenkins_ghp.repository import Head
+@patch('jenkins_ghp.repository.Head.push_status')
+def test_process_status(push_status):
+    from jenkins_ghp.repository import Head, CommitStatus
 
     head = Head(Mock(), 'master', 'd0d0', None)
     head.contexts_filter = []
@@ -127,3 +128,7 @@ def test_process_status():
     ]})
 
     assert 'job1' in head.statuses
+
+    push_status.return_value = None
+
+    head.maybe_update_status(CommitStatus(context='context'))
