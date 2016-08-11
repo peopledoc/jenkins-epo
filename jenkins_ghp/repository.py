@@ -380,7 +380,7 @@ class Head(object):
             status = CommitStatus(new_status)
             self.statuses[str(status)] = status
         else:
-            del self.statuses[status]
+            self.statuses.pop(str(status), None)
 
     @retry(wait_fixed=15000)
     def push_status(self, status):
