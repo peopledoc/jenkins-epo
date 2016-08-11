@@ -13,3 +13,20 @@ def test_threshold(GITHUB, SETTINGS):
 
     with pytest.raises(ApiError):
         cached_request(Mock())
+
+
+@patch('jenkins_ghp.github.CustomGitHub._process_resp')
+@patch('jenkins_ghp.github.build_opener')
+def test_log_reset(build_opener, _process_resp):
+    from jenkins_ghp.github import CustomGitHub
+
+    GITHUB = CustomGitHub()
+    GITHUB.x_ratelimit_remaining = 4000
+
+    def process_resp_se(*a, **kw):
+        GITHUB.x_ratelimit_remaining += 10
+    _process_resp.side_effect = process_resp_se
+
+    GITHUB.user.get()
+
+    assert _process_resp.mock_calls

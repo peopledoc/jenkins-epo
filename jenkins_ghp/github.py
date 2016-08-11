@@ -145,12 +145,22 @@ class CustomGitHub(GitHub):
         for k, v in headers.items():
             request.add_header(k, v)
         try:
+            pre_rate_limit = self.x_ratelimit_remaining
             logger.debug(
                 "%s %s (remaining=%s)",
                 _method, url, self.x_ratelimit_remaining,
             )
+
             response = opener.open(request, timeout=TIMEOUT)
             is_json = self._process_resp(response.headers)
+
+            post_rate_limit = self.x_ratelimit_remaining
+            if pre_rate_limit > 0 and pre_rate_limit < post_rate_limit:
+                logger.info(
+                    "GitHub rate limit reset. %d calls remained.",
+                    pre_rate_limit,
+                )
+
             if is_json:
                 resp = _parse_json(response.read().decode('utf-8'))
                 if isinstance(resp, list):

@@ -1,6 +1,15 @@
 from unittest.mock import Mock, patch
 
 
+@patch('jenkins_ghp.procedures.cached_request')
+def test_whoami(cached_request):
+    from jenkins_ghp import procedures
+
+    cached_request.return_value = dict(login='aramis')
+
+    assert 'aramis' == procedures.whoami()
+
+
 @patch('jenkins_ghp.procedures.Repository.from_name')
 @patch('jenkins_ghp.procedures.SETTINGS')
 @patch('jenkins_ghp.procedures.JENKINS')
