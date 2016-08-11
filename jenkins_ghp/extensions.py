@@ -162,6 +162,8 @@ def format_duration(duration):
 
 
 class FixStatusExtension(Extension):
+    stage = '20'
+
     SETTINGS = {
         'GHP_STATUS_LOOP': 0,
     }
@@ -321,6 +323,8 @@ Extensions: %(extensions)s
 
 
 class ErrorExtension(Extension):
+    stage = '99'
+
     ERROR_COMMENT = """
 %(emoji)s
 
@@ -353,6 +357,8 @@ class MergerExtension(Extension):
     # Acknowledge for auto-merge
     jenkins: opm
     """
+
+    stage = '90'
 
     DEFAULTS = {
         'lgtm': {},
