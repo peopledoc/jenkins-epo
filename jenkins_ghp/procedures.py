@@ -36,6 +36,7 @@ def list_repositories(with_settings=False):
         repositories[repository] = Repository.from_name(owner, name)
         logger.debug("Managing %s.", repository)
 
+    logger.debug("GET jobs from Jenkins.")
     jobs = JENKINS.get_jobs()
     for job in jobs:
         for remote in job.get_scm_url():

@@ -66,12 +66,17 @@ class LazyJenkins(object):
     @retry
     def get_jobs(self):
         self.load()
-        if not SETTINGS.GHP_JOBS_AUTO and not self.jobs_filter:
-            logger.warn("Use GHP_JOBS env var to list jobs to managed.")
+        if not SETTINGS.GHP_JOBS_AUTO and not Job.jobs_filter:
+            logger.warn("Use GHP_JOBS env var to list jobs to manage.")
             return []
 
-        for name, job in self._instance.get_jobs():
-            job = Job.factory(job)
+        for name in self._instance.jobs.iterkeys():
+            if not match(name, Job.jobs_filter):
+                logger.debug("%s filtered.", name)
+                continue
+
+            logger.debug("Loading config from jenkins for %s.", name)
+            job = Job.factory(self._instance.get_job(name))
             if job.managed:
                 yield job
 
