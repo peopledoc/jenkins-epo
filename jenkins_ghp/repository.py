@@ -379,7 +379,10 @@ class Head(object):
 
         new_status = self.push_status(status)
         if new_status:
-            status = CommitStatus(new_status)
+            status = CommitStatus(
+                new_status,
+                updated_at=parse_datetime(new_status.pop('updated_at')),
+            )
             self.statuses[str(status)] = status
         else:
             self.statuses.pop(str(status), None)
