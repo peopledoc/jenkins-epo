@@ -179,28 +179,10 @@ class Repository(object):
 
     def process_protected_branches(self, branches=None):
         branches = [b['name'] for b in branches or []]
-        logger.debug("Protected branches are %s", branches)
+        if branches:
+            logger.debug("Protected branches are %s", branches)
 
-        repositories = filter(None, SETTINGS.GHP_REPOSITORIES.split(' '))
-        for entry in repositories:
-            entry = entry.strip()
-            if ':' in entry:
-                repository, env_branches = entry.split(':')
-            else:
-                repository, env_branches = entry, ''
-
-            if self != repository:
-                continue
-
-            env_branches = [b for b in env_branches.split(',') if b]
-            if not env_branches:
-                continue
-
-            branches = env_branches
-            logger.debug("Override watched branches %s.", branches)
-            break
-
-        return ['refs/heads/' + b for b in branches if b]
+        return branches
 
     def process_reviewers(self, collaborators):
         return [c['login'] for c in collaborators or [] if (
@@ -236,6 +218,25 @@ class Repository(object):
         self.post_process_settings()
 
     def post_process_settings(self):
+        repositories = filter(None, SETTINGS.GHP_REPOSITORIES.split(' '))
+        for entry in repositories:
+            entry = entry.strip()
+            if ':' in entry:
+                repository, env_branches = entry.split(':')
+            else:
+                repository, env_branches = entry, ''
+
+            if self != repository:
+                continue
+
+            env_branches = [b for b in env_branches.split(',') if b]
+            if not env_branches:
+                continue
+
+            logger.debug("Override watched branches %s.", env_branches)
+            self.SETTINGS.GHP_BRANCHES = env_branches
+            break
+
         self.SETTINGS.GHP_BRANCHES = [
             b if b.startswith('refs/heads') else 'refs/heads/%s' % b
             for b in self.SETTINGS['GHP_BRANCHES']
@@ -378,7 +379,10 @@ class Head(object):
 
         new_status = self.push_status(status)
         if new_status:
-            status = CommitStatus(new_status)
+            status = CommitStatus(
+                new_status,
+                updated_at=parse_datetime(new_status.pop('updated_at')),
+            )
             self.statuses[str(status)] = status
         else:
             self.statuses.pop(str(status), None)

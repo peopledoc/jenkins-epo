@@ -201,6 +201,46 @@ def test_create_job(SETTINGS, factory):
     assert factory.mock_calls
 
 
+@patch('jenkins_ghp.jenkins.Job')
+@patch('jenkins_ghp.jenkins.SETTINGS')
+def test_list_jobs_from_env(SETTINGS, Job):
+    from jenkins_ghp.jenkins import LazyJenkins
+
+    SETTINGS.GHP_JOBS = ''
+    SETTINGS.GHP_JOBS_AUTO = 0
+    Job.jobs_filter = []
+
+    JENKINS = LazyJenkins(Mock())
+
+    jobs = [x for x in JENKINS.get_jobs()]
+
+    assert 0 == len(jobs)
+
+
+@patch('jenkins_ghp.jenkins.match')
+@patch('jenkins_ghp.jenkins.Job.managed')
+@patch('jenkins_ghp.jenkins.JobSpec')
+@patch('jenkins_ghp.jenkins.SETTINGS')
+def test_list_jobs_from_jenkins(SETTINGS, JobSpec, managed, match):
+    from jenkins_ghp.jenkins import LazyJenkins
+
+    SETTINGS.GHP_JOBS = 'match*'
+
+    JENKINS = LazyJenkins(Mock())
+
+    match.side_effect = [False, True]
+    JENKINS._instance.jobs.iterkeys.return_value = ['job1', 'job2']
+    jenkins_job = JENKINS._instance.get_job.return_value
+    jenkins_job._data = {}
+    jenkins_job.name = 'job2'
+
+    jobs = [x for x in JENKINS.get_jobs()]
+
+    assert 1 == len(jobs)
+    job = jobs[0]
+    assert 'job2' == job.name
+
+
 @patch('jenkins_ghp.jenkins.Job.factory')
 @patch('jenkins_ghp.jenkins.SETTINGS')
 def test_update_job(SETTINGS, factory):
