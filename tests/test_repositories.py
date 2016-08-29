@@ -135,6 +135,22 @@ def test_process_status(push_status):
     head.maybe_update_status(CommitStatus(context='context'))
 
 
+@patch('jenkins_ghp.repository.Head.push_status')
+def test_update_status(push_status):
+    from jenkins_ghp.repository import Head, CommitStatus
+
+    head = Head(Mock(), 'master', 'd0d0', None)
+    head.statuses = {}
+    push_status.return_value = {
+        'context': 'job',
+        'updated_at': '2016-08-30T08:25:56Z',
+    }
+
+    head.maybe_update_status(CommitStatus(context='job', state='success'))
+
+    assert 'job' in head.statuses
+
+
 def test_filter_contextes():
     from jenkins_ghp.repository import Head
 
