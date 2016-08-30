@@ -16,7 +16,6 @@ def test_whoami(cached_request):
 def test_list_repositories_from_envvar(JENKINS, SETTINGS, from_name):
     from jenkins_ghp import procedures
 
-    from_name.side_effect = [Mock()]
     JENKINS.get_jobs.return_value = []
 
     SETTINGS.GHP_REPOSITORIES = "owner/repo1:master owner/repo1"

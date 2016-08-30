@@ -33,7 +33,8 @@ def list_repositories(with_settings=False):
         if repository in repositories:
             continue
         owner, name = repository.split('/')
-        repositories[repository] = Repository.from_name(owner, name)
+        repository = Repository.from_name(owner, name)
+        repositories[repository] = repository
         logger.debug("Managing %s.", repository)
 
     logger.debug("GET jobs from Jenkins.")
