@@ -66,7 +66,7 @@ Failed to create Jenkins job `%(name)s`.
         # Case middle line teletype:  `jenkins: ...`
         '\n`+jenkins:[^\n]*`+' '|'
         # Case block code: ```\njenkins:\n  ...```
-        '```(?:yaml)?\njenkins:[\s\S]*?\n```'
+        '```(?:ya?ml)?\njenkins:[\s\S]*?\n```'
         ')'
     )
 
@@ -184,6 +184,10 @@ Failed to create Jenkins job `%(name)s`.
             body = comment['body'].replace('\r', '')
             for stanza in self.instruction_re.findall(body):
                 stanza = stanza.strip().strip('`')
+
+                if stanza.startswith('yml\n'):
+                    stanza = stanza[3:].strip()
+
                 if stanza.startswith('yaml\n'):
                     stanza = stanza[4:].strip()
 

@@ -57,6 +57,12 @@ jenkins:\r
 ```\r
         """,
         """\
+```yml\r
+jenkins:\r
+  yml: []\r
+```\r
+        """,
+        """\
 ```
 jenkins: unix_eof
 ```
@@ -78,6 +84,7 @@ jenkins: unix_eof
     assert 'ticks_one' in haystack
     assert 'indent' in haystack
     assert 'colored' in haystack
+    assert 'yml' in haystack
     assert 'unix_eof' in haystack
 
 
