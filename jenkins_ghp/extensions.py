@@ -33,17 +33,11 @@ class BuilderExtension(Extension):
     """
     # Selecting jobs
     jenkins:
-      jobs: only*  # Build only prefixed
-      jobs: ['*', -glob*]  # skip prefixed with glob
-      jobs: ['*', +add*, -skip*]
+      jobs: only*
+      jobs: ['*', '-notthis*']
+      jobs: ['this*', '+andthis*', '-notthis*']
 
-    # Skipping jobs
-    jenkins: skip
-    jenkins: {skip: '(?!except-this)'}
-    jenkins:
-      skip: ['this.*', 'that']
-
-    # Requeue past failed jobs
+    # Requeue past failed/skipped jobs
     jenkins: rebuild
     """
 
