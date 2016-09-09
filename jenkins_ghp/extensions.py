@@ -37,6 +37,9 @@ class BuilderExtension(Extension):
       jobs: ['*', '-notthis*']
       jobs: ['this*', '+andthis*', '-notthis*']
 
+    # Skipping
+    jenkins: skip
+
     # Requeue past failed/skipped jobs
     jenkins: rebuild
     """
