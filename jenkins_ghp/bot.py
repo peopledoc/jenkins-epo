@@ -211,7 +211,7 @@ Failed to create Jenkins job `%(name)s`.
                 if not isinstance(payload, dict):
                     quote = '> '.join(
                         ['', '```\n'] +
-                        stanza.lstrip().splitlines(True) +
+                        (stanza.strip() + '\n').splitlines(True) +
                         ['```'],
                     )
                     body = self.PARSE_ERROR_COMMENT % dict(
