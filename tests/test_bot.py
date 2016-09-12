@@ -6,6 +6,8 @@ def test_parse():
 
     updated_at = '2016-06-29T11:20:21Z'
     bot = Bot()
+    bot.current = Mock()
+    bot.current.errors = []
     instructions = bot.parse_instructions([
         {
             'number': '123',
@@ -20,6 +22,7 @@ def test_parse():
         'updated_at': updated_at,
         'user': {'login': 'commenter'},
     } for body in [
+        "jenkins:spaceless\n",
         "jenkins:\r\n",
         "jenkins: start_line\r\n",
         "jenkins: []\r\n",

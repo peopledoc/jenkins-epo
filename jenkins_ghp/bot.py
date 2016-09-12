@@ -208,6 +208,19 @@ Failed to create Jenkins job `%(name)s`.
                     self.current.errors.append(Error(body, date))
                     continue
 
+                if not isinstance(payload, dict):
+                    quote = '> '.join(
+                        ['', '```\n'] +
+                        stanza.lstrip().splitlines(True) +
+                        ['```'],
+                    )
+                    body = self.PARSE_ERROR_COMMENT % dict(
+                        error="Instruction is not a YAML dict",
+                        instruction=quote, mention='@' + author,
+                    )
+                    self.current.errors.append(Error(body, date))
+                    continue
+
                 data = payload.pop('jenkins')
                 # If jenkins is empty, reset to dict
                 data = data or {}
