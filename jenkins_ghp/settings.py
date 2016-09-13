@@ -66,6 +66,7 @@ SETTINGS = EnvironmentSettings(defaults={
     # List repositories and their main branches:
     #   'owner/repo1:master owner/repo2:master,stable'
     'GHP_REPOSITORIES': '',
+    'GHP_REPOSITORIES_AUTO': 1,
     'GHP_VERBOSE': '',
     'GITHUB_TOKEN': None,
     'JENKINS_URL': 'http://localhost:8080',
