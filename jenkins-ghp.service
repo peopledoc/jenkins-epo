@@ -6,6 +6,7 @@ Environment=SYSTEMD=1
 EnvironmentFile=/etc/jenkins-ghp.conf
 WorkingDirectory=/var/lib/jenkins/ghp
 ExecStart=/usr/local/bin/jenkins-ghp bot
+KillSignal=SIGINT
 User=jenkins
 Restart=always
 RestartSec=120
