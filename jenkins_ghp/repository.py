@@ -381,7 +381,7 @@ class Head(object):
         if new_status:
             status = CommitStatus(new_status)
             if 'updated_at' in status:
-                status['updated_at'] = parse_datetime(status.pop('updated_at'))
+                status['updated_at'] = parse_datetime(status['updated_at'])
             self.statuses[str(status)] = status
         else:
             self.statuses.pop(str(status), None)
@@ -398,6 +398,8 @@ class Head(object):
                 "Would update status %s to %s/%s.",
                 status, status['state'], status['description'],
             )
+            if 'updated_at' in status:
+                status['updated_at'] = status['updated_at'].isoformat() + 'Z'
             return status
 
         try:

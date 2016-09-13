@@ -30,3 +30,19 @@ def test_log_reset(build_opener, _process_resp):
     GITHUB.user.get()
 
     assert _process_resp.mock_calls
+
+
+@patch('jenkins_ghp.github.SETTINGS')
+@patch('jenkins_ghp.github.CACHE')
+def test_cached_request_etag(CACHE, SETTINGS):
+    from jenkins_ghp.github import cached_request
+
+    SETTINGS.GITHUB_TOKEN = 'cafec4e3e'
+
+    CACHE.get.return_value = response = Mock()
+    response._headers = {'ETag': 'e1ag'}
+    query = Mock()
+    cached_request(query)
+
+    headers = query.get.mock_calls[0][2]['headers']
+    assert b'If-None-Match' in headers

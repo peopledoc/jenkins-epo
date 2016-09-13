@@ -151,6 +151,22 @@ def test_update_status(push_status):
     assert 'job' in head.statuses
 
 
+@patch('jenkins_ghp.repository.GITHUB')
+def test_push_status_dry(GITHUB):
+    from datetime import datetime
+    from jenkins_ghp.repository import Head, CommitStatus
+
+    GITHUB.dry = 1
+
+    head = Head(Mock(), 'master', 'd0d0', None)
+    head.statuses = {}
+    status = head.push_status(CommitStatus(
+        context='job', state='success', description='desc',
+        updated_at=datetime(2016, 9, 13, 13, 41, 00),
+    ))
+    assert isinstance(status['updated_at'], str)
+
+
 def test_filter_contextes():
     from jenkins_ghp.repository import Head
 

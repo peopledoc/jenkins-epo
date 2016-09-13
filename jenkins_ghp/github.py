@@ -100,8 +100,8 @@ def cached_request(query, **kw):
     }
     try:
         response = CACHE.get(cache_key)
-        last_modified = response._headers['Last-Modified']
-        headers[b'If-Modified-Since'] = last_modified
+        etag = response._headers['ETag']
+        headers[b'If-None-Match'] = etag
     except (AttributeError, KeyError):
         pass
 
