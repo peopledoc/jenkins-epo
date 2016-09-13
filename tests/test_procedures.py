@@ -59,3 +59,20 @@ def test_list_repositories_from_jenkins(JENKINS, SETTINGS, from_name):
     SETTINGS.GHP_REPOSITORIES = ""
     repositories = procedures.list_repositories()
     assert 1 == len(list(repositories))
+
+
+@patch('jenkins_ghp.procedures.Repository.from_name')
+@patch('jenkins_ghp.procedures.SETTINGS')
+@patch('jenkins_ghp.procedures.JENKINS')
+def test_list_repositories_from_jenkins_no_auto(JENKINS, SETTINGS, from_name):
+    from jenkins_ghp import procedures
+
+    from_name.side_effect = [Mock()]
+    job = Mock()
+    job.get_scm_url.return_value = ['https://github.com/owner/repo.git']
+    JENKINS.get_jobs.return_value = [job]
+
+    SETTINGS.GHP_REPOSITORIES = ""
+    SETTINGS.GHP_REPOSITORIES_AUTO = False
+    repositories = procedures.list_repositories()
+    assert 0 == len(list(repositories))

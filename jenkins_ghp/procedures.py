@@ -49,8 +49,12 @@ def list_repositories(with_settings=False):
                 )
 
             if repository not in repositories:
-                logger.debug("Managing %s.", repository)
-                repositories[repository] = repository
+                if SETTINGS.GHP_REPOSITORIES_AUTO:
+                    logger.debug("Managing %s.", repository)
+                    repositories[repository] = repository
+                else:
+                    logger.debug("Ignoring %s.", repository)
+                    continue
             else:
                 repository = repositories[repository]
 
