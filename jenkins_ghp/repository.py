@@ -251,17 +251,9 @@ class Repository(object):
             for context in job.list_contexts():
                 yield context
 
-    def list_job_specs(self, jenkins_yml=None):
+    def list_job_specs(self, jenkins_yml=None, defaults={}):
         jenkins_yml = jenkins_yml or '{}'
         ret = {}
-        defaults = dict(
-            node=SETTINGS.GHP_JOBS_NODE,
-            command=SETTINGS.GHP_JOBS_COMMAND,
-            github_repository=self.url,
-            scm_credentials=SETTINGS.GHP_JOBS_CREDENTIALS,
-            set_commit_status=not SETTINGS.GHP_DRY_RUN,
-        )
-
         for job in self.jobs:
             ret[str(job)] = job.spec
 

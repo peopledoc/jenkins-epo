@@ -20,8 +20,6 @@ import re
 import reprlib
 import yaml
 
-from .github import GITHUB, ApiNotFoundError
-from .jenkins import JENKINS
 from .settings import SETTINGS
 from .utils import Bunch, parse_datetime
 
@@ -47,15 +45,6 @@ Sorry %(mention)s, I don't understand what you mean:
 
 See `jenkins: help` for documentation.
 """  # noqa
-
-    CREATE_JOB_ERROR_COMMENT = """\
-Failed to create Jenkins job `%(name)s`.
-
-```
-%(error)s
-%(detail)s
-```
-"""
 
     instruction_re = re.compile(
         '('
@@ -90,75 +79,18 @@ Failed to create Jenkins job `%(name)s`.
         self.current.head = head
         self.current.repository = head.repository
         self.current.SETTINGS = head.repository.SETTINGS
+        if isinstance(head.commit, dict):
+            self.current.commit_date = parse_datetime(
+                head.commit['committer']['date']
+            )
+
         for ext in self.extensions:
             self.current.update(copy.deepcopy(ext.DEFAULTS))
             ext.current = self.current
         return self
 
-    def prepare_jobs(self):
-        head = self.current.head
-
-        self.current.commit_date = parse_datetime(
-            head.commit['committer']['date']
-        )
-
-        try:
-            jenkins_yml = GITHUB.fetch_file_contents(
-                head.repository, 'jenkins.yml', ref=head.ref,
-            )
-            logger.debug("Loading jenkins.yml.")
-        except ApiNotFoundError:
-            jenkins_yml = None
-
-        self.current.job_specs = head.repository.list_job_specs(jenkins_yml)
-        self.current.jobs = {job.name: job for job in head.repository.jobs}
-
-        for spec in self.current.job_specs.values():
-            if spec.name in self.current.jobs:
-                current_job = self.current.jobs[spec.name]
-                if not current_job.is_enabled():
-                    continue
-
-                if current_job.spec.contains(spec):
-                    continue
-
-                jenkins_spec = current_job.spec.merge(spec)
-                executer = JENKINS.update_job
-            else:
-                jenkins_spec = spec
-                executer = JENKINS.create_job
-
-            try:
-                job = executer(jenkins_spec)
-            except Exception as e:
-                detail = (
-                    e.args[0]
-                    .replace('\\n', '\n')
-                    .replace('\\t', '\t')
-                )
-                logger.error(
-                    "Failed to manage job %r:\n%s", spec.name, detail
-                )
-                self.current.errors.append(Error(
-                    self.CREATE_JOB_ERROR_COMMENT % dict(
-                        name=spec.name, error=e, detail=detail,
-                    ),
-                    self.current.commit_date,
-                ))
-            else:
-                if job:
-                    self.current.jobs[spec.name] = job
-
-        head.repository.jobs = list(self.current.jobs.values())
-
-        for job in self.current.jobs.values():
-            if job.name not in self.current.job_specs:
-                logger.debug("Using Jenkins job spec for %s.", job)
-                self.current.job_specs[job.name] = job.spec
-
     def run(self, head):
         self.workon(head)
-        self.prepare_jobs()
 
         payload = self.current.head.fetch_statuses()
         self.current.head.process_statuses(payload)

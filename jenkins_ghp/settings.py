@@ -52,11 +52,6 @@ SETTINGS = EnvironmentSettings(defaults={
     'GHP_IGNORE_STATUSES': '',
     'GHP_JOBS': '',
     'GHP_JOBS_AUTO': True,
-    'GHP_JOBS_COMMAND': 'jenkins-yml-runner',
-    # Jenkins credentials used to clone
-    'GHP_JOBS_CREDENTIALS': None,
-    # Jenkins node/label
-    'GHP_JOBS_NODE': 'ghp',
     # Trigger loop
     'GHP_LOOP': 0,
     # When commenting on PR
