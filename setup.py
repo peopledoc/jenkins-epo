@@ -37,6 +37,7 @@ setup(
         'console_scripts': ['jenkins-ghp=jenkins_ghp.script:entrypoint'],
         'jenkins_ghp.bot.extensions': [
             'builder = jenkins_ghp.extensions:BuilderExtension',
+            'createjobs = jenkins_ghp.extensions:CreateJobsExtension',
             'error = jenkins_ghp.extensions:ErrorExtension',
             'fix = jenkins_ghp.extensions:FixStatusExtension',
             'help = jenkins_ghp.extensions:HelpExtension',
