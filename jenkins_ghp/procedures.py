@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 def list_repositories(with_settings=False):
     repositories = {}
+    ignored_remotes = set()
 
     env_repos = filter(None, SETTINGS.GHP_REPOSITORIES.split(' '))
     for entry in env_repos:
@@ -41,6 +42,9 @@ def list_repositories(with_settings=False):
     jobs = JENKINS.get_jobs()
     for job in jobs:
         for remote in job.get_scm_url():
+            if remote in ignored_remotes:
+                continue
+
             repository = Repository.from_remote(remote)
             if repository not in repositories:
                 # Maybe we have the old name, so first, resolve it.
@@ -54,6 +58,7 @@ def list_repositories(with_settings=False):
                     repositories[repository] = repository
                 else:
                     logger.debug("Ignoring %s.", repository)
+                    ignored_remotes.add(remote)
                     continue
             else:
                 repository = repositories[repository]

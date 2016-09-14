@@ -70,7 +70,7 @@ def test_list_repositories_from_jenkins_no_auto(JENKINS, SETTINGS, from_name):
     from_name.side_effect = [Mock()]
     job = Mock()
     job.get_scm_url.return_value = ['https://github.com/owner/repo.git']
-    JENKINS.get_jobs.return_value = [job]
+    JENKINS.get_jobs.return_value = [job, job]
 
     SETTINGS.GHP_REPOSITORIES = ""
     SETTINGS.GHP_REPOSITORIES_AUTO = False
