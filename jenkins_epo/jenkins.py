@@ -1,16 +1,16 @@
-# This file is part of jenkins-ghp
+# This file is part of jenkins-epo
 #
-# jenkins-ghp is free software: you can redistribute it and/or modify it under
+# jenkins-epo is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
 # Foundation, either version 3 of the License, or any later version.
 #
-# jenkins-ghp is distributed in the hope that it will be useful, but WITHOUT
+# jenkins-epo is distributed in the hope that it will be useful, but WITHOUT
 # ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 # details.
 #
 # You should have received a copy of the GNU General Public License along with
-# jenkins-ghp.  If not, see <http://www.gnu.org/licenses/>.
+# jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
 from itertools import product
 import logging
@@ -66,8 +66,8 @@ class LazyJenkins(object):
     @retry
     def get_jobs(self):
         self.load()
-        if not SETTINGS.GHP_JOBS_AUTO and not Job.jobs_filter:
-            logger.warn("Use GHP_JOBS env var to list jobs to manage.")
+        if not SETTINGS.JOBS_AUTO and not Job.jobs_filter:
+            logger.warn("Use JOBS env var to list jobs to manage.")
             return []
 
         for name in self._instance.jobs.iterkeys():
@@ -87,7 +87,7 @@ class LazyJenkins(object):
     @retry
     def create_job(self, job_spec):
         config = job_spec.as_xml()
-        if SETTINGS.GHP_DRY_RUN:
+        if SETTINGS.DRY_RUN:
             logger.warn("Would create new Jenkins job %s.", job_spec)
             return None
 
@@ -100,7 +100,7 @@ class LazyJenkins(object):
     def update_job(self, job_spec):
         api_instance = self._instance.get_job(job_spec.name)
         config = job_spec.as_xml()
-        if SETTINGS.GHP_DRY_RUN:
+        if SETTINGS.DRY_RUN:
             logger.warn("Would update Jenkins job %s.", job_spec)
             return Job.factory(api_instance)
 
@@ -114,7 +114,7 @@ JENKINS = LazyJenkins()
 
 
 class Job(object):
-    jobs_filter = [p for p in SETTINGS.GHP_JOBS.split(',') if p]
+    jobs_filter = [p for p in SETTINGS.JOBS.split(',') if p]
 
     @staticmethod
     def factory(instance):
@@ -155,7 +155,7 @@ class Job(object):
             logger.debug("%s filtered.", self)
             return False
 
-        if SETTINGS.GHP_JOBS_AUTO and self.polled_by_jenkins:
+        if SETTINGS.JOBS_AUTO and self.polled_by_jenkins:
             logger.debug("%s is polled by Jenkins.", self)
             return False
 
@@ -236,10 +236,10 @@ class FreestyleJob(Job):
                     "Can't assign build to node %s.", spec.config['node'],
                 )
 
-        if SETTINGS.GHP_DRY_RUN:
+        if SETTINGS.DRY_RUN:
             return logger.info("Would queue %s", log)
 
-        self._instance.invoke(build_params=params, delay=0, cause='GHP')
+        self._instance.invoke(build_params=params, delay=0, cause='EPO')
         logger.info("Queued new build %s", log)
 
 
@@ -332,13 +332,13 @@ class MatrixJob(Job):
                 'confs': confs,
             })
 
-        if SETTINGS.GHP_DRY_RUN:
+        if SETTINGS.DRY_RUN:
             for context in contexts:
                 logger.info("Would trigger %s for %s", context, pr.ref)
             return
 
         res = requests.post(
-            self._instance._data['url'] + '/build?delay=0sec&cause=GHP',
+            self._instance._data['url'] + '/build?delay=0sec&cause=Bot',
             data={'json': json.dumps(data)}
         )
         if res.status_code != 200:

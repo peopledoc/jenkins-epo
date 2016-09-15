@@ -36,10 +36,10 @@ class Cache(object):
         # repository take less 60s to process. If the last-seen hasn't been
         # updated, this mean that the query wont happen anymore (PR is closed,
         # etc.)
-        repo_count = len(SETTINGS.GHP_REPOSITORIES.split())
+        repo_count = len(SETTINGS.REPOSITORIES.split())
         rounds_delta = (
-            2 * (SETTINGS.GHP_LOOP or 20) +
-            SETTINGS.GHP_CACHE_LIFE * repo_count
+            2 * (SETTINGS.LOOP or 20) +
+            SETTINGS.CACHE_LIFE * repo_count
         )
         limit = time.time() - rounds_delta
         cleaned = 0
@@ -65,13 +65,11 @@ class MemoryCache(Cache):
 
 
 class FileCache(Cache):
-    CACHE_PATH = SETTINGS.GHP_CACHE_PATH
-
     def __init__(self):
         self.open()
 
     def open(self):
-        self.lock = open(self.CACHE_PATH + '.lock', 'ab')
+        self.lock = open(SETTINGS.CACHE_PATH + '.lock', 'ab')
         try:
             fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             mode = 'c'
@@ -82,13 +80,13 @@ class FileCache(Cache):
             self.lock = None
 
         try:
-            self.storage = shelve.open(self.CACHE_PATH, mode)
+            self.storage = shelve.open(SETTINGS.CACHE_PATH, mode)
         except Exception as e:
             if mode != 'c':
                 raise
             logger.warn("Dropping corrupted cache on %s", e)
             self.lock.truncate(0)
-            self.storage = shelve.open(self.CACHE_PATH, mode)
+            self.storage = shelve.open(SETTINGS.CACHE_PATH, mode)
 
     def close(self):
         self.save()
@@ -100,11 +98,11 @@ class FileCache(Cache):
 
     def destroy(self):
         self.close()
-        os.unlink(self.CACHE_PATH + '.db')
+        os.unlink(SETTINGS.CACHE_PATH + '.db')
 
     def save(self):
         self.storage.sync()
-        logger.debug("Saved %s.", self.CACHE_PATH)
+        logger.debug("Saved %s.", SETTINGS.CACHE_PATH)
 
     def set(self, key, value):
         if not self.lock:

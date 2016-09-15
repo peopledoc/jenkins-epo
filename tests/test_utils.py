@@ -1,5 +1,5 @@
 def test_match():
-    from jenkins_ghp.utils import match
+    from jenkins_epo.utils import match
 
     assert match('any', [])
 

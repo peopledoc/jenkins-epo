@@ -1,16 +1,16 @@
-# This file is part of jenkins-ghp
+# This file is part of jenkins-epo
 #
-# jenkins-ghp is free software: you can redistribute it and/or modify it under
+# jenkins-epo is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
 # Foundation, either version 3 of the License, or any later version.
 #
-# jenkins-ghp is distributed in the hope that it will be useful, but WITHOUT
+# jenkins-epo is distributed in the hope that it will be useful, but WITHOUT
 # ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 # details.
 #
 # You should have received a copy of the GNU General Public License along with
-# jenkins-ghp.  If not, see <http://www.gnu.org/licenses/>.
+# jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
 import os
@@ -29,7 +29,10 @@ class EnvironmentSettings(Bunch):
 
     def load(self, defaults):
         for k, v in sorted(defaults.items()):
-            v = os.environ.get(k, v)
+            needles = [k, 'GHP_' + k, 'EPO_' + k]
+            for needle in needles:
+                v = os.environ.get(needle, v)
+
             try:
                 v = int(v)
             except (TypeError, ValueError):
@@ -39,30 +42,30 @@ class EnvironmentSettings(Bunch):
 
 
 SETTINGS = EnvironmentSettings(defaults={
-    'GHP_ALWAYS_QUEUE': False,
-    'GHP_CACHE_PATH': '.ghp-cache',
-    'GHP_CACHE_LIFE': 30,
-    'GHP_COMMIT_MAX_WEEKS': '',
+    'ALWAYS_QUEUE': False,
+    'CACHE_PATH': '.epo-cache',
+    'CACHE_LIFE': 30,
+    'COMMIT_MAX_WEEKS': '',
     # Drop into Pdb on unhandled exception
-    'GHP_DEBUG': False,
+    'DEBUG': False,
     # Do not trigger jobs nor touch GitHub statuses.
-    'GHP_DRY_RUN': False,
+    'DRY_RUN': False,
     # Whether to touch GitHub statuses or not
-    'GHP_GITHUB_RO': False,
-    'GHP_IGNORE_STATUSES': '',
-    'GHP_JOBS': '',
-    'GHP_JOBS_AUTO': True,
+    'GITHUB_RO': False,
+    'IGNORE_STATUSES': '',
+    'JOBS': '',
+    'JOBS_AUTO': True,
     # Trigger loop
-    'GHP_LOOP': 0,
+    'LOOP': 0,
     # When commenting on PR
-    'GHP_NAME': 'Jenkins GitHub Builder',
-    'GHP_PR': '',
-    'GHP_RATE_LIMIT_THRESHOLD': 250,
+    'NAME': 'Jenkins GitHub Builder',
+    'PR': '',
+    'RATE_LIMIT_THRESHOLD': 250,
     # List repositories and their main branches:
     #   'owner/repo1:master owner/repo2:master,stable'
-    'GHP_REPOSITORIES': '',
-    'GHP_REPOSITORIES_AUTO': 1,
-    'GHP_VERBOSE': '',
+    'REPOSITORIES': '',
+    'REPOSITORIES_AUTO': 1,
+    'VERBOSE': '',
     'GITHUB_TOKEN': None,
     'JENKINS_URL': 'http://localhost:8080',
 })

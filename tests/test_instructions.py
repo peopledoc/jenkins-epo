@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 
 def test_pr_urgent():
-    from jenkins_ghp.repository import PullRequest
+    from jenkins_epo.repository import PullRequest
 
     pr1 = PullRequest(payload=dict(
         head=dict(sha='01234567899abcdef', ref='pr1'),

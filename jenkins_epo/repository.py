@@ -1,16 +1,16 @@
-# This file is part of jenkins-ghp
+# This file is part of jenkins-epo
 #
-# jenkins-ghp is free software: you can redistribute it and/or modify it under
+# jenkins-epo is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
 # Foundation, either version 3 of the License, or any later version.
 #
-# jenkins-ghp is distributed in the hope that it will be useful, but WITHOUT
+# jenkins-epo is distributed in the hope that it will be useful, but WITHOUT
 # ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 # details.
 #
 # You should have received a copy of the GNU General Public License along with
-# jenkins-ghp.  If not, see <http://www.gnu.org/licenses/>.
+# jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import absolute_import
 
@@ -53,7 +53,7 @@ class CommitStatus(dict):
 
 
 class Repository(object):
-    pr_filter = [p for p in str(SETTINGS.GHP_PR).split(',') if p]
+    pr_filter = [p for p in str(SETTINGS.PR).split(',') if p]
 
     remote_re = re.compile(
         r'.*github.com[:/](?P<owner>[\w-]+)/(?P<name>[\w-]+).*'
@@ -97,7 +97,7 @@ class Repository(object):
 
     @retry(wait_fixed=15000)
     def load_branches(self):
-        branches = self.SETTINGS.GHP_BRANCHES
+        branches = self.SETTINGS.BRANCHES
         if not branches:
             logger.debug("No explicit branches configured for %s.", self)
             return []
@@ -115,7 +115,7 @@ class Repository(object):
             if branch.is_outdated:
                 logger.debug(
                     'Skipping branch %s because older than %s weeks.',
-                    branch, self.SETTINGS.GHP_COMMIT_MAX_WEEKS,
+                    branch, self.SETTINGS.COMMIT_MAX_WEEKS,
                 )
                 continue
             yield branch
@@ -143,7 +143,7 @@ class Repository(object):
             if pr.is_outdated:
                 logger.debug(
                     'Skipping PR %s because older than %s weeks.',
-                    pr, SETTINGS.GHP_COMMIT_MAX_WEEKS,
+                    pr, SETTINGS.COMMIT_MAX_WEEKS,
                 )
             else:
                 yield pr
@@ -203,8 +203,8 @@ class Repository(object):
             return
 
         default_settings = dict(
-            GHP_BRANCHES=self.process_protected_branches(branches),
-            GHP_REVIEWERS=self.process_reviewers(collaborators),
+            BRANCHES=self.process_protected_branches(branches),
+            REVIEWERS=self.process_reviewers(collaborators),
         )
 
         data = yaml.load(ghp_yml or '{}')
@@ -216,7 +216,7 @@ class Repository(object):
         data.update(settings)
 
         local_settings = {
-            'GHP_' + k.upper(): v
+            k.upper(): v
             for k, v in data.items()
         }
 
@@ -229,7 +229,7 @@ class Repository(object):
         self.post_process_settings()
 
     def post_process_settings(self):
-        repositories = filter(None, SETTINGS.GHP_REPOSITORIES.split(' '))
+        repositories = filter(None, SETTINGS.REPOSITORIES.split(' '))
         for entry in repositories:
             entry = entry.strip()
             if ':' in entry:
@@ -245,12 +245,12 @@ class Repository(object):
                 continue
 
             logger.debug("Override watched branches %s.", env_branches)
-            self.SETTINGS.GHP_BRANCHES = env_branches
+            self.SETTINGS.BRANCHES = env_branches
             break
 
-        self.SETTINGS.GHP_BRANCHES = [
+        self.SETTINGS.BRANCHES = [
             b if b.startswith('refs/heads') else 'refs/heads/%s' % b
-            for b in self.SETTINGS['GHP_BRANCHES']
+            for b in self.SETTINGS['BRANCHES']
         ]
 
         logger.debug("Repository settings:")
@@ -287,7 +287,7 @@ class Repository(object):
 
 
 class Head(object):
-    contexts_filter = [p for p in SETTINGS.GHP_JOBS.split(',') if p]
+    contexts_filter = [p for p in SETTINGS.JOBS.split(',') if p]
 
     def __init__(self, repository, ref, sha, commit):
         self.repository = repository
@@ -298,7 +298,7 @@ class Head(object):
 
     @property
     def is_outdated(self):
-        weeks = self.repository.SETTINGS.GHP_COMMIT_MAX_WEEKS
+        weeks = self.repository.SETTINGS.COMMIT_MAX_WEEKS
         if not weeks:
             return False
 
@@ -318,7 +318,7 @@ class Head(object):
 
     @retry(wait_fixed=15000)
     def fetch_statuses(self):
-        if SETTINGS.GHP_IGNORE_STATUSES:
+        if SETTINGS.IGNORE_STATUSES:
             logger.debug("Skip GitHub statuses.")
             return {'statuses': []}
         else:

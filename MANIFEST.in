@@ -1,2 +1,2 @@
-include jenkins-ghp.service
-include jenkins-ghp.conf
+include jenkins-epo.service
+include jenkins-epo.conf

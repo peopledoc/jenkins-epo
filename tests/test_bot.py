@@ -2,7 +2,7 @@ from unittest.mock import Mock, patch
 
 
 def test_parse():
-    from jenkins_ghp.bot import Bot
+    from jenkins_epo.bot import Bot
 
     updated_at = '2016-06-29T11:20:21Z'
     bot = Bot()
@@ -92,7 +92,7 @@ jenkins: unix_eof
 
 
 def test_parse_error():
-    from jenkins_ghp.bot import Bot
+    from jenkins_epo.bot import Bot
 
     updated_at = '2016-06-29T11:20:21Z'
     bot = Bot()
@@ -114,9 +114,9 @@ def test_parse_error():
     assert '@reporter' in error.body
 
 
-@patch('jenkins_ghp.bot.pkg_resources')
+@patch('jenkins_epo.bot.pkg_resources')
 def test_run_extension(pkg_resources):
-    from jenkins_ghp.bot import Bot
+    from jenkins_epo.bot import Bot
 
     ep = Mock()
     ep.name = 'ext'

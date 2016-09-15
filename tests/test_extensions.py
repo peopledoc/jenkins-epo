@@ -11,7 +11,7 @@ def comment(login='montecristo', **kwargs):
 
 
 def test_compute_skip_unindented():
-    from jenkins_ghp.bot import Bot
+    from jenkins_epo.bot import Bot
 
     bot = Bot().workon(Mock())
     bot.process_instructions([
@@ -22,8 +22,8 @@ def test_compute_skip_unindented():
 
 
 def test_compute_skip_null():
-    from jenkins_ghp.bot import Bot
-    from jenkins_ghp.extensions import BuilderExtension
+    from jenkins_epo.bot import Bot
+    from jenkins_epo.extensions import BuilderExtension
 
     bot = Bot().workon(Mock())
     bot.process_instructions([
@@ -34,8 +34,8 @@ def test_compute_skip_null():
 
 
 def test_compute_skip():
-    from jenkins_ghp.bot import Bot
-    from jenkins_ghp.extensions import BuilderExtension
+    from jenkins_epo.bot import Bot
+    from jenkins_epo.extensions import BuilderExtension
 
     bot = Bot().workon(Mock())
 
@@ -52,7 +52,7 @@ def test_compute_skip():
 
 
 def test_compute_rebuild():
-    from jenkins_ghp.bot import Bot
+    from jenkins_epo.bot import Bot
 
     bot = Bot().workon(Mock())
     bot.process_instructions([comment(body='jenkins: rebuild')])
@@ -60,7 +60,7 @@ def test_compute_rebuild():
 
 
 def test_compute_help():
-    from jenkins_ghp.bot import Bot
+    from jenkins_epo.bot import Bot
 
     bot = Bot().workon(Mock())
     bot.process_instructions([
@@ -89,7 +89,7 @@ def test_compute_help():
 
 
 def test_skip_re():
-    from jenkins_ghp.bot import Bot
+    from jenkins_epo.bot import Bot
 
     bot = Bot().workon(Mock())
     bot.process_instructions([
@@ -100,7 +100,7 @@ def test_skip_re():
 
 
 def test_skip_re_wrong():
-    from jenkins_ghp.bot import Bot
+    from jenkins_epo.bot import Bot
 
     bot = Bot().workon(Mock())
     bot.process_instructions([
@@ -113,7 +113,7 @@ def test_skip_re_wrong():
 
 
 def test_skip_disabled_job():
-    from jenkins_ghp.bot import Bot
+    from jenkins_epo.bot import Bot
 
     bot = Bot().workon(Mock())
     job = Mock()
@@ -131,7 +131,7 @@ def test_skip_disabled_job():
 
 
 def test_build():
-    from jenkins_ghp.bot import Bot
+    from jenkins_epo.bot import Bot
 
     bot = Bot().workon(Mock())
     job = Mock()
@@ -148,7 +148,7 @@ def test_build():
 
 
 def test_match_mixed():
-    from jenkins_ghp.bot import Bot
+    from jenkins_epo.bot import Bot
 
     bot = Bot().workon(Mock())
     bot.process_instructions([
@@ -159,7 +159,7 @@ def test_match_mixed():
 
 
 def test_match_negate():
-    from jenkins_ghp.bot import Bot
+    from jenkins_epo.bot import Bot
 
     bot = Bot().workon(Mock())
     bot.process_instructions([
@@ -171,7 +171,7 @@ def test_match_negate():
 
 
 def test_duration_format():
-    from jenkins_ghp.extensions import format_duration
+    from jenkins_epo.extensions import format_duration
 
     assert '4.2 sec' == format_duration(4200)
     assert '23 sec' == format_duration(23000)
@@ -180,7 +180,7 @@ def test_duration_format():
 
 
 def test_errors():
-    from jenkins_ghp.bot import Bot, Error
+    from jenkins_epo.bot import Bot, Error
 
     bot = Bot().workon(Mock())
     bot.current.errors = [Error('message', Mock())]
@@ -191,8 +191,8 @@ def test_errors():
 
 
 def test_errors_reset():
-    from jenkins_ghp.bot import Bot, Error
-    from jenkins_ghp.utils import parse_datetime
+    from jenkins_epo.bot import Bot, Error
+    from jenkins_epo.utils import parse_datetime
 
     bot = Bot().workon(Mock())
     bot.current.errors = [
@@ -208,7 +208,7 @@ def test_errors_reset():
 
 
 def test_report():
-    from jenkins_ghp.extensions import ReportExtension, Branch
+    from jenkins_epo.extensions import ReportExtension, Branch
 
     ext = ReportExtension('merger', Mock())
     ext.current = Mock()

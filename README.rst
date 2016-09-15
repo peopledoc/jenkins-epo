@@ -1,49 +1,26 @@
-Is your Jenkins crazy?
+Time for kickass CI !
 
-| |crazy|
+| |hulk|
 
-#######################
- Jenkins GitHub Poller
-#######################
+#############
+ Jenkins EPO
+#############
 
 | |PyPI| |CI| |CodeCov| |Requires.io|
 
-A pure python poller based on GitHub API. This is an alternative to jenkins
-poll or GitHub webhook.
+Implements extended CI features on top of Jenkins and GitHub for in-house CI.
 
 
 Features
 ========
 
-- Query GitHub API to poll open PR instead of cloning repository.
-- Query Jenkins API without jar nor JRE.
-- Set commit status as soon as job is in the queue.
-- Skip jobs from PR comments.
-- Rebuild failed jobs from PR comments.
-- Requeue jobs on queue loss.
-- Requeue aborted jobs.
-- Retry on network failure.
-- Nice with humans: queue new jobs only on empty Jenkins queue.
-- Update GitHub commit status from Jenkins status.
-- Report issue on broken protected branch.
-- Creates jobs from `jenkins.yml <https://github.com/novafloss/jenkins-yml>`_.
-- Auto-merge PR on LGTM.
-
-
-Skipping jobs
--------------
-
-If some jobs are unrelated to your PR, you can skip them with a YAML comment:
-
-::
-
-   ```
-   jenkins:
-      skip: [app-doc, app-assets, '(?!.*notskipped.*)']
-   ```
-
-Other instructions are available. Just ask the bot by commenting ``jenkins:
-help`` in an open PR!
+- Define jobs from repository in `jenkins.yml <https://github.com/novafloss/jenkins-yml>`.
+- Query GitHub API to poll open PR instead of polling git repository.
+- Read instructions from PR comments.
+- Report issue on broken protected branches.
+- Auto-merge PR.
+- Works behind firewall.
+- Extensible through entry-point.
 
 
 Installation
@@ -52,48 +29,41 @@ Installation
 In your Jenkins, for each job :
 
 - Tick *Build when a change is pushed on GitHub*.
-- **Untick** *SCM polling*. jenkins-ghp actually replaces this feature.
+- **Untick** *SCM polling*.
 
 
-On poller host:
+On poller your host:
 
 ::
 
-   pip3 install jenkins-ghp
-   # Check jobs managed
+   pip3 install jenkins-epo
+   # Check manageable jobs
    export GITHUB_TOKEN=YOUR_SECRET_TOKEN JENKINS_URL=http://myjenkins.lan
-   jenkins-ghp list-jobs
+   jenkins-epo list-jobs
    # Trigger a dry run
-   GHP_DRY_RUN=1 jenkins-ghp bot
+   DRY_RUN=1 jenkins-epo bot
+   # Run it for real
+   jenkins-epo bot
 
-   # Make it a service
-   editor /etc/jenkins-ghp.conf
-   systemctl daemon-reload
-   systemctl status jenkins-ghp
-
-
-Development
-===========
-
-- For testing, use ``tox``.
-- For releasing, use ``tox -e release fullrelease``.
+Many instructions are available. Just ask the bot by commenting ``jenkins:
+help`` in an open PR!
 
 
-.. |CI| image:: https://circleci.com/gh/novafloss/jenkins-github-poller.svg?style=shield
-   :target: https://circleci.com/gh/novafloss/jenkins-github-poller
+.. |CI| image:: https://circleci.com/gh/novafloss/jenkins-epo.svg?style=shield
+   :target: https://circleci.com/gh/novafloss/jenkins-epo
    :alt: CI Status
 
-.. |CodeCov| image:: https://codecov.io/gh/novafloss/jenkins-github-poller/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/novafloss/jenkins-github-poller
+.. |CodeCov| image:: https://codecov.io/gh/novafloss/jenkins-epo/branch/master/graph/badge.svg
+   :target: https://codecov.io/gh/novafloss/jenkins-epo
    :alt: Code coverage
 
-.. |crazy| image:: https://github.com/novafloss/jenkins-github-poller/raw/master/crazy-cat.gif
-   :alt: Crazy cat
+.. |hulk| image:: https://github.com/novafloss/jenkins-epo/raw/master/hulk.gif
+   :alt: Hulk
 
-.. |PyPI| image:: https://img.shields.io/pypi/v/jenkins-ghp.svg
-   :target: https://pypi.python.org/pypi/jenkins-ghp
+.. |PyPI| image:: https://img.shields.io/pypi/v/jenkins-epo.svg
+   :target: https://pypi.python.org/pypi/jenkins-epo
    :alt: Version on PyPI
 
-.. |Requires.io| image:: https://img.shields.io/requires/github/novafloss/jenkins-github-poller.svg
-   :target: https://requires.io/github/novafloss/jenkins-github-poller/requirements/
+.. |Requires.io| image:: https://img.shields.io/requires/github/novafloss/jenkins-epo.svg
+   :target: https://requires.io/github/novafloss/jenkins-epo/requirements/
    :alt: Requirements status

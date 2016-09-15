@@ -1,16 +1,16 @@
-# This file is part of jenkins-ghp
+# This file is part of jenkins-epo
 #
-# jenkins-ghp is free software: you can redistribute it and/or modify it under
+# jenkins-epo is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
 # Foundation, either version 3 of the License, or any later version.
 #
-# jenkins-ghp is distributed in the hope that it will be useful, but WITHOUT
+# jenkins-epo is distributed in the hope that it will be useful, but WITHOUT
 # ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 # details.
 #
 # You should have received a copy of the GNU General Public License along with
-# jenkins-ghp.  If not, see <http://www.gnu.org/licenses/>.
+# jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
 import logging.config
@@ -61,15 +61,17 @@ def entrypoint(argv=None):
             'level': 'WARNING',
             'handlers': ['stderr'],
         },
-        'loggers': {'jenkins_ghp': {
+        'loggers': {'jenkins_epo': {
             'level': 'INFO',
         }},
     }
 
-    debug = os.environ.get('GHP_VERBOSE') or os.environ.get('GHP_DEBUG')
-    debug = debug not in ('0', '', None)
+    names = {p + k for p in ['', 'GHP_', 'EPO_'] for k in ['VERBOSE', 'DEBUG']}
+    debug = [os.environ.get(n) for n in names]
+    debug = bool([v for v in debug if v not in ('0', '', None)])
+
     if debug:
-        logging_config['loggers']['jenkins_ghp']['level'] = 'DEBUG'
+        logging_config['loggers']['jenkins_epo']['level'] = 'DEBUG'
         logging_config['handlers']['stderr']['formatter'] = 'debug'
 
     if os.environ.get('SYSTEMD'):
@@ -77,11 +79,11 @@ def entrypoint(argv=None):
 
     logging.config.dictConfig(logging_config)
 
-    logger.info("Starting jenkins-ghp")
+    logger.info("Starting jenkins-epo")
     logger.debug("Debug mode enabled")
 
     # Import modules after logging is setup
-    from jenkins_ghp.main import main
+    from jenkins_epo.main import main
 
     try:
         logger.debug("Executing %s", ' '.join(argv))

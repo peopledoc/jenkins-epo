@@ -1,16 +1,16 @@
-# This file is part of jenkins-ghp
+# This file is part of jenkins-epo
 #
-# jenkins-ghp is free software: you can redistribute it and/or modify it under
+# jenkins-epo is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
 # Foundation, either version 3 of the License, or any later version.
 #
-# jenkins-ghp is distributed in the hope that it will be useful, but WITHOUT
+# jenkins-epo is distributed in the hope that it will be useful, but WITHOUT
 # ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 # details.
 #
 # You should have received a copy of the GNU General Public License along with
-# jenkins-ghp.  If not, see <http://www.gnu.org/licenses/>.
+# jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
 import datetime
 import inspect
@@ -152,11 +152,11 @@ class CreateJobsExtension(Extension):
     stage = '00'
 
     SETTINGS = {
-        'GHP_JOBS_COMMAND': 'jenkins-yml-runner',
+        'JOBS_COMMAND': 'jenkins-yml-runner',
         # Jenkins credentials used to clone
-        'GHP_JOBS_CREDENTIALS': None,
+        'JOBS_CREDENTIALS': None,
         # Jenkins node/label
-        'GHP_JOBS_NODE': 'ghp',
+        'JOBS_NODE': 'yml',
     }
 
     JOB_ERROR_COMMENT = """\
@@ -180,11 +180,11 @@ Failed to create or update Jenkins job `%(name)s`.
             jenkins_yml = None
 
         defaults = dict(
-            node=SETTINGS.GHP_JOBS_NODE,
-            command=SETTINGS.GHP_JOBS_COMMAND,
+            node=SETTINGS.JOBS_NODE,
+            command=SETTINGS.JOBS_COMMAND,
             github_repository=head.repository.url,
-            scm_credentials=SETTINGS.GHP_JOBS_CREDENTIALS,
-            set_commit_status=not SETTINGS.GHP_DRY_RUN,
+            scm_credentials=SETTINGS.JOBS_CREDENTIALS,
+            set_commit_status=not SETTINGS.DRY_RUN,
         )
 
         self.current.job_specs = head.repository.list_job_specs(
@@ -252,7 +252,7 @@ class FixStatusExtension(Extension):
     stage = '20'
 
     SETTINGS = {
-        'GHP_STATUS_LOOP': 0,
+        'STATUS_LOOP': 0,
     }
 
     status_map = {
@@ -278,7 +278,7 @@ class FixStatusExtension(Extension):
                     )
                 except TypeError:
                     pass
-        elif self.current.head.repository.SETTINGS.GHP_STATUS_LOOP:
+        elif self.current.head.repository.SETTINGS.STATUS_LOOP:
             # Touch the commit status to avoid polling it for the next 5
             # minutes.
             state = 'pending'
@@ -297,7 +297,7 @@ class FixStatusExtension(Extension):
         fivemin_ago = (
             datetime.datetime.utcnow() -
             datetime.timedelta(
-                seconds=self.current.head.repository.SETTINGS.GHP_STATUS_LOOP
+                seconds=self.current.head.repository.SETTINGS.STATUS_LOOP
             )
         )
 
@@ -350,7 +350,7 @@ class HelpExtension(Extension):
     DEFAULTS = {
         'help_mentions': set(),
     }
-    DISTRIBUTION = pkg_resources.get_distribution('jenkins_ghp')
+    DISTRIBUTION = pkg_resources.get_distribution('jenkins-epo')
     HELP = """\
 <!--
 jenkins: ignore
@@ -396,7 +396,7 @@ Extensions: %(extensions)s
             extensions=','.join(sorted(self.bot.extensions_map.keys())),
             help=help_,
             host=socket.getfqdn(),
-            me=self.current.head.repository.SETTINGS.GHP_NAME,
+            me=self.current.head.repository.SETTINGS.NAME,
             mentions=', '.join(sorted([
                 '@' + m for m in self.current.help_mentions
             ])),
@@ -454,8 +454,8 @@ class MergerExtension(Extension):
         'merge_failed': None,
     }
     SETTINGS = {
-        'GHP_LGTM_AUTHOR': False,
-        'GHP_LGTM_QUORUM': 1,
+        'LGTM_AUTHOR': False,
+        'LGTM_QUORUM': 1,
     }
 
     LGTM_COMMENT = """
@@ -496,7 +496,7 @@ jenkins: lgtm-processed
         if lgtm.date < self.current.commit_date:
             return logger.debug("Skip outdated LGTM.")
 
-        if lgtm.author in self.current.SETTINGS.GHP_REVIEWERS:
+        if lgtm.author in self.current.SETTINGS.REVIEWERS:
             logger.info("Accept @%s as reviewer.", lgtm.author)
             self.current.lgtm[lgtm.author] = lgtm
         else:
@@ -508,10 +508,10 @@ jenkins: lgtm-processed
         if not lgtms:
             return
 
-        if len(lgtms) < self.current.SETTINGS.GHP_LGTM_QUORUM:
+        if len(lgtms) < self.current.SETTINGS.LGTM_QUORUM:
             return logger.debug("Missing LGTMs quorum. Skipping.")
 
-        if self.current.SETTINGS.GHP_LGTM_AUTHOR:
+        if self.current.SETTINGS.LGTM_AUTHOR:
             self_lgtm = self.current.head.author in lgtms
             if not self_lgtm:
                 return logger.debug("Author's LGTM missing. Skipping.")

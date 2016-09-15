@@ -1,16 +1,16 @@
-# This file is part of jenkins-ghp
+# This file is part of jenkins-epo
 #
-# jenkins-ghp is free software: you can redistribute it and/or modify it under
+# jenkins-epo is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
 # Foundation, either version 3 of the License, or any later version.
 #
-# jenkins-ghp is distributed in the hope that it will be useful, but WITHOUT
+# jenkins-epo is distributed in the hope that it will be useful, but WITHOUT
 # ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 # details.
 #
 # You should have received a copy of the GNU General Public License along with
-# jenkins-ghp.  If not, see <http://www.gnu.org/licenses/>.
+# jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
 import asyncio
@@ -29,11 +29,11 @@ from .settings import SETTINGS
 from . import procedures
 
 
-logger = logging.getLogger('jenkins_ghp')
+logger = logging.getLogger('jenkins_epo')
 
 
 def loop(wrapped):
-    if SETTINGS.GHP_LOOP:
+    if SETTINGS.LOOP:
         @asyncio.coroutine
         def wrapper(*args, **kwargs):
             while True:
@@ -41,8 +41,8 @@ def loop(wrapped):
                 if asyncio.iscoroutine(res):
                     yield from res
 
-                logger.info("Looping in %s seconds", SETTINGS.GHP_LOOP)
-                yield from asyncio.sleep(SETTINGS.GHP_LOOP)
+                logger.info("Looping in %s seconds", SETTINGS.LOOP)
+                yield from asyncio.sleep(SETTINGS.LOOP)
         functools.update_wrapper(wrapper, wrapped)
         return wrapper
     else:
@@ -55,7 +55,7 @@ class RestartLoop(Exception):
 
 @asyncio.coroutine
 def check_queue(bot):
-    if SETTINGS.GHP_ALWAYS_QUEUE:
+    if SETTINGS.ALWAYS_QUEUE:
         logger.info("Ignoring queue status. New jobs will be queued.")
         bot.queue_empty = True
         return
@@ -90,7 +90,7 @@ def bot():
             try:
                 yield from check_queue(bot)
             except RestartLoop:
-                if SETTINGS.GHP_LOOP:
+                if SETTINGS.LOOP:
                     break
             bot.run(branch)
 
@@ -98,12 +98,12 @@ def bot():
             try:
                 yield from check_queue(bot)
             except RestartLoop:
-                if SETTINGS.GHP_LOOP:
+                if SETTINGS.LOOP:
                     break
             try:
                 bot.run(pr)
             except Exception:
-                if SETTINGS.GHP_LOOP:
+                if SETTINGS.LOOP:
                     logger.exception("Failed to process %s", pr)
                 else:
                     raise
@@ -154,7 +154,7 @@ def command_exitcode(command_func):
     except Exception:
         logger.exception('Unhandled error')
 
-        if not SETTINGS.GHP_DEBUG:
+        if not SETTINGS.DEBUG:
             return 1
 
         try:

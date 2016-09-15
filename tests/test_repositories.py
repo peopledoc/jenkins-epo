@@ -2,9 +2,9 @@ from datetime import datetime
 from unittest.mock import Mock, patch
 
 
-@patch('jenkins_ghp.repository.cached_request')
+@patch('jenkins_epo.repository.cached_request')
 def test_from_name(cached_request):
-    from jenkins_ghp.repository import Repository
+    from jenkins_epo.repository import Repository
 
     cached_request.return_value = {
         'clone_url': 'https://github.com/newowner/newname.git'
@@ -15,10 +15,10 @@ def test_from_name(cached_request):
     assert 'newname' == repo.name
 
 
-@patch('jenkins_ghp.repository.GITHUB')
-@patch('jenkins_ghp.repository.cached_request')
+@patch('jenkins_epo.repository.GITHUB')
+@patch('jenkins_epo.repository.cached_request')
 def test_load_settings_no_yml(cached_request, GITHUB):
-    from jenkins_ghp.repository import ApiNotFoundError, Repository
+    from jenkins_epo.repository import ApiNotFoundError, Repository
 
     GITHUB.fetch_file_contents.side_effect = ApiNotFoundError(
         'url', Mock(), Mock())
@@ -29,10 +29,10 @@ def test_load_settings_no_yml(cached_request, GITHUB):
     assert cached_request.mock_calls
 
 
-@patch('jenkins_ghp.repository.GITHUB')
-@patch('jenkins_ghp.repository.cached_request')
+@patch('jenkins_epo.repository.GITHUB')
+@patch('jenkins_epo.repository.cached_request')
 def test_load_settings_jenkins_yml(cached_request, GITHUB):
-    from jenkins_ghp.repository import ApiNotFoundError, Repository
+    from jenkins_epo.repository import ApiNotFoundError, Repository
 
     GITHUB.fetch_file_contents.side_effect = [
         ApiNotFoundError('ghp.yml', Mock(), Mock()),
@@ -46,18 +46,18 @@ def test_load_settings_jenkins_yml(cached_request, GITHUB):
 
 
 def test_process_ghp_yml():
-    from jenkins_ghp.repository import Repository
+    from jenkins_epo.repository import Repository
 
     repo = Repository('owner', 'repo1')
     repo.process_settings(ghp_yml=repr(dict(
         branches=['master', 'develop'],
     )))
     wanted = ['refs/heads/master', 'refs/heads/develop']
-    assert wanted == repo.SETTINGS.GHP_BRANCHES
+    assert wanted == repo.SETTINGS.BRANCHES
 
 
 def test_process_jenkins_yml_settings():
-    from jenkins_ghp.repository import Repository
+    from jenkins_epo.repository import Repository
 
     repo = Repository('owner', 'repo1')
     repo.process_settings(
@@ -65,36 +65,36 @@ def test_process_jenkins_yml_settings():
         jenkins_yml=repr(dict(settings=dict(branches=['master', 'develop']))),
     )
     wanted = ['refs/heads/master', 'refs/heads/develop']
-    assert wanted == repo.SETTINGS.GHP_BRANCHES
-    assert ['reviewer'] == repo.SETTINGS.GHP_REVIEWERS
+    assert wanted == repo.SETTINGS.BRANCHES
+    assert ['reviewer'] == repo.SETTINGS.REVIEWERS
 
 
-@patch('jenkins_ghp.repository.SETTINGS')
+@patch('jenkins_epo.repository.SETTINGS')
 def test_process_protected_branches_env(SETTINGS):
-    from jenkins_ghp.repository import Repository
+    from jenkins_epo.repository import Repository
 
-    SETTINGS.GHP_REPOSITORIES = 'owner/repo1:master owner/repo2:stable'
+    SETTINGS.REPOSITORIES = 'owner/repo1:master owner/repo2:stable'
 
     repo = Repository('owner', 'repo1')
     repo.process_settings()
-    assert ['refs/heads/master'] == repo.SETTINGS.GHP_BRANCHES
+    assert ['refs/heads/master'] == repo.SETTINGS.BRANCHES
 
 
-@patch('jenkins_ghp.repository.SETTINGS')
+@patch('jenkins_epo.repository.SETTINGS')
 def test_process_protected_branches(SETTINGS):
-    from jenkins_ghp.repository import Repository
+    from jenkins_epo.repository import Repository
 
-    SETTINGS.GHP_REPOSITORIES = ''
+    SETTINGS.REPOSITORIES = ''
 
     repo = Repository('owner', 'repo1')
     repo.process_settings(branches=[
         {'name': 'master'},
     ])
-    assert ['refs/heads/master'] == repo.SETTINGS.GHP_BRANCHES
+    assert ['refs/heads/master'] == repo.SETTINGS.BRANCHES
 
 
 def test_reviewers():
-    from jenkins_ghp.repository import Repository
+    from jenkins_epo.repository import Repository
 
     repo = Repository('owner', 'repository')
     repo.process_settings(collaborators=[
@@ -116,7 +116,7 @@ def test_reviewers():
         },
     ])
 
-    reviewers = repo.SETTINGS.GHP_REVIEWERS
+    reviewers = repo.SETTINGS.REVIEWERS
 
     assert 'siteadmin' in reviewers
     assert 'contributor' not in reviewers
@@ -125,7 +125,7 @@ def test_reviewers():
 
 
 def test_list_job_specs_from_jenkins():
-    from jenkins_ghp.repository import Repository
+    from jenkins_epo.repository import Repository
 
     repo = Repository('owner', 'repo1')
     repo.jobs = [Mock()]
@@ -135,7 +135,7 @@ def test_list_job_specs_from_jenkins():
 
 
 def test_list_job_specs_no_yml():
-    from jenkins_ghp.repository import Repository
+    from jenkins_epo.repository import Repository
 
     repo = Repository('owner', 'repo1')
     jobs = repo.list_job_specs(None)
@@ -143,7 +143,7 @@ def test_list_job_specs_no_yml():
 
 
 def test_list_job_specs_yml():
-    from jenkins_ghp.repository import Repository
+    from jenkins_epo.repository import Repository
 
     repo = Repository('owner', 'repo1')
     jobs = repo.list_job_specs("""
@@ -155,9 +155,9 @@ job2: |
     assert 2 == len(jobs)
 
 
-@patch('jenkins_ghp.repository.Head.push_status')
+@patch('jenkins_epo.repository.Head.push_status')
 def test_process_status(push_status):
-    from jenkins_ghp.repository import Head, CommitStatus
+    from jenkins_epo.repository import Head, CommitStatus
 
     head = Head(Mock(), 'master', 'd0d0', None)
     head.contexts_filter = []
@@ -178,9 +178,9 @@ def test_process_status(push_status):
     head.maybe_update_status(CommitStatus(context='context'))
 
 
-@patch('jenkins_ghp.repository.Head.push_status')
+@patch('jenkins_epo.repository.Head.push_status')
 def test_update_status(push_status):
-    from jenkins_ghp.repository import Head, CommitStatus
+    from jenkins_epo.repository import Head, CommitStatus
 
     head = Head(Mock(), 'master', 'd0d0', None)
     head.statuses = {}
@@ -194,10 +194,10 @@ def test_update_status(push_status):
     assert 'job' in head.statuses
 
 
-@patch('jenkins_ghp.repository.GITHUB')
+@patch('jenkins_epo.repository.GITHUB')
 def test_push_status_dry(GITHUB):
     from datetime import datetime
-    from jenkins_ghp.repository import Head, CommitStatus
+    from jenkins_epo.repository import Head, CommitStatus
 
     GITHUB.dry = 1
 
@@ -211,7 +211,7 @@ def test_push_status_dry(GITHUB):
 
 
 def test_filter_contextes():
-    from jenkins_ghp.repository import Head
+    from jenkins_epo.repository import Head
 
     rebuild_failed = datetime(2016, 8, 11, 16)
 

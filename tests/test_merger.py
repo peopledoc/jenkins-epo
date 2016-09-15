@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 
 def test_skip_non_pr():
-    from jenkins_ghp.extensions import MergerExtension
+    from jenkins_epo.extensions import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
@@ -12,7 +12,7 @@ def test_skip_non_pr():
 
 
 def test_pr_behind_base():
-    from jenkins_ghp.extensions import MergerExtension
+    from jenkins_epo.extensions import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
@@ -21,12 +21,12 @@ def test_pr_behind_base():
 
 
 def test_deny_non_reviewer():
-    from jenkins_ghp.bot import Instruction
-    from jenkins_ghp.extensions import MergerExtension
+    from jenkins_epo.bot import Instruction
+    from jenkins_epo.extensions import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.GHP_REVIEWERS = []
+    ext.current.SETTINGS.REVIEWERS = []
     ext.current.is_behind = False
     ext.current.commit_date = datetime.now()
     ext.current.lgtm = {}
@@ -46,12 +46,12 @@ def test_deny_non_reviewer():
 
 
 def test_deny_non_reviewer_processed():
-    from jenkins_ghp.bot import Instruction
-    from jenkins_ghp.extensions import MergerExtension
+    from jenkins_epo.bot import Instruction
+    from jenkins_epo.extensions import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.GHP_REVIEWERS = []
+    ext.current.SETTINGS.REVIEWERS = []
     ext.current.is_behind = False
     ext.current.commit_date = datetime.now()
     ext.current.lgtm = {}
@@ -60,7 +60,7 @@ def test_deny_non_reviewer_processed():
     )]
 
     ext.process_instruction(Instruction(
-        author='ghp', name='lgtm-processed',
+        author='bot', name='lgtm-processed',
         date=ext.current.commit_date + timedelta(hours=2),
     ))
 
@@ -69,12 +69,12 @@ def test_deny_non_reviewer_processed():
 
 
 def test_pr_updated():
-    from jenkins_ghp.bot import Instruction
-    from jenkins_ghp.extensions import MergerExtension
+    from jenkins_epo.bot import Instruction
+    from jenkins_epo.extensions import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.GHP_REVIEWERS = []
+    ext.current.SETTINGS.REVIEWERS = []
     ext.current.is_behind = False
     ext.current.commit_date = commit_date = datetime.now()
     ext.current.lgtm = {}
@@ -90,11 +90,11 @@ def test_pr_updated():
 
 
 def test_skip_no_lgtm():
-    from jenkins_ghp.extensions import MergerExtension
+    from jenkins_epo.extensions import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.GHP_LGTM_QUORUM = 1
+    ext.current.SETTINGS.LGTM_QUORUM = 1
     ext.current.lgtm = {}
     ext.current.lgtm_denied = []
 
@@ -103,11 +103,11 @@ def test_skip_no_lgtm():
 
 
 def test_skip_missing_lgtm():
-    from jenkins_ghp.extensions import MergerExtension
+    from jenkins_epo.extensions import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.GHP_LGTM_QUORUM = 2
+    ext.current.SETTINGS.LGTM_QUORUM = 2
     ext.current.lgtm = {'reviewer': Mock()}
     ext.current.lgtm_denied = []
 
@@ -116,11 +116,11 @@ def test_skip_missing_lgtm():
 
 
 def test_self_lgtm():
-    from jenkins_ghp.extensions import MergerExtension
+    from jenkins_epo.extensions import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.GHP_LGTM_QUORUM = 1
+    ext.current.SETTINGS.LGTM_QUORUM = 1
     ext.current.lgtm = {'reviewer': Mock()}
     ext.current.lgtm_denied = []
     ext.current.head.author = 'author'
@@ -130,12 +130,12 @@ def test_self_lgtm():
 
 
 def test_not_green():
-    from jenkins_ghp.extensions import MergerExtension
+    from jenkins_epo.extensions import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.GHP_LGTM_QUORUM = 1
-    ext.current.SETTINGS.GHP_LGTM_AUTHOR = False
+    ext.current.SETTINGS.LGTM_QUORUM = 1
+    ext.current.SETTINGS.LGTM_AUTHOR = False
     ext.current.lgtm = {'reviewer': Mock()}
     ext.current.lgtm_denied = []
     ext.current.statuses = {'pending-job': {'state': 'pending'}}
@@ -145,12 +145,12 @@ def test_not_green():
 
 
 def test_merge_fail():
-    from jenkins_ghp.extensions import MergerExtension, ApiError
+    from jenkins_epo.extensions import MergerExtension, ApiError
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.GHP_LGTM_QUORUM = 1
-    ext.current.SETTINGS.GHP_LGTM_AUTHOR = False
+    ext.current.SETTINGS.LGTM_QUORUM = 1
+    ext.current.SETTINGS.LGTM_AUTHOR = False
     ext.current.lgtm = {'reviewer': Mock()}
     ext.current.lgtm_denied = []
     ext.current.merge_failed = None
@@ -167,8 +167,8 @@ def test_merge_fail():
 
 
 def test_merge_already_failed():
-    from jenkins_ghp.bot import Instruction
-    from jenkins_ghp.extensions import MergerExtension
+    from jenkins_epo.bot import Instruction
+    from jenkins_epo.extensions import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
@@ -185,8 +185,8 @@ def test_merge_already_failed():
 
     ext.current.lgtm = {}
     ext.current.lgtm_denied = []
-    ext.current.SETTINGS.GHP_LGTM_QUORUM = 0
-    ext.current.SETTINGS.GHP_LGTM_AUTHOR = False
+    ext.current.SETTINGS.LGTM_QUORUM = 0
+    ext.current.SETTINGS.LGTM_AUTHOR = False
     ext.current.statuses = {}
     ext.current.head.author = 'author'
 
@@ -195,8 +195,8 @@ def test_merge_already_failed():
 
 
 def test_merge_failed_updated():
-    from jenkins_ghp.bot import Instruction
-    from jenkins_ghp.extensions import MergerExtension
+    from jenkins_epo.bot import Instruction
+    from jenkins_epo.extensions import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
@@ -213,12 +213,12 @@ def test_merge_failed_updated():
 
 
 def test_merge_success():
-    from jenkins_ghp.extensions import MergerExtension
+    from jenkins_epo.extensions import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.GHP_LGTM_QUORUM = 1
-    ext.current.SETTINGS.GHP_LGTM_AUTHOR = False
+    ext.current.SETTINGS.LGTM_QUORUM = 1
+    ext.current.SETTINGS.LGTM_AUTHOR = False
     ext.current.lgtm = {'reviewer': Mock()}
     ext.current.lgtm_denied = []
     ext.current.merge_failed = None

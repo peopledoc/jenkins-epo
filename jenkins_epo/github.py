@@ -1,16 +1,16 @@
-# This file is part of jenkins-ghp
+# This file is part of jenkins-epo
 #
-# jenkins-ghp is free software: you can redistribute it and/or modify it under
+# jenkins-epo is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
 # Foundation, either version 3 of the License, or any later version.
 #
-# jenkins-ghp is distributed in the hope that it will be useful, but WITHOUT
+# jenkins-epo is distributed in the hope that it will be useful, but WITHOUT
 # ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 # details.
 #
 # You should have received a copy of the GNU General Public License along with
-# jenkins-ghp.  If not, see <http://www.gnu.org/licenses/>.
+# jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import absolute_import
 
@@ -62,8 +62,8 @@ def retry_filter(exception):
 @retry
 def wait_rate_limit_reset():
     from .github import GITHUB
-    wait = SETTINGS.GHP_LOOP or 60
-    while GITHUB.x_ratelimit_remaining < SETTINGS.GHP_RATE_LIMIT_THRESHOLD:
+    wait = SETTINGS.LOOP or 60
+    while GITHUB.x_ratelimit_remaining < SETTINGS.RATE_LIMIT_THRESHOLD:
         logger.info("Waiting rate limit reset in %s seconds", wait)
         time.sleep(wait)
         GITHUB.rate_limit.get()
@@ -76,7 +76,7 @@ def check_rate_limit_threshold():
         # Never queryied GitHub. We must do it once.
         return
 
-    if GITHUB.x_ratelimit_remaining > SETTINGS.GHP_RATE_LIMIT_THRESHOLD:
+    if GITHUB.x_ratelimit_remaining > SETTINGS.RATE_LIMIT_THRESHOLD:
         # Cool, we didn't hit our threshold
         return
 
@@ -190,7 +190,7 @@ class CustomGitHub(GitHub):
 class LazyGithub(object):
     def __init__(self):
         self._instance = None
-        self.dry = SETTINGS.GHP_DRY_RUN or SETTINGS.GHP_GITHUB_RO
+        self.dry = SETTINGS.DRY_RUN or SETTINGS.GITHUB_RO
 
     def __getattr__(self, name):
         self.load()

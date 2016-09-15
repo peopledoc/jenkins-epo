@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 # coding: utf-8
 #
-# This file is part of jenkins-ghp
+# This file is part of jenkins-epo
 #
-# jenkins-ghp is free software: you can redistribute it and/or modify it under
+# jenkins-epo is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
 # Foundation, either version 3 of the License, or any later version.
 #
-# jenkins-ghp is distributed in the hope that it will be useful, but WITHOUT
+# jenkins-epo is distributed in the hope that it will be useful, but WITHOUT
 # ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 # details.
 #
 # You should have received a copy of the GNU General Public License along with
-# jenkins-ghp.  If not, see <http://www.gnu.org/licenses/>.
+# jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
 
 import os
@@ -25,24 +25,24 @@ setup_kwargs = dict()
 if 'install' not in sys.argv or 0 != os.getuid():
     setup_kwargs.update(dict(
         data_files=[
-            ('lib/systemd/system', ['jenkins-ghp.service']),
-            ('/etc', ['jenkins-ghp.conf']),
+            ('lib/systemd/system', ['jenkins-epo.service']),
+            ('/etc', ['jenkins-epo.conf']),
         ],
     ))
 
 setup(
-    name='jenkins-ghp',
+    name='jenkins-epo',
     version='1.48',
     entry_points={
-        'console_scripts': ['jenkins-ghp=jenkins_ghp.script:entrypoint'],
-        'jenkins_ghp.bot.extensions': [
-            'builder = jenkins_ghp.extensions:BuilderExtension',
-            'createjobs = jenkins_ghp.extensions:CreateJobsExtension',
-            'error = jenkins_ghp.extensions:ErrorExtension',
-            'fix = jenkins_ghp.extensions:FixStatusExtension',
-            'help = jenkins_ghp.extensions:HelpExtension',
-            'merger = jenkins_ghp.extensions:MergerExtension',
-            'report = jenkins_ghp.extensions:ReportExtension',
+        'console_scripts': ['jenkins-epo=jenkins_epo.script:entrypoint'],
+        'jenkins_epo.bot.extensions': [
+            'builder = jenkins_epo.extensions:BuilderExtension',
+            'createjobs = jenkins_epo.extensions:CreateJobsExtension',
+            'error = jenkins_epo.extensions:ErrorExtension',
+            'fix = jenkins_epo.extensions:FixStatusExtension',
+            'help = jenkins_epo.extensions:HelpExtension',
+            'merger = jenkins_epo.extensions:MergerExtension',
+            'report = jenkins_epo.extensions:ReportExtension',
         ],
     },
     extras_require={
@@ -56,8 +56,8 @@ setup(
         'pyyaml',
         'retrying',
     ],
-    packages=['jenkins_ghp'],
-    description='Jenkins GitHub Poller',
+    packages=['jenkins_epo'],
+    description='Jenkins EPO',
     author=', '.join([
         'James Pic <james.pic@people-doc.com>',
         'Étienne BERSAC <etienne.bersac@people-doc.com>',
@@ -70,8 +70,8 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python',
     ],
-    keywords=['jenkins', 'github'],
+    keywords=['jenkins', 'github', 'yml'],
     license='GPL v3 or later',
-    url='https://github.com/novafloss/jenkins-github-poller',
+    url='https://github.com/novafloss/jenkins-epo',
     **setup_kwargs
 )

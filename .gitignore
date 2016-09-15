@@ -1,7 +1,7 @@
 .cache
 .coverage
-.ghp*.db
-.ghp*.lock
+.epo*.db
+.epo*.lock
 /*.egg-info/
 /.tox/
 /build/

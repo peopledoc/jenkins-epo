@@ -3,9 +3,9 @@ Description=Jenkins GitHub poller
 
 [Service]
 Environment=SYSTEMD=1
-EnvironmentFile=/etc/jenkins-ghp.conf
-WorkingDirectory=/var/lib/jenkins/ghp
-ExecStart=/usr/local/bin/jenkins-ghp bot
+EnvironmentFile=/etc/jenkins-epo.conf
+WorkingDirectory=/var/lib/jenkins/epo
+ExecStart=/usr/local/bin/jenkins-epo bot
 KillSignal=SIGINT
 User=jenkins
 Restart=always
