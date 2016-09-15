@@ -15,6 +15,36 @@ def test_from_name(cached_request):
     assert 'newname' == repo.name
 
 
+@patch('jenkins_ghp.repository.GITHUB')
+@patch('jenkins_ghp.repository.cached_request')
+def test_load_settings_no_yml(cached_request, GITHUB):
+    from jenkins_ghp.repository import ApiNotFoundError, Repository
+
+    GITHUB.fetch_file_contents.side_effect = ApiNotFoundError(
+        'url', Mock(), Mock())
+
+    repo = Repository('owner', 'repo1')
+    repo.load_settings()
+
+    assert cached_request.mock_calls
+
+
+@patch('jenkins_ghp.repository.GITHUB')
+@patch('jenkins_ghp.repository.cached_request')
+def test_load_settings_jenkins_yml(cached_request, GITHUB):
+    from jenkins_ghp.repository import ApiNotFoundError, Repository
+
+    GITHUB.fetch_file_contents.side_effect = [
+        ApiNotFoundError('ghp.yml', Mock(), Mock()),
+        repr(dict(settings=dict(branches=['master'], reviewers=['octo']))),
+    ]
+
+    repo = Repository('owner', 'repo1')
+    repo.load_settings()
+
+    assert not cached_request.mock_calls
+
+
 def test_process_ghp_yml():
     from jenkins_ghp.repository import Repository
 
@@ -24,6 +54,19 @@ def test_process_ghp_yml():
     )))
     wanted = ['refs/heads/master', 'refs/heads/develop']
     assert wanted == repo.SETTINGS.GHP_BRANCHES
+
+
+def test_process_jenkins_yml_settings():
+    from jenkins_ghp.repository import Repository
+
+    repo = Repository('owner', 'repo1')
+    repo.process_settings(
+        ghp_yml=repr(dict(branches=['old'], reviewers=['reviewer'])),
+        jenkins_yml=repr(dict(settings=dict(branches=['master', 'develop']))),
+    )
+    wanted = ['refs/heads/master', 'refs/heads/develop']
+    assert wanted == repo.SETTINGS.GHP_BRANCHES
+    assert ['reviewer'] == repo.SETTINGS.GHP_REVIEWERS
 
 
 @patch('jenkins_ghp.repository.SETTINGS')
