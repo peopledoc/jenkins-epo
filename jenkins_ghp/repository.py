@@ -154,16 +154,22 @@ class Repository(object):
             ghp_yml = GITHUB.fetch_file_contents(self, '.github/ghp.yml')
             logger.debug("Loading settings from .github/ghp.yml")
         except ApiNotFoundError:
-            ghp_yml = "{}"
+            ghp_yml = '{}'
 
-        if 'reviewers:' in ghp_yml:
+        try:
+            jenkins_yml = GITHUB.fetch_file_contents(self, 'jenkins.yml')
+            logger.debug("Loading settings from jenkins.yml")
+        except ApiNotFoundError:
+            jenkins_yml = '{}'
+
+        if 'reviewers' in ghp_yml + jenkins_yml:
             logger.debug("Reviewers defined manually.")
             collaborators = []
         else:
             collaborators = cached_request(GITHUB.repos(self).collaborators)
 
         # Save a call to GITHUB if branches is defined in YML.
-        if 'branches:' in ghp_yml:
+        if 'branches' in ghp_yml + jenkins_yml:
             logger.debug("Protected branches defined manually.")
             branches = []
         else:
@@ -175,6 +181,7 @@ class Repository(object):
             branches=branches,
             collaborators=collaborators,
             ghp_yml=ghp_yml,
+            jenkins_yml=jenkins_yml,
         )
 
     def process_protected_branches(self, branches=None):
@@ -191,7 +198,7 @@ class Repository(object):
             c['permissions']['push']
         )]
 
-    def process_settings(self, branches=None, collaborators=None, ghp_yml=None):  # noqa
+    def process_settings(self, branches=None, collaborators=None, ghp_yml=None, jenkins_yml=None):  # noqa
         if self.SETTINGS:
             return
 
@@ -200,9 +207,13 @@ class Repository(object):
             GHP_REVIEWERS=self.process_reviewers(collaborators),
         )
 
-        ghp_yml = ghp_yml or '{}'
-        data = yaml.load(ghp_yml)
+        data = yaml.load(ghp_yml or '{}')
         assert hasattr(data, 'items'), "Not yml dict/hash"
+        jenkins_yml = yaml.load(jenkins_yml or '{}')
+        assert hasattr(jenkins_yml, 'items'), "Not yml dict/hash"
+        settings = jenkins_yml.get('settings', {})
+        assert hasattr(settings, 'items'), "Not yml dict/hash"
+        data.update(settings)
 
         local_settings = {
             'GHP_' + k.upper(): v
