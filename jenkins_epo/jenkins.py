@@ -223,7 +223,7 @@ class FreestyleJob(Job):
 
     def build(self, pr, spec, contexts):
         log = str(self)
-        params = spec.config['parameters'].copy()
+        params = spec.config.get('parameters', {}).copy()
         if self.revision_param:
             params[self.revision_param] = pr.ref
             log += ' for %s' % pr.ref
@@ -237,7 +237,7 @@ class FreestyleJob(Job):
                 )
 
         if SETTINGS.DRY_RUN:
-            return logger.info("Would queue %s", log)
+            return logger.info("Would queue %s.", log)
 
         self._instance.invoke(build_params=params, delay=0, cause='EPO')
         logger.info("Queued new build %s", log)
@@ -308,7 +308,7 @@ class MatrixJob(Job):
     def build(self, pr, spec, contexts):
         data = {'parameter': [], 'statusCode': '303', 'redirectTo': '.'}
 
-        for name, value in spec.config['parameters'].items():
+        for name, value in spec.config.get('parameters', {}).items():
             data['parameter'].append({'name': name, 'value': value})
 
         if self.revision_param:
@@ -320,7 +320,8 @@ class MatrixJob(Job):
         if self.combination_param:
             conf_index = len(str(self))+1
             confs = [
-                c['name'] for c in self._instance._data['activeConfigurations']
+                c['name']
+                for c in self._instance._data.get('activeConfigurations', [])
             ]
             not_built = [c[conf_index:] for c in contexts]
             data['parameter'].append({

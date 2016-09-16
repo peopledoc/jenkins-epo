@@ -50,3 +50,15 @@ def test_save(dbopen, fcntl):
     my = FileCache()
     my.save()
     assert my.storage.sync.mock_calls
+
+
+@patch('jenkins_epo.cache.os.unlink')
+@patch('jenkins_epo.cache.FileCache.close')
+def test_destroy(close, unlink):
+    from jenkins_epo.cache import FileCache
+
+    my = FileCache()
+    my.destroy()
+
+    assert unlink.mock_calls
+    assert close.mock_calls

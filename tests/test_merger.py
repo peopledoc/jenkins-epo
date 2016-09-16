@@ -74,18 +74,39 @@ def test_pr_updated():
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.REVIEWERS = []
+    ext.current.SETTINGS.REVIEWERS = ['reviewer']
     ext.current.is_behind = False
     ext.current.commit_date = commit_date = datetime.now()
     ext.current.lgtm = {}
     ext.current.lgtm_denied = []
 
     ext.process_instruction(Instruction(
-        author='nonreviewer', name='opm',
+        author='reviewer', name='opm',
         date=commit_date - timedelta(hours=1),
     ))
 
     assert not ext.current.lgtm
+    assert not ext.current.lgtm_denied
+
+
+def test_accept_lgtm():
+    from jenkins_epo.bot import Instruction
+    from jenkins_epo.extensions import MergerExtension
+
+    ext = MergerExtension('merger', Mock())
+    ext.current = Mock()
+    ext.current.SETTINGS.REVIEWERS = ['reviewer']
+    ext.current.is_behind = False
+    ext.current.commit_date = commit_date = datetime.now()
+    ext.current.lgtm = {}
+    ext.current.lgtm_denied = []
+
+    ext.process_instruction(Instruction(
+        author='reviewer', name='opm',
+        date=commit_date + timedelta(hours=1),
+    ))
+
+    assert 'reviewer' in ext.current.lgtm
     assert not ext.current.lgtm_denied
 
 

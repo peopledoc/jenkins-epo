@@ -41,6 +41,29 @@ def test_freestyle_build(SETTINGS):
     assert api_instance.invoke.mock_calls
 
 
+@patch('jenkins_epo.jenkins.SETTINGS')
+def test_freestyle_build_dry(SETTINGS):
+    from jenkins_epo.jenkins import FreestyleJob
+
+    api_instance = Mock()
+    api_instance.name = 'freestyle'
+    xml = api_instance._get_config_element_tree.return_value
+    xml.findall.return_value = []
+
+    pr = Mock()
+    spec = Mock()
+    spec.config = {}
+    job = FreestyleJob(api_instance)
+    job._node_param = None
+    job._revision_param = None
+
+    SETTINGS.DRY_RUN = 1
+
+    job.build(pr, spec, 'freestyle')
+
+    assert not api_instance.invoke.mock_calls
+
+
 def test_freestyle_node_param():
     from jenkins_epo.jenkins import FreestyleJob
 
@@ -181,6 +204,59 @@ def test_matrix_list_context_superset(JobSpec):
     assert 2 == len(contexts)
 
 
+@patch('jenkins_epo.jenkins.SETTINGS')
+@patch('jenkins_epo.jenkins.requests.post')
+def test_matrix_build(post, SETTINGS):
+    from jenkins_epo.jenkins import MatrixJob, JobSpec
+
+    SETTINGS.DRY_RUN = 0
+
+    api_instance = Mock()
+    api_instance.name = 'matrix'
+    api_instance._data = {'url': 'https://jenkins/job'}
+    xml = api_instance._get_config_element_tree.return_value
+    xml.findall.return_value = []
+
+    spec = JobSpec(api_instance.name)
+
+    job = MatrixJob(api_instance)
+    job._node_axis = job._revision_param = None
+    job._combination_param = 'C'
+
+    post.return_value.status_code = 200
+
+    job.build(Mock(), spec, 'matrix')
+
+    assert post.mock_calls
+
+
+@patch('jenkins_epo.jenkins.SETTINGS')
+@patch('jenkins_epo.jenkins.requests.post')
+def test_matrix_build_dry(post, SETTINGS):
+    from jenkins_epo.jenkins import MatrixJob, JobSpec
+
+    SETTINGS.DRY_RUN = 1
+
+    api_instance = Mock()
+    api_instance.name = 'matrix'
+    api_instance._data = {'url': 'https://jenkins/job'}
+
+    xml = api_instance._get_config_element_tree.return_value
+    xml.findall.return_value = []
+
+    spec = JobSpec(api_instance.name)
+
+    job = MatrixJob(api_instance)
+    job._node_axis = job._revision_param = None
+    job._combination_param = 'C'
+
+    post.return_value.status_code = 200
+
+    job.build(Mock(), spec, 'matrix')
+
+    assert not post.mock_calls
+
+
 @patch('jenkins_epo.jenkins.Job.factory')
 @patch('jenkins_epo.jenkins.SETTINGS')
 def test_create_job(SETTINGS, factory):
@@ -203,7 +279,7 @@ def test_create_job(SETTINGS, factory):
 
 @patch('jenkins_epo.jenkins.Job')
 @patch('jenkins_epo.jenkins.SETTINGS')
-def test_list_jobs_from_env(SETTINGS, Job):
+def test_list_jobs_from_env_missing(SETTINGS, Job):
     from jenkins_epo.jenkins import LazyJenkins
 
     SETTINGS.JOBS = ''
@@ -239,6 +315,21 @@ def test_list_jobs_from_jenkins(SETTINGS, JobSpec, managed, match):
     assert 1 == len(jobs)
     job = jobs[0]
     assert 'job2' == job.name
+
+
+@patch('jenkins_epo.jenkins.SETTINGS')
+@patch('jenkins_epo.jenkins.JobSpec.from_xml')
+def test_job_managed(from_xml, SETTINGS):
+    from jenkins_epo.jenkins import Job
+
+    SETTINGS.JOBS_AUTO = 0
+
+    job = Job(Mock())
+    job.jobs_filter = []
+    job._instance.name = 'job'
+    job._instance.get_scm_url.return_value = []
+
+    assert job.managed
 
 
 @patch('jenkins_epo.jenkins.Job.factory')

@@ -230,3 +230,27 @@ def test_report():
 
     assert ext.current.head.comment.mock_calls
     assert ext.current.head.repository.report_issue.mock_calls
+
+
+def test_fix_status_success():
+    from jenkins_epo.extensions import FixStatusExtension
+
+    ext = FixStatusExtension('fix', Mock())
+    build = Mock()
+    build.get_status.return_value = 'SUCCESS'
+    build._data = dict(duration=1000, displayName='toto')
+
+    status = ext.compute_actual_status(build, {})
+    assert 'success' == status['state']
+
+
+def test_fix_status_pending():
+    from jenkins_epo.extensions import FixStatusExtension
+
+    ext = FixStatusExtension('fix', Mock())
+    ext.current = ext.bot.current
+    ext.current.head.repository.SETTINGS.STATUS_LOOP = 5
+    status = ext.compute_actual_status(None, {'description': 'desc'})
+
+    assert 'pending' == status['state']
+    assert '...' in status['description']
