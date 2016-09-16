@@ -6,7 +6,7 @@ Time for kickass CI !
  Jenkins EPO
 #############
 
-| |PyPI| |CI| |CodeCov| |Requires.io|
+| |PyPI| |CI| |CodeCov|
 
 Implements extended CI features on top of Jenkins and GitHub for in-house CI.
 
@@ -63,7 +63,3 @@ help`` in an open PR!
 .. |PyPI| image:: https://img.shields.io/pypi/v/jenkins-epo.svg
    :target: https://pypi.python.org/pypi/jenkins-epo
    :alt: Version on PyPI
-
-.. |Requires.io| image:: https://img.shields.io/requires/github/novafloss/jenkins-epo.svg
-   :target: https://requires.io/github/novafloss/jenkins-epo/requirements/
-   :alt: Requirements status
