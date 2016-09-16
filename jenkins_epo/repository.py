@@ -63,14 +63,14 @@ class Repository(object):
     @retry(wait_fixed=15000)
     def from_name(cls, owner, name):
         data = cached_request(GITHUB.repos(owner)(name))
-        return cls.from_remote(data['clone_url'])
+        return cls(owner=data['owner']['login'], name=data['name'])
 
     @classmethod
     def from_remote(cls, remote_url):
         match = cls.remote_re.match(remote_url)
         if not match:
             raise ValueError('%r is not github' % (remote_url,))
-        return cls(**match.groupdict())
+        return cls.from_name(**match.groupdict())
 
     def __init__(self, owner, name, jobs=None):
         self.owner = owner

@@ -34,7 +34,12 @@ def list_repositories(with_settings=False):
         if repository in repositories:
             continue
         owner, name = repository.split('/')
-        repository = Repository.from_name(owner, name)
+        try:
+            repository = Repository.from_name(owner, name)
+        except Exception as e:
+            logger.warn("Failed to fetch repo %s: %s", repository, e)
+            continue
+
         repositories[repository] = repository
         logger.debug("Managing %s.", repository)
 
@@ -45,12 +50,11 @@ def list_repositories(with_settings=False):
             if remote in ignored_remotes:
                 continue
 
-            repository = Repository.from_remote(remote)
-            if repository not in repositories:
-                # Maybe we have the old name, so first, resolve it.
-                repository = Repository.from_name(
-                    repository.owner, repository.name
-                )
+            try:
+                repository = Repository.from_remote(remote)
+            except Exception as e:
+                logger.warn("Failed to fetch repo %s: %s", remote, e)
+                continue
 
             if repository not in repositories:
                 if SETTINGS.REPOSITORIES_AUTO:
