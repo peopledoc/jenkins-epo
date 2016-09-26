@@ -18,13 +18,12 @@ import json
 import re
 
 from jenkinsapi.build import Build
-from jenkinsapi.custom_exceptions import NotConfiguredSCM
 from jenkinsapi.jenkins import Jenkins
 from jenkins_yml import Job as JobSpec
 import requests
 
 from .settings import SETTINGS
-from .utils import match, retry
+from .utils import retry
 
 
 logger = logging.getLogger(__name__)
@@ -64,25 +63,13 @@ class LazyJenkins(object):
             self._instance = Jenkins(SETTINGS.JENKINS_URL)
 
     @retry
-    def get_jobs(self):
-        self.load()
-        if not SETTINGS.JOBS_AUTO and not Job.jobs_filter:
-            logger.warn("Use JOBS env var to list jobs to manage.")
-            return []
-
-        for name in self._instance.jobs.iterkeys():
-            if not match(name, Job.jobs_filter):
-                logger.debug("%s filtered.", name)
-                continue
-
-            logger.debug("Loading config from jenkins for %s.", name)
-            job = Job.factory(self._instance.get_job(name))
-            if job.managed:
-                yield job
-
-    @retry
     def is_queue_empty(self):
         return len(self.get_queue().keys()) == 0
+
+    @retry
+    def get_job(self, name):
+        self.load()
+        return Job.factory(self._instance.get_job(name))
 
     @retry
     def create_job(self, job_spec):
@@ -129,11 +116,6 @@ class Job(object):
         self.config = self._instance._get_config_element_tree()
         self.spec = JobSpec.from_xml(self.name, self.config)
 
-        xpath_query = './/triggers/com.cloudbees.jenkins.GitHubPushTrigger'
-        self.push_trigger = bool(self.config.findall(xpath_query))
-        xpath_query = './/triggers/hudson.triggers.SCMTrigger'
-        self.polled_by_jenkins = bool(self.config.findall(xpath_query))
-
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.name)
 
@@ -148,24 +130,6 @@ class Job(object):
 
     def __getattr__(self, name):
         return getattr(self._instance, name)
-
-    @property
-    def managed(self):
-        if not match(self.name, self.jobs_filter):
-            logger.debug("%s filtered.", self)
-            return False
-
-        if SETTINGS.JOBS_AUTO and self.polled_by_jenkins:
-            logger.debug("%s is polled by Jenkins.", self)
-            return False
-
-        try:
-            self.get_scm_url()
-        except NotConfiguredSCM:
-            logger.debug("%s has no Git.", self)
-            return False
-
-        return True
 
     @property
     def revision_param(self):

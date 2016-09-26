@@ -146,37 +146,6 @@ def test_reviewers():
     assert 'owner' in reviewers
 
 
-def test_list_job_specs_from_jenkins():
-    from jenkins_epo.repository import Repository
-
-    repo = Repository('owner', 'repo1')
-    repo.jobs = [Mock()]
-
-    jobs = repo.list_job_specs(None)
-    assert 1 == len(jobs)
-
-
-def test_list_job_specs_no_yml():
-    from jenkins_epo.repository import Repository
-
-    repo = Repository('owner', 'repo1')
-    jobs = repo.list_job_specs(None)
-    assert {} == jobs
-
-
-def test_list_job_specs_yml():
-    from jenkins_epo.repository import Repository
-
-    repo = Repository('owner', 'repo1')
-    jobs = repo.list_job_specs("""
-job1: |
-    py.test
-job2: |
-    tox -r
-    """.strip())
-    assert 2 == len(jobs)
-
-
 @patch('jenkins_epo.repository.Head.push_status')
 def test_process_status(push_status):
     from jenkins_epo.repository import Head, CommitStatus

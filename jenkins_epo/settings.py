@@ -54,7 +54,6 @@ SETTINGS = EnvironmentSettings(defaults={
     'GITHUB_RO': False,
     'IGNORE_STATUSES': '',
     'JOBS': '',
-    'JOBS_AUTO': True,
     # Trigger loop
     'LOOP': 0,
     # When commenting on PR
@@ -64,7 +63,6 @@ SETTINGS = EnvironmentSettings(defaults={
     # List repositories and their main branches:
     #   'owner/repo1:master owner/repo2:master,stable'
     'REPOSITORIES': '',
-    'REPOSITORIES_AUTO': 1,
     'VERBOSE': '',
     'GITHUB_TOKEN': None,
     'JENKINS_URL': 'http://localhost:8080',

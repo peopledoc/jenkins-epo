@@ -116,13 +116,6 @@ def bot():
     )
 
 
-def list_jobs():
-    """List managed jobs"""
-    for repository in procedures.list_repositories():
-        for job in repository.jobs:
-            print(job)
-
-
 def list_branches():
     """List branches to build"""
     procedures.whoami()
@@ -172,7 +165,7 @@ def main(argv=None):
     argv = argv or sys.argv
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='command', metavar='COMMAND')
-    for command in [bot, list_jobs, list_repositories, list_branches, list_pr]:
+    for command in [bot, list_repositories, list_branches, list_pr]:
         subparser = subparsers.add_parser(
             command.__name__.replace('_', '-'),
             help=inspect.cleandoc(command.__doc__ or '').split('\n')[0],

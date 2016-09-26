@@ -26,24 +26,26 @@ Features
 Installation
 ============
 
-In your Jenkins, for each job :
-
-- Tick *Build when a change is pushed on GitHub*.
-- **Untick** *SCM polling*.
-
-
 On poller your host:
 
 ::
 
    pip3 install jenkins-epo
-   # Check manageable jobs
+   # Setup env vars
    export GITHUB_TOKEN=YOUR_SECRET_TOKEN JENKINS_URL=http://myjenkins.lan
-   jenkins-epo list-jobs
+   export REPOSITORIES=owner/repo
+   # Check repository is manageable
+   jenkins-epo list-repositories
    # Trigger a dry run
    DRY_RUN=1 jenkins-epo bot
    # Run it for real
    jenkins-epo bot
+
+Now write a ``jenkins.yml`` file and open a PR::
+
+   myjob: |
+       tox -r
+
 
 Many instructions are available. Just ask the bot by commenting ``jenkins:
 help`` in an open PR!

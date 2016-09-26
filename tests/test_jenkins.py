@@ -1,22 +1,6 @@
 from unittest.mock import Mock, patch
 
 
-@patch('jenkins_epo.jenkins.match')
-@patch('jenkins_epo.jenkins.SETTINGS')
-def test_managed_no_scm(SETTINGS, match):
-    from jenkins_epo.jenkins import FreestyleJob, NotConfiguredSCM
-
-    match.return_value = False
-
-    api_instance = Mock()
-    xml = api_instance._get_config_element_tree.return_value
-    xml.findall.return_value = []
-    api_instance.get_scm_url.side_effect = NotConfiguredSCM()
-
-    job = FreestyleJob(api_instance)
-    assert not job.managed
-
-
 @patch('jenkins_epo.jenkins.SETTINGS')
 def test_freestyle_build(SETTINGS):
     from jenkins_epo.jenkins import FreestyleJob
@@ -277,46 +261,6 @@ def test_create_job(SETTINGS, factory):
     assert factory.mock_calls
 
 
-@patch('jenkins_epo.jenkins.Job')
-@patch('jenkins_epo.jenkins.SETTINGS')
-def test_list_jobs_from_env_missing(SETTINGS, Job):
-    from jenkins_epo.jenkins import LazyJenkins
-
-    SETTINGS.JOBS = ''
-    SETTINGS.JOBS_AUTO = 0
-    Job.jobs_filter = []
-
-    JENKINS = LazyJenkins(Mock())
-
-    jobs = [x for x in JENKINS.get_jobs()]
-
-    assert 0 == len(jobs)
-
-
-@patch('jenkins_epo.jenkins.match')
-@patch('jenkins_epo.jenkins.Job.managed')
-@patch('jenkins_epo.jenkins.JobSpec')
-@patch('jenkins_epo.jenkins.SETTINGS')
-def test_list_jobs_from_jenkins(SETTINGS, JobSpec, managed, match):
-    from jenkins_epo.jenkins import LazyJenkins
-
-    SETTINGS.JOBS = 'match*'
-
-    JENKINS = LazyJenkins(Mock())
-
-    match.side_effect = [False, True]
-    JENKINS._instance.jobs.iterkeys.return_value = ['job1', 'job2']
-    jenkins_job = JENKINS._instance.get_job.return_value
-    jenkins_job._data = {}
-    jenkins_job.name = 'job2'
-
-    jobs = [x for x in JENKINS.get_jobs()]
-
-    assert 1 == len(jobs)
-    job = jobs[0]
-    assert 'job2' == job.name
-
-
 @patch('jenkins_epo.jenkins.SETTINGS')
 @patch('jenkins_epo.jenkins.JobSpec.from_xml')
 def test_job_managed(from_xml, SETTINGS):
@@ -330,6 +274,16 @@ def test_job_managed(from_xml, SETTINGS):
     job._instance.get_scm_url.return_value = []
 
     assert job.managed
+
+
+@patch('jenkins_epo.jenkins.LazyJenkins.load')
+@patch('jenkins_epo.jenkins.Job.factory')
+@patch('jenkins_epo.jenkins.SETTINGS')
+def test_get_job(SETTINGS, factory, load):
+    from jenkins_epo.jenkins import LazyJenkins
+    my = LazyJenkins()
+    my._instance = Mock()
+    my.get_job('name')
 
 
 @patch('jenkins_epo.jenkins.Job.factory')

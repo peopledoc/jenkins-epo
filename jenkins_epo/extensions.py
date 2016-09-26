@@ -20,6 +20,9 @@ import random
 import re
 import socket
 
+from jenkins_yml import Job as JobSpec
+from jenkinsapi.custom_exceptions import UnknownJob
+
 from .bot import Extension, Error
 from .github import GITHUB, ApiNotFoundError
 from .jenkins import JENKINS
@@ -98,7 +101,7 @@ jenkins: reset-skip-errors
 
         for spec in self.current.job_specs.values():
             job = self.current.jobs[spec.name]
-            if not job.is_enabled() or not job.push_trigger:
+            if not job.is_enabled():
                 self.current.skip.append(re.compile(spec.name))
 
             not_built = self.current.head.filter_not_built_contexts(
@@ -151,6 +154,11 @@ jenkins: reset-skip-errors
 class CreateJobsExtension(Extension):
     stage = '00'
 
+    DEFAULTS = {
+        'jobs': {},
+        'job_specs': {},
+    }
+
     SETTINGS = {
         'JOBS_COMMAND': 'jenkins-yml-runner',
         # Jenkins credentials used to clone
@@ -168,6 +176,39 @@ Failed to create or update Jenkins job `%(name)s`.
 ```
 """
 
+    def list_job_specs(self, jenkins_yml=None):
+        defaults = dict(
+            node=SETTINGS.JOBS_NODE,
+            command=SETTINGS.JOBS_COMMAND,
+            github_repository=self.current.head.repository.url,
+            scm_credentials=SETTINGS.JOBS_CREDENTIALS,
+            set_commit_status=not SETTINGS.DRY_RUN,
+        )
+
+        jenkins_yml = jenkins_yml or '{}'
+        jobs = {}
+        for job in JobSpec.parse_all(jenkins_yml, defaults=defaults):
+            job.repository = self.current.head.repository
+            jobs[job.name] = job
+
+        return jobs
+
+    def process_job_specs(self):
+        for spec in self.current.job_specs.values():
+            current_job = self.current.jobs.get(spec.name)
+
+            if current_job:
+                if current_job.spec.contains(spec):
+                    continue
+
+                jenkins_spec = current_job.spec.merge(spec)
+                action = JENKINS.update_job
+            else:
+                jenkins_spec = spec
+                action = JENKINS.create_job
+
+            yield action, jenkins_spec
+
     def run(self):
         head = self.current.head
 
@@ -179,61 +220,41 @@ Failed to create or update Jenkins job `%(name)s`.
         except ApiNotFoundError:
             jenkins_yml = None
 
-        defaults = dict(
-            node=SETTINGS.JOBS_NODE,
-            command=SETTINGS.JOBS_COMMAND,
-            github_repository=head.repository.url,
-            scm_credentials=SETTINGS.JOBS_CREDENTIALS,
-            set_commit_status=not SETTINGS.DRY_RUN,
-        )
+        self.current.job_specs = self.list_job_specs(jenkins_yml)
+        self.current.jobs = head.repository.jobs
 
-        self.current.job_specs = head.repository.list_job_specs(
-            jenkins_yml, defaults,
-        )
-        self.current.jobs = {job.name: job for job in head.repository.jobs}
-
-        for spec in self.current.job_specs.values():
-            if spec.name in self.current.jobs:
-                current_job = self.current.jobs[spec.name]
-                if not current_job.is_enabled():
-                    continue
-
-                if current_job.spec.contains(spec):
-                    continue
-
-                jenkins_spec = current_job.spec.merge(spec)
-                executer = JENKINS.update_job
-            else:
-                jenkins_spec = spec
-                executer = JENKINS.create_job
-
+        for name in self.current.job_specs:
+            if name in self.current.jobs:
+                continue
             try:
-                job = executer(jenkins_spec)
+                self.current.jobs[name] = JENKINS.get_job(name)
+            except UnknownJob:
+                pass
+
+        for action, spec in self.process_job_specs():
+            try:
+                job = action(spec)
             except Exception as e:
-                detail = (
-                    e.args[0]
-                    .replace('\\n', '\n')
-                    .replace('\\t', '\t')
-                )
-                logger.error(
-                    "Failed to manage job %r:\n%s", spec.name, detail
-                )
-                self.current.errors.append(Error(
-                    self.JOB_ERROR_COMMENT % dict(
-                        name=spec.name, error=e, detail=detail,
-                    ),
-                    self.current.commit_date,
-                ))
+                self.current.errors.append(self.process_error(spec, e))
             else:
                 if job:
-                    self.current.jobs[spec.name] = job
+                    self.current.jobs[job.name] = job
 
-        head.repository.jobs = list(self.current.jobs.values())
-
-        for job in self.current.jobs.values():
-            if job.name not in self.current.job_specs:
-                logger.debug("Using Jenkins job spec for %s.", job)
-                self.current.job_specs[job.name] = job.spec
+    def process_error(self, spec, e):
+        detail = (
+            e.args[0]
+            .replace('\\n', '\n')
+            .replace('\\t', '\t')
+        )
+        logger.error(
+            "Failed to manage job %r:\n%s", spec.name, detail
+        )
+        return Error(
+            self.JOB_ERROR_COMMENT % dict(
+                name=spec.name, error=e, detail=detail,
+            ),
+            self.current.commit_date,
+        )
 
 
 def format_duration(duration):

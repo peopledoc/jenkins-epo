@@ -15,7 +15,6 @@
 import logging
 
 from .github import GITHUB, cached_request
-from .jenkins import JENKINS
 from .repository import Repository
 from .settings import SETTINGS
 from .utils import retry
@@ -26,7 +25,6 @@ logger = logging.getLogger(__name__)
 
 def list_repositories(with_settings=False):
     repositories = {}
-    ignored_remotes = set()
 
     env_repos = filter(None, SETTINGS.REPOSITORIES.split(' '))
     for entry in env_repos:
@@ -40,47 +38,19 @@ def list_repositories(with_settings=False):
             logger.warn("Failed to fetch repo %s: %s", repository, e)
             continue
 
+        if repository in repositories:
+            continue
+
         repositories[repository] = repository
         logger.debug("Managing %s.", repository)
 
-    logger.debug("GET jobs from Jenkins.")
-    jobs = JENKINS.get_jobs()
-    for job in jobs:
-        for remote in job.get_scm_url():
-            if remote in ignored_remotes:
-                continue
-
-            try:
-                repository = Repository.from_remote(remote)
-            except Exception as e:
-                logger.warn("Failed to fetch repo %s: %s", remote, e)
-                continue
-
-            if repository not in repositories:
-                if SETTINGS.REPOSITORIES_AUTO:
-                    logger.debug("Managing %s.", repository)
-                    repositories[repository] = repository
-                else:
-                    logger.debug("Ignoring %s.", repository)
-                    ignored_remotes.add(remote)
-                    continue
-            else:
-                repository = repositories[repository]
-
-            logger.info("Managing %s.", job)
-            repository.jobs.append(job)
-            break
-        else:
-            logger.debug("Skipping %s, no GitHub repository.", job)
-
-    for repo in sorted(repositories.values(), key=str):
         try:
             if with_settings:
-                logger.info("Loading %s.", repo)
-                repo.load_settings()
-            yield repo
+                logger.info("Loading %s.", repository)
+                repository.load_settings()
+            yield repository
         except Exception as e:
-            logger.error("Failed to load %s repository: %r", repo, e)
+            logger.error("Failed to load %s repository: %r", repository, e)
 
 
 @retry(wait_fixed=15000)
