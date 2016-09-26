@@ -19,7 +19,6 @@ import logging
 import re
 
 from github import ApiError
-from jenkins_yml import Job as JobSpec
 import yaml
 
 from .github import cached_request, GITHUB, ApiNotFoundError
@@ -75,7 +74,7 @@ class Repository(object):
     def __init__(self, owner, name, jobs=None):
         self.owner = owner
         self.name = name
-        self.jobs = jobs or []
+        self.jobs = jobs or {}
         self.SETTINGS = Bunch()
 
     def __eq__(self, other):
@@ -256,23 +255,6 @@ class Repository(object):
         logger.debug("Repository settings:")
         for k, v in sorted(self.SETTINGS.items()):
             logger.debug("%s=%r", k, v)
-
-    def list_contexts(self):
-        for job in self.jobs:
-            for context in job.list_contexts():
-                yield context
-
-    def list_job_specs(self, jenkins_yml=None, defaults={}):
-        jenkins_yml = jenkins_yml or '{}'
-        ret = {}
-        for job in self.jobs:
-            ret[str(job)] = job.spec
-
-        for job in JobSpec.parse_all(jenkins_yml, defaults=defaults):
-            job.repository = self
-            ret[str(job)] = job
-
-        return ret
 
     @retry(wait_fixed=15000)
     def report_issue(self, title, body):
