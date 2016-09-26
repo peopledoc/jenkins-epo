@@ -100,6 +100,9 @@ jenkins: reset-skip-errors
             ))
 
         for spec in self.current.job_specs.values():
+            if spec.config.get('periodic'):
+                continue
+
             job = self.current.jobs[spec.name]
             if not job.is_enabled():
                 self.current.skip.append(re.compile(spec.name))
