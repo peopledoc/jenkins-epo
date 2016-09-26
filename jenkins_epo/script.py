@@ -14,6 +14,7 @@
 
 import os
 import logging.config
+import pkg_resources
 import traceback
 import sys
 
@@ -79,7 +80,8 @@ def entrypoint(argv=None):
 
     logging.config.dictConfig(logging_config)
 
-    logger.info("Starting jenkins-epo")
+    distribution = pkg_resources.get_distribution('jenkins-epo')
+    logger.info("Starting jenkins-epo %s.", distribution.version)
     logger.debug("Debug mode enabled")
 
     # Import modules after logging is setup
