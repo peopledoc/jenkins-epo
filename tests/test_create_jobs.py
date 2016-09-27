@@ -91,7 +91,7 @@ def test_jenkins_create_success(GITHUB, JENKINS, SETTINGS, process_job_specs):
     ext.current = ext.bot.current
     ext.current.head.repository.jobs = {}
 
-    GITHUB.fetch_file_contents.return_value = '{new_job: toto}'
+    GITHUB.fetch_file_contents.return_value = '{new_job: {periodic: true}}'
     JENKINS.get_job.side_effect = UnknownJob('POUET')
     JENKINS.create_job.return_value.name = 'new_job'
     process_job_specs.return_value = [(JENKINS.create_job, Mock())]

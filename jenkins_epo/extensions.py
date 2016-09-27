@@ -100,6 +100,9 @@ jenkins: reset-skip-errors
             ))
 
         for spec in self.current.job_specs.values():
+            if spec.config.get('periodic'):
+                continue
+
             job = self.current.jobs[spec.name]
             if not job.is_enabled():
                 self.current.skip.append(re.compile(spec.name))
@@ -232,13 +235,22 @@ Failed to create or update Jenkins job `%(name)s`.
                 pass
 
         for action, spec in self.process_job_specs():
+            job = None
             try:
                 job = action(spec)
             except Exception as e:
                 self.current.errors.append(self.process_error(spec, e))
-            else:
-                if job:
-                    self.current.jobs[job.name] = job
+
+            if not job:
+                continue
+
+            self.current.jobs[job.name] = job
+
+            if spec.config.get('periodic'):
+                self.current.head.push_status(CommitStatus(
+                    context=job.name, state='success',
+                    target_url=job.baseurl, description='Created!',
+                ))
 
     def process_error(self, spec, e):
         detail = (

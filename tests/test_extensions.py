@@ -120,6 +120,7 @@ def test_skip_disabled_job():
     job.is_enabled.return_value = False
     spec = Mock()
     spec.name = 'job-disabled'
+    spec.config = dict()
     bot.current.job_specs = {'job-disabled': spec}
     bot.current.jobs = {'job-disabled': job}
     bot.current.head.filter_not_built_contexts.return_value = ['job-disabled']
@@ -143,6 +144,19 @@ def test_build():
     bot.current.job_specs = {'job': spec}
     bot.current.jobs = {'job': job}
     bot.current.statuses = {}
+
+    bot.extensions_map['builder'].run()
+
+
+def test_builder_ignore_perioddc():
+    from jenkins_epo.bot import Bot
+
+    bot = Bot().workon(Mock())
+    spec = Mock()
+    spec.name = 'job'
+    spec.config = dict(periodic=True)
+
+    bot.current.job_specs = {'job': spec}
 
     bot.extensions_map['builder'].run()
 
