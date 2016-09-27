@@ -38,6 +38,10 @@ class EnvironmentSettings(Bunch):
             except (TypeError, ValueError):
                 pass
             self[k] = v
+
+            if 'TOKEN' in k:
+                v = v[:8] if v and len(v) > 8 else 'X' * 8
+
             logger.debug("%s=%r", k, v)
 
 
