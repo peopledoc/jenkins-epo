@@ -14,7 +14,8 @@ Implements extended CI features on top of Jenkins and GitHub for in-house CI.
 Features
 ========
 
-- Define jobs from repository in `jenkins.yml <https://github.com/novafloss/jenkins-yml>`.
+- Define jobs from repository in `jenkins.yml
+  <https://github.com/novafloss/jenkins-yml>`_.
 - Query GitHub API to poll open PR instead of polling git repository.
 - Read instructions from PR comments.
 - Report issue on broken protected branches.
