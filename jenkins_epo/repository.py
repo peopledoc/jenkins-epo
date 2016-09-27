@@ -150,25 +150,19 @@ class Repository(object):
     @retry(wait_fixed=15000)
     def load_settings(self):
         try:
-            ghp_yml = GITHUB.fetch_file_contents(self, '.github/ghp.yml')
-            logger.debug("Loading settings from .github/ghp.yml")
-        except ApiNotFoundError:
-            ghp_yml = '{}'
-
-        try:
             jenkins_yml = GITHUB.fetch_file_contents(self, 'jenkins.yml')
             logger.debug("Loading settings from jenkins.yml")
         except ApiNotFoundError:
             jenkins_yml = '{}'
 
-        if 'reviewers' in ghp_yml + jenkins_yml:
+        if 'reviewers' in jenkins_yml:
             logger.debug("Reviewers defined manually.")
             collaborators = []
         else:
             collaborators = cached_request(GITHUB.repos(self).collaborators)
 
         # Save a call to GITHUB if branches is defined in YML.
-        if 'branches' in ghp_yml + jenkins_yml:
+        if 'branches' in jenkins_yml:
             logger.debug("Protected branches defined manually.")
             branches = []
         else:
@@ -179,7 +173,6 @@ class Repository(object):
         self.process_settings(
             branches=branches,
             collaborators=collaborators,
-            ghp_yml=ghp_yml,
             jenkins_yml=jenkins_yml,
         )
 
@@ -197,7 +190,7 @@ class Repository(object):
             c['permissions']['push']
         )]
 
-    def process_settings(self, branches=None, collaborators=None, ghp_yml=None, jenkins_yml=None):  # noqa
+    def process_settings(self, branches=None, collaborators=None, jenkins_yml=None):  # noqa
         if self.SETTINGS:
             return
 
@@ -206,17 +199,13 @@ class Repository(object):
             REVIEWERS=self.process_reviewers(collaborators),
         )
 
-        data = yaml.load(ghp_yml or '{}')
-        assert hasattr(data, 'items'), "Not yml dict/hash"
         jenkins_yml = yaml.load(jenkins_yml or '{}')
         assert hasattr(jenkins_yml, 'items'), "Not yml dict/hash"
         settings = jenkins_yml.get('settings', {})
         assert hasattr(settings, 'items'), "Not yml dict/hash"
-        data.update(settings)
-
         local_settings = {
             k.upper(): v
-            for k, v in data.items()
+            for k, v in settings.items()
         }
 
         all_settings = {}
