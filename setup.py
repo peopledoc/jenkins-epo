@@ -59,8 +59,8 @@ setup(
     packages=['jenkins_epo'],
     description='Jenkins EPO',
     author=', '.join([
-        'James Pic <james.pic@people-doc.com>',
         'Étienne BERSAC <etienne.bersac@people-doc.com>',
+        'James Pic <james.pic@people-doc.com>',
     ]),
     author_email='rd@novapost.fr',
     classifiers=[
