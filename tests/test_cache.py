@@ -1,7 +1,7 @@
 from datetime import timedelta
 from unittest.mock import patch, MagicMock
 
-from freezegun import freeze_time
+from libfaketime import fake_time
 import pytest
 
 
@@ -14,7 +14,7 @@ def test_purge(SETTINGS):
     from jenkins_epo.cache import MemoryCache
 
     cache = MemoryCache()
-    with freeze_time('2012-12-21 00:00:00 UTC') as time:
+    with fake_time('2012-12-21 00:00:00 UTC') as time:
         cache.set('key', 'data')
         cache.purge()
         data = cache.get('key')
