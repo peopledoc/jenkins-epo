@@ -26,7 +26,7 @@ Features
 Installation
 ============
 
-On poller your host:
+On your poller host:
 
 ::
 
