@@ -46,7 +46,7 @@ setup(
         ],
     },
     extras_require={
-        'release': ['wheel', 'zest.releaser'],
+        'release': ['wheel'],
         'test': ['libfaketime', 'pytest', 'pytest-cov', 'pytest-logging'],
     },
     install_requires=[
