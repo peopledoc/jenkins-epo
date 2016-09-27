@@ -17,6 +17,7 @@ from __future__ import absolute_import
 import datetime
 import logging
 import re
+from urllib.parse import quote as quoteurl
 
 from github import ApiError
 import yaml
@@ -480,8 +481,9 @@ class PullRequest(Head):
     def is_behind(self):
         base = self.payload['base']['label']
         head = self.payload['head']['label']
+        compare = '%s...%s' % (base, head)
         comparison = cached_request(
-            GITHUB.repos(self.repository).compare('%s...%s' % (base, head))
+            GITHUB.repos(self.repository).compare(quoteurl(compare))
         )
         return comparison['behind_by']
 
