@@ -32,7 +32,7 @@ if 'install' not in sys.argv or 0 != os.getuid():
 
 setup(
     name='jenkins-epo',
-    version='1.49',
+    version='1.50',
     entry_points={
         'console_scripts': ['jenkins-epo=jenkins_epo.script:entrypoint'],
         'jenkins_epo.bot.extensions': [
