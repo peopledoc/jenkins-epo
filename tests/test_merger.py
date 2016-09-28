@@ -119,7 +119,7 @@ def test_merge_fail():
     ext.current = Mock()
     ext.current.opm = Mock(author='reviewer')
     ext.current.opm_denied = []
-    ext.current.merge_failed = None
+    ext.current.last_merge_error = None
     ext.current.head.fetch_combined_status.return_value = {'state': 'success'}
     ext.current.head.merge.side_effect = ApiError('url', {}, dict(json=dict(
         message="unmergeable",
@@ -139,21 +139,20 @@ def test_merge_already_failed():
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
     ext.current.SETTINGS.REVIEWERS = ['reviewer']
-    ext.current.merge_failed = None
     ext.current.commit_date = datetime.now()
     ext.current.opm_denied = []
 
     date_opm = ext.current.commit_date + timedelta(minutes=30)
     date_failed = ext.current.commit_date + timedelta(hours=1)
 
-    ext.process_instruction(
-        Instruction(author='reviewer', name='opm', date=date_opm)
-    )
-    ext.process_instruction(
-        Instruction(author='bot', name='merge-failed', date=date_failed)
-    )
+    ext.process_instruction(Instruction(
+        author='reviewer', name='opm', date=date_opm
+    ))
+    ext.process_instruction(Instruction(
+        author='bot', name='last-merge-error', args='error', date=date_failed
+    ))
 
-    assert ext.current.merge_failed
+    assert 'error' == ext.current.last_merge_error.args
 
     ext.current.head.fetch_combined_status.return_value = {'state': 'success'}
     ext.current.head.merge.side_effect = ApiError('url', {}, dict(json=dict(
@@ -162,25 +161,7 @@ def test_merge_already_failed():
 
     ext.run()
 
-    assert not ext.current.head.merge.mock_calls
-
-
-def test_merge_failed_updated():
-    from jenkins_epo.bot import Instruction
-    from jenkins_epo.extensions import MergerExtension
-
-    ext = MergerExtension('merger', Mock())
-    ext.current = Mock()
-    ext.current.merge_failed = None
-    ext.current.commit_date = datetime.now()
-
-    date_failed = ext.current.commit_date - timedelta(hours=1)
-
-    ext.process_instruction(Instruction(
-        author='bot', name='merge-failed', date=date_failed,
-    ))
-
-    assert not ext.current.merge_failed
+    assert not ext.current.head.comment.mock_calls
 
 
 def test_merge_success():
@@ -188,13 +169,10 @@ def test_merge_success():
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.LGTM_QUORUM = 1
-    ext.current.SETTINGS.LGTM_AUTHOR = False
     ext.current.opm = Mock(author='author')
     ext.current.opm_denied = []
-    ext.current.merge_failed = None
+    ext.current.last_merge_error = None
     ext.current.head.fetch_combined_status.return_value = {'state': 'success'}
-    ext.current.head.ref = 'branchname'
 
     ext.run()
 

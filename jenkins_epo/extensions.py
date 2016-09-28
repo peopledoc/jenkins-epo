@@ -483,7 +483,7 @@ class MergerExtension(Extension):
     DEFAULTS = {
         'opm': None,
         'opm_denied': [],
-        'merge_failed': None,
+        'last_merge_error': None,
     }
 
     OPM_COMMENT = """
@@ -494,14 +494,21 @@ jenkins: opm-processed
 -->
 """
 
+    MERGE_ERROR_COMMENT = """
+%(mention)s, %(message)s %(emoji)s
+
+<!--
+jenkins: {last-merge-error: %(messages)r}
+-->
+"""
+
     def process_instruction(self, instruction):
         if instruction in {'lgtm', 'merge', 'opm'}:
             self.process_opm(instruction)
         elif instruction in {'lgtm-processed', 'opm-processed'}:
             self.current.opm_denied[:] = []
-        elif instruction == 'merge-failed':
-            if instruction.date > self.current.commit_date:
-                self.current.merge_failed = instruction.date
+        elif instruction == 'last-merge-error':
+            self.current.last_merge_error = instruction
 
     def process_opm(self, opm):
         if not hasattr(self.current.head, 'merge'):
@@ -534,22 +541,22 @@ jenkins: opm-processed
         if status['state'] != 'success':
             return logger.debug("PR not green. Postpone merge.")
 
-        if self.current.merge_failed:
-            return logger.debug("Merge already failed. Skipping.")
-
         try:
             self.current.head.merge()
         except ApiError as e:
-            logger.warn("Failed to merge: %s", e.response['json']['message'])
+            error = e.response['json']['message']
+            if self.current.last_merge_error:
+                last_error = self.current.last_merge_error.args
+                if error == last_error:
+                    return logger.debug("Merge still failing: %s", error)
+
+            logger.warn("Failed to merge: %s", error)
             self.current.head.comment(body=self.OPM_COMMENT % dict(
                 emoji=random.choice((':confused:', ':disappointed:')),
-                mention='@' + self.current.opm.author,
-                message="I can't merge: `%s`" % (
-                    e.response['json']['message']
-                ),
+                mention='@' + self.current.opm.author, message=error,
             ))
         else:
-            logger.warn("Merged %s!", self.current.head.ref)
+            logger.warn("Merged %s!", self.current.head)
 
 
 class ReportExtension(Extension):
