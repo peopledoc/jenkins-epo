@@ -132,21 +132,6 @@ def test_reviewers():
     assert 'owner' in reviewers
 
 
-@patch('jenkins_epo.repository.cached_request')
-def test_is_behind(cache_request):
-    from jenkins_epo.repository import PullRequest
-
-    head = PullRequest(
-        Mock(),
-        dict(
-            base=dict(label='owner:master'),
-            head=dict(label='owner:pr', ref='pr', sha='d0d0'),
-        )
-    )
-    cache_request.return_value = dict(behind_by=3)
-    assert head.is_behind()
-
-
 @patch('jenkins_epo.repository.Head.push_status')
 def test_process_status(push_status):
     from jenkins_epo.repository import Head, CommitStatus
