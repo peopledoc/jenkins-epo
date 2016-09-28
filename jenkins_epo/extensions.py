@@ -483,7 +483,12 @@ class MergerExtension(Extension):
     DEFAULTS = {
         'opm': None,
         'opm_denied': [],
+        'opm_processed': None,
         'last_merge_error': None,
+    }
+
+    SETTINGS = {
+        'WIP_TITLE': 'wip*,[wip*',
     }
 
     OPM_COMMENT = """
@@ -502,11 +507,26 @@ jenkins: {last-merge-error: %(messages)r}
 -->
 """
 
+    def begin(self):
+        super(MergerExtension, self).begin()
+
+        if hasattr(self.current.head, 'merge'):
+            patterns = [
+                p.lower()
+                for p in self.current.SETTINGS.WIP_TITLE.split(',')
+                if p
+            ]
+            title = self.current.head.payload['title'].lower()
+            self.current.wip = match(title, patterns)
+            if self.current.wip:
+                logger.debug("%s is a WIP.", self.current.head)
+
     def process_instruction(self, instruction):
         if instruction in {'lgtm', 'merge', 'opm'}:
             self.process_opm(instruction)
         elif instruction in {'lgtm-processed', 'opm-processed'}:
             self.current.opm_denied[:] = []
+            self.current.opm_processed = instruction
         elif instruction == 'last-merge-error':
             self.current.last_merge_error = instruction
 
@@ -539,6 +559,21 @@ jenkins: {last-merge-error: %(messages)r}
         if not self.current.opm:
             return
         logger.debug("Accept to merge for @%s.", self.current.opm.author)
+
+        if self.current.wip:
+            logger.info("Not merging WIP PR.")
+            proc = self.current.opm_processed
+            if proc and proc.date > self.current.opm.date:
+                return
+
+            self.current.head.comment(body=self.OPM_COMMENT % dict(
+                emoji=random.choice((
+                    ':confused:', ':hushed:', ':no_mouth:', ':open_mouth:',
+                )),
+                mention='@' + self.current.opm.author,
+                message="this PR is still WIP",
+            ))
+            return
 
         status = self.current.head.fetch_combined_status()
         if status['state'] != 'success':
