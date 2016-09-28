@@ -550,13 +550,6 @@ jenkins: lgtm-processed
                 return logger.debug("Author's LGTM missing. Skipping.")
         return True
 
-    def check_statuses(self):
-        unsuccess = {
-            k: v for k, v in self.current.statuses.items()
-            if v['state'] != 'success'
-        }
-        return not unsuccess
-
     def run(self):
         denied = {i.author for i in self.current.lgtm_denied}
         if denied:
@@ -571,7 +564,8 @@ jenkins: lgtm-processed
         reviewers = sorted(self.current.lgtm)
         logger.debug("Accepted LGTMs from %s.", ', '.join(reviewers))
 
-        if not self.check_statuses():
+        status = self.current.head.fetch_combined_status()
+        if status['state'] != 'success':
             return logger.debug("PR not green. Postpone merge.")
 
         if self.current.merge_failed:

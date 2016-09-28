@@ -248,3 +248,16 @@ def test_filter_contextes():
     assert 'queued' in not_built
     assert 'running' not in not_built
     assert 'skipped' in not_built
+
+
+@patch('jenkins_epo.repository.cached_request')
+def test_fetch_combined(cached_request):
+    from jenkins_epo.repository import PullRequest
+
+    pr = PullRequest(
+        Mock(), payload=dict(number='1', head=dict(ref='x', sha='x'))
+    )
+
+    ret = pr.fetch_combined_status()
+
+    assert ret == cached_request.return_value

@@ -289,6 +289,12 @@ class Head(object):
         return self.commit
 
     @retry(wait_fixed=15000)
+    def fetch_combined_status(self):
+        return cached_request(
+            GITHUB.repos(self.repository).commits(self.sha).status,
+        )
+
+    @retry(wait_fixed=15000)
     def fetch_statuses(self):
         if SETTINGS.IGNORE_STATUSES:
             logger.debug("Skip GitHub statuses.")

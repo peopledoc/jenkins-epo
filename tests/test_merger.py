@@ -159,10 +159,11 @@ def test_not_green():
     ext.current.SETTINGS.LGTM_AUTHOR = False
     ext.current.lgtm = {'reviewer': Mock()}
     ext.current.lgtm_denied = []
-    ext.current.statuses = {'pending-job': {'state': 'pending'}}
+    ext.current.head.fetch_combined_status.return_value = {'state': 'error'}
 
-    ret = ext.check_statuses()
-    assert not ret
+    ext.run()
+
+    assert not ext.current.head.merge.mock_calls
 
 
 def test_merge_fail():
@@ -175,7 +176,7 @@ def test_merge_fail():
     ext.current.lgtm = {'reviewer': Mock()}
     ext.current.lgtm_denied = []
     ext.current.merge_failed = None
-    ext.current.statuses = {}
+    ext.current.head.fetch_combined_status.return_value = {'state': 'success'}
     ext.current.head.author = 'author'
     ext.current.head.merge.side_effect = ApiError('url', {}, dict(json=dict(
         message="unmergeable",
@@ -208,7 +209,7 @@ def test_merge_already_failed():
     ext.current.lgtm_denied = []
     ext.current.SETTINGS.LGTM_QUORUM = 0
     ext.current.SETTINGS.LGTM_AUTHOR = False
-    ext.current.statuses = {}
+    ext.current.head.fetch_combined_status.return_value = {'state': 'success'}
     ext.current.head.author = 'author'
 
     ext.run()
@@ -243,7 +244,7 @@ def test_merge_success():
     ext.current.lgtm = {'reviewer': Mock()}
     ext.current.lgtm_denied = []
     ext.current.merge_failed = None
-    ext.current.statuses = {}
+    ext.current.head.fetch_combined_status.return_value = {'state': 'success'}
     ext.current.head.author = 'author'
     ext.current.head.ref = 'branchname'
 
