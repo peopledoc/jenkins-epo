@@ -477,6 +477,14 @@ class PullRequest(Head):
         )
 
     @retry(wait_fixed=15000)
+    def delete_branch(self):
+        if GITHUB.dry:
+            return logger.info("Would delete branch %s", self.ref)
+
+        logger.warn("Deleting branch %s.", self.ref)
+        GITHUB.repos(self.repository).git.refs.heads(self.ref).delete()
+
+    @retry(wait_fixed=15000)
     def list_comments(self):
         logger.debug("Queyring comments for instructions")
         issue = GITHUB.repos(self.repository).issues(self.payload['number'])
