@@ -557,6 +557,7 @@ jenkins: {last-merge-error: %(messages)r}
             ))
         else:
             logger.warn("Merged %s!", self.current.head)
+            self.current.head.delete_branch()
 
 
 class ReportExtension(Extension):

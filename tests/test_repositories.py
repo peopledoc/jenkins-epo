@@ -246,3 +246,23 @@ def test_fetch_combined(cached_request):
     ret = pr.fetch_combined_status()
 
     assert ret == cached_request.return_value
+
+
+@patch('jenkins_epo.repository.GITHUB')
+def test_delete_branch(GITHUB):
+    from jenkins_epo.repository import PullRequest
+
+    GITHUB.dry = False
+
+    pr = PullRequest(Mock(), payload=dict(head=dict(ref='x', sha='x')))
+    pr.delete_branch()
+    assert GITHUB.repos.mock_calls
+
+
+@patch('jenkins_epo.repository.GITHUB')
+def test_delete_branch_dry(GITHUB):
+    from jenkins_epo.repository import PullRequest
+
+    pr = PullRequest(Mock(), payload=dict(head=dict(ref='x', sha='x')))
+    pr.delete_branch()
+    assert not GITHUB.repos.mock_calls

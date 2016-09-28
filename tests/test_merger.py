@@ -178,3 +178,4 @@ def test_merge_success():
 
     assert ext.current.head.merge.mock_calls
     assert not ext.current.head.comment.mock_calls
+    assert ext.current.head.delete_branch.mock_calls
