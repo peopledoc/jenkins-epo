@@ -528,7 +528,10 @@ jenkins: {last-merge-error: %(messages)r}
         denied = {i.author for i in self.current.opm_denied}
         if denied:
             self.current.head.comment(body=self.OPM_COMMENT % dict(
-                emoji=random.choice((':confused:', ':disappointed:')),
+                emoji=random.choice((
+                    ':confused:', ':cry:', ':disappointed:', ':frowning:',
+                    ':scream:',
+                )),
                 mention=', '.join(sorted(['@' + a for a in denied])),
                 message="you're not allowed to acknowledge PR",
             ))
