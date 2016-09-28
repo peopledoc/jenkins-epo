@@ -2,6 +2,22 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock
 
 
+def test_detect_wip():
+    from jenkins_epo.extensions import MergerExtension
+
+    ext = MergerExtension('merger', Mock())
+    ext.current = Mock()
+    ext.current.SETTINGS.WIP_TITLE = MergerExtension.SETTINGS['WIP_TITLE']
+
+    ext.current.head.payload = dict(title='WIP bla')
+    ext.begin()
+    assert True is ext.current.wip
+
+    ext.current.head.payload = dict(title='[WIP] bla')
+    ext.begin()
+    assert True is ext.current.wip
+
+
 def test_skip_non_pr():
     from jenkins_epo.extensions import MergerExtension
 
@@ -98,6 +114,37 @@ def test_accept_lgtm():
     assert not ext.current.opm_denied
 
 
+def test_merge_wip():
+    from jenkins_epo.extensions import MergerExtension
+
+    ext = MergerExtension('merger', Mock())
+    ext.current = Mock()
+    ext.current.SETTINGS.REVIEWERS = ['reviewer']
+    ext.current.commit_date = datetime.now()
+    ext.current.opm.author = 'reviewer'
+    ext.current.opm.date = datetime.now()
+    ext.current.opm_denied = []
+    ext.current.opm_processed = None
+    ext.current.wip = True
+
+    ext.run()
+
+    assert ext.current.head.comment.mock_calls
+    body = ext.current.head.comment.call_args[1]['body']
+    assert '@reviewer' in body
+    assert not ext.current.head.merge.mock_calls
+
+    ext.current.head.comment.reset_mock()
+    ext.current.opm_processed = Mock(
+        date=ext.current.opm.date + timedelta(minutes=5)
+    )
+
+    ext.run()
+
+    assert not ext.current.head.comment.mock_calls
+    assert not ext.current.head.merge.mock_calls
+
+
 def test_not_green():
     from jenkins_epo.extensions import MergerExtension
 
@@ -106,10 +153,11 @@ def test_not_green():
     ext.current.opm = Mock()
     ext.current.opm_denied = []
     ext.current.head.fetch_combined_status.return_value = {'state': 'error'}
+    ext.current.wip = None
 
     ext.run()
 
-    assert not ext.current.head.merge.mock_calls
+    assert not ext.current.head.comment.mock_calls
 
 
 def test_merge_fail():
@@ -117,12 +165,15 @@ def test_merge_fail():
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.opm = Mock(author='reviewer')
+    ext.current.SETTINGS.REVIEWERS = ['reviewer']
+    ext.current.commit_date = datetime.now()
+    ext.current.opm.author = 'reviewer'
     ext.current.opm_denied = []
-    ext.current.last_merge_error = None
+    ext.current.wip = None
+
     ext.current.head.fetch_combined_status.return_value = {'state': 'success'}
     ext.current.head.merge.side_effect = ApiError('url', {}, dict(json=dict(
-        message="unmergeable",
+        message="error",
     )))
 
     ext.run()
@@ -141,6 +192,7 @@ def test_merge_already_failed():
     ext.current.SETTINGS.REVIEWERS = ['reviewer']
     ext.current.commit_date = datetime.now()
     ext.current.opm_denied = []
+    ext.current.wip = None
 
     date_opm = ext.current.commit_date + timedelta(minutes=30)
     date_failed = ext.current.commit_date + timedelta(hours=1)
@@ -173,6 +225,7 @@ def test_merge_success():
     ext.current.opm_denied = []
     ext.current.last_merge_error = None
     ext.current.head.fetch_combined_status.return_value = {'state': 'success'}
+    ext.current.wip = None
 
     ext.run()
 
