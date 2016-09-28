@@ -26,9 +26,9 @@ from jenkinsapi.custom_exceptions import UnknownJob
 from .bot import Extension, Error
 from .github import GITHUB, ApiNotFoundError
 from .jenkins import JENKINS
-from .repository import ApiError, Branch, CommitStatus, PullRequest
+from .repository import ApiError, Branch, CommitStatus
 from .settings import SETTINGS
-from .utils import match, parse_datetime
+from .utils import match
 
 
 logger = logging.getLogger(__name__)
@@ -481,21 +481,16 @@ class MergerExtension(Extension):
     stage = '90'
 
     DEFAULTS = {
-        'lgtm': {},
-        'lgtm_denied': [],
-        'lgtm_processed': None,
+        'opm': None,
+        'opm_denied': [],
         'merge_failed': None,
     }
-    SETTINGS = {
-        'LGTM_AUTHOR': False,
-        'LGTM_QUORUM': 1,
-    }
 
-    LGTM_COMMENT = """
+    OPM_COMMENT = """
 %(mention)s, %(message)s %(emoji)s
 
 <!--
-jenkins: lgtm-processed
+jenkins: opm-processed
 -->
 """
 
@@ -503,66 +498,46 @@ jenkins: lgtm-processed
         super(MergerExtension, self).begin()
 
         if isinstance(self.current.head, PullRequest):
-            # Initialize LGTM processing
-            self.current.lgtm_processed = parse_datetime(
-                self.current.head.payload['created_at']
-            )
-            self.current.is_behind = self.current.head.is_behind()
+           self.current.is_behind = self.current.head.is_behind()
 
     def process_instruction(self, instruction):
         if instruction in {'lgtm', 'merge', 'opm'}:
-            self.process_lgtm(instruction)
-        elif instruction == 'lgtm-processed':
-            self.current.lgtm_denied[:] = []
-            self.current.lgtm_processed = instruction.date
+            self.process_opm(instruction)
+        elif instruction in {'lgtm-processed', 'opm-processed'}:
+            self.current.opm_denied[:] = []
         elif instruction == 'merge-failed':
             if instruction.date > self.current.commit_date:
                 self.current.merge_failed = instruction.date
 
-    def process_lgtm(self, lgtm):
+    def process_opm(self, opm):
         if not hasattr(self.current.head, 'merge'):
-            return logger.debug("LGTM on a non PR. Weird!")
+            return logger.debug("OPM on a non PR. Weird!")
 
         if self.current.is_behind:
-            return logger.debug("Skip LGTM on outdated PR.")
+            return logger.debug("Skip OPM on outdated PR.")
 
-        if lgtm.date < self.current.commit_date:
-            return logger.debug("Skip outdated LGTM.")
+        if opm.date < self.current.commit_date:
+            return logger.debug("Skip outdated OPM.")
 
-        if lgtm.author in self.current.SETTINGS.REVIEWERS:
-            logger.info("Accept @%s as reviewer.", lgtm.author)
-            self.current.lgtm[lgtm.author] = lgtm
+        if opm.author in self.current.SETTINGS.REVIEWERS:
+            logger.info("Accept @%s as reviewer.", opm.author)
+            self.current.opm = opm
         else:
-            logger.info("Refuse LGTM from @%s.", lgtm.author)
-            self.current.lgtm_denied.append(lgtm)
-
-    def check_lgtms(self):
-        lgtms = self.current.lgtm
-        if not lgtms:
-            return
-
-        if len(lgtms) < self.current.SETTINGS.LGTM_QUORUM:
-            return logger.debug("Missing LGTMs quorum. Skipping.")
-
-        if self.current.SETTINGS.LGTM_AUTHOR:
-            self_lgtm = self.current.head.author in lgtms
-            if not self_lgtm:
-                return logger.debug("Author's LGTM missing. Skipping.")
-        return True
+            logger.info("Refuse OPM from @%s.", opm.author)
+            self.current.opm_denied.append(opm)
 
     def run(self):
-        denied = {i.author for i in self.current.lgtm_denied}
+        denied = {i.author for i in self.current.opm_denied}
         if denied:
-            self.current.head.comment(body=self.LGTM_COMMENT % dict(
+            self.current.head.comment(body=self.OPM_COMMENT % dict(
                 emoji=random.choice((':confused:', ':disappointed:')),
                 mention=', '.join(sorted(['@' + a for a in denied])),
                 message="you're not allowed to acknowledge PR",
             ))
 
-        if not self.check_lgtms():
+        if not self.current.opm:
             return
-        reviewers = sorted(self.current.lgtm)
-        logger.debug("Accepted LGTMs from %s.", ', '.join(reviewers))
+        logger.debug("Accept to merge for @%s.", self.current.opm.author)
 
         status = self.current.head.fetch_combined_status()
         if status['state'] != 'success':
@@ -575,9 +550,9 @@ jenkins: lgtm-processed
             self.current.head.merge()
         except ApiError as e:
             logger.warn("Failed to merge: %s", e.response['json']['message'])
-            self.current.head.comment(body=self.LGTM_COMMENT % dict(
+            self.current.head.comment(body=self.OPM_COMMENT % dict(
                 emoji=random.choice((':confused:', ':disappointed:')),
-                mention='@' + self.current.head.author,
+                mention='@' + self.current.opm.author,
                 message="I can't merge: `%s`" % (
                     e.response['json']['message']
                 ),
