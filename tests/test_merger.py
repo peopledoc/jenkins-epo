@@ -11,15 +11,6 @@ def test_skip_non_pr():
     ext.process_opm(Mock())
 
 
-def test_pr_behind_base():
-    from jenkins_epo.extensions import MergerExtension
-
-    ext = MergerExtension('merger', Mock())
-    ext.current = Mock()
-    ext.current.head = Mock()
-    ext.process_opm(Mock())
-
-
 def test_deny_non_reviewer():
     from jenkins_epo.bot import Instruction
     from jenkins_epo.extensions import MergerExtension
@@ -27,7 +18,6 @@ def test_deny_non_reviewer():
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
     ext.current.SETTINGS.REVIEWERS = []
-    ext.current.is_behind = False
     ext.current.commit_date = datetime.now()
     ext.current.opm = {}
     ext.current.opm_denied = []
@@ -73,7 +63,6 @@ def test_deny_non_reviewer_processed():
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
     ext.current.SETTINGS.REVIEWERS = []
-    ext.current.is_behind = False
     ext.current.commit_date = datetime.now()
     ext.current.opm = None
     ext.current.opm_denied = [Instruction(
@@ -89,27 +78,6 @@ def test_deny_non_reviewer_processed():
     assert not ext.current.opm_denied
 
 
-def test_pr_updated():
-    from jenkins_epo.bot import Instruction
-    from jenkins_epo.extensions import MergerExtension
-
-    ext = MergerExtension('merger', Mock())
-    ext.current = Mock()
-    ext.current.SETTINGS.REVIEWERS = ['reviewer']
-    ext.current.is_behind = False
-    ext.current.commit_date = commit_date = datetime.now()
-    ext.current.opm = None
-    ext.current.opm_denied = []
-
-    ext.process_instruction(Instruction(
-        author='reviewer', name='opm',
-        date=commit_date - timedelta(hours=1),
-    ))
-
-    assert not ext.current.opm
-    assert not ext.current.opm_denied
-
-
 def test_accept_lgtm():
     from jenkins_epo.bot import Instruction
     from jenkins_epo.extensions import MergerExtension
@@ -117,7 +85,6 @@ def test_accept_lgtm():
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
     ext.current.SETTINGS.REVIEWERS = ['reviewer']
-    ext.current.is_behind = False
     ext.current.commit_date = commit_date = datetime.now()
     ext.current.opm = None
     ext.current.opm_denied = []
@@ -171,6 +138,7 @@ def test_merge_already_failed():
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
+    ext.current.SETTINGS.REVIEWERS = ['reviewer']
     ext.current.merge_failed = None
     ext.current.commit_date = datetime.now()
     ext.current.opm_denied = []
@@ -179,7 +147,7 @@ def test_merge_already_failed():
     date_failed = ext.current.commit_date + timedelta(hours=1)
 
     ext.process_instruction(
-        Instruction(author='author', name='opm', date=date_opm)
+        Instruction(author='reviewer', name='opm', date=date_opm)
     )
     ext.process_instruction(
         Instruction(author='bot', name='merge-failed', date=date_failed)

@@ -494,12 +494,6 @@ jenkins: opm-processed
 -->
 """
 
-    def begin(self):
-        super(MergerExtension, self).begin()
-
-        if isinstance(self.current.head, PullRequest):
-           self.current.is_behind = self.current.head.is_behind()
-
     def process_instruction(self, instruction):
         if instruction in {'lgtm', 'merge', 'opm'}:
             self.process_opm(instruction)
@@ -512,9 +506,6 @@ jenkins: opm-processed
     def process_opm(self, opm):
         if not hasattr(self.current.head, 'merge'):
             return logger.debug("OPM on a non PR. Weird!")
-
-        if self.current.is_behind:
-            return logger.debug("Skip OPM on outdated PR.")
 
         if opm.date < self.current.commit_date:
             return logger.debug("Skip outdated OPM.")

@@ -17,7 +17,6 @@ from __future__ import absolute_import
 import datetime
 import logging
 import re
-from urllib.parse import quote as quoteurl
 
 from github import ApiError
 import yaml
@@ -482,16 +481,6 @@ class PullRequest(Head):
         logger.debug("Queyring comments for instructions")
         issue = GITHUB.repos(self.repository).issues(self.payload['number'])
         return [self.payload] + cached_request(issue.comments)
-
-    @retry(wait_fixed=15000)
-    def is_behind(self):
-        base = self.payload['base']['label']
-        head = self.payload['head']['label']
-        compare = '%s...%s' % (base, head)
-        comparison = cached_request(
-            GITHUB.repos(self.repository).compare(quoteurl(compare))
-        )
-        return comparison['behind_by']
 
     @retry(wait_fixed=15000)
     def merge(self, message=None):
