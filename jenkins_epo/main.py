@@ -86,6 +86,12 @@ def bot():
     bot = Bot(queue_empty=None)
 
     for head in procedures.iter_heads():
+        try:
+            head.repository.load_settings()
+        except Exception:
+            logger.warn("Fail to load %s settings.", head.repository)
+            continue
+
         head.fetch_commit()
         if head.is_outdated:
             logger.debug(
@@ -117,26 +123,11 @@ def bot():
     )
 
 
-def list_branches():
-    """List branches to build"""
+def list_heads():
+    """List heads to build"""
     procedures.whoami()
-    for repository in procedures.list_repositories(with_settings=True):
-        for branch in repository.load_branches():
-            print(branch)
-
-
-def list_pr():
-    """List GitHub PR polled"""
-    procedures.whoami()
-    for repository in procedures.list_repositories(with_settings=True):
-        for pr in repository.load_pulls():
-            print(pr)
-
-
-def list_repositories():
-    """List GitHub repositories tested by this Jenkins"""
-    for repository in procedures.list_repositories():
-        print(repository)
+    for head in procedures.iter_heads():
+        print(head)
 
 
 def command_exitcode(command_func):
@@ -166,7 +157,7 @@ def main(argv=None):
     argv = argv or sys.argv
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='command', metavar='COMMAND')
-    for command in [bot, list_repositories, list_branches, list_pr]:
+    for command in [bot, list_heads]:
         subparser = subparsers.add_parser(
             command.__name__.replace('_', '-'),
             help=inspect.cleandoc(command.__doc__ or '').split('\n')[0],

@@ -64,8 +64,7 @@ SETTINGS = EnvironmentSettings(defaults={
     'NAME': 'Jenkins GitHub Builder',
     'PR': '',
     'RATE_LIMIT_THRESHOLD': 250,
-    # List repositories and their main branches:
-    #   'owner/repo1:master owner/repo2:master,stable'
+    # List repositories: owner/repo1,owner/repo2
     'REPOSITORIES': '',
     'VERBOSE': '',
     'GITHUB_TOKEN': None,

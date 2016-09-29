@@ -25,29 +25,41 @@ logger = logging.getLogger(__name__)
 
 
 def iter_heads():
-    iterators = []
+    queues = []
 
-    for repository in list_repositories(with_settings=True):
+    for repository in list_repositories():
+        branches = repository.fetch_protected_branches()
+        pulls = repository.fetch_pull_requests()
         heads = reversed(sorted(itertools.chain(
-            repository.load_branches(),
-            repository.load_pulls(),
+            repository.process_protected_branches(branches),
+            repository.process_pull_requests(pulls),
         ), key=lambda head: head.sort_key()))
-        iterators.append(iter(heads))
 
-    while iterators:
-        for heads in iterators[:]:
+        # Yield first head of the repository before loading next repositories.
+        queue = iter(heads)
+        try:
+            yield next(heads)
+        except StopIteration:
+            continue
+        else:
+            queues.append(queue)
+
+    while queues:
+        for queue in queues[:]:
             try:
-                yield next(heads)
+                yield next(queue)
             except (GeneratorExit, StopIteration):
-                iterators.remove(heads)
+                queues.remove(queue)
 
 
 def list_repositories(with_settings=False):
-    repositories = {}
+    repositories = set()
 
-    env_repos = filter(None, SETTINGS.REPOSITORIES.split(' '))
-    for entry in env_repos:
-        repository, branches = (entry + ':').split(':', 1)
+    env_repos = filter(
+        None,
+        SETTINGS.REPOSITORIES.replace(' ', ',').split(',')
+    )
+    for repository in env_repos:
         if repository in repositories:
             continue
         owner, name = repository.split('/')
@@ -60,16 +72,9 @@ def list_repositories(with_settings=False):
         if repository in repositories:
             continue
 
-        repositories[repository] = repository
+        repositories.add(repository)
         logger.debug("Managing %s.", repository)
-
-        try:
-            if with_settings:
-                logger.info("Loading %s.", repository)
-                repository.load_settings()
-            yield repository
-        except Exception as e:
-            logger.error("Failed to load %s repository: %r", repository, e)
+        yield repository
 
 
 @retry(wait_fixed=15000)
