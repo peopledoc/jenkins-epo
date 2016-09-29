@@ -63,7 +63,7 @@ def check_queue(bot):
     first_check = bot.queue_empty is None
     old, bot.queue_empty = bot.queue_empty, JENKINS.is_queue_empty()
     if not bot.queue_empty:
-        yield from asyncio.sleep(5)
+        yield from asyncio.sleep(1)
         bot.queue_empty = JENKINS.is_queue_empty()
     if old == bot.queue_empty:
         return
