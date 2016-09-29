@@ -38,51 +38,55 @@ def test_from_remote(cached_request):
 
 
 @patch('jenkins_epo.repository.cached_request')
-@patch('jenkins_epo.repository.Branch')
-@patch('jenkins_epo.repository.SETTINGS')
-def test_load_branches(SETTINGS, Branch, cached_request):
+def test_fetch_protected_branches(cached_request):
     from jenkins_epo.repository import Repository
 
-    repo = Repository('owner', 'name')
-    repo.SETTINGS.BRANCHES = ['refs/heads/master']
-
-    heads = list(repo.load_branches())
-
-    assert 1 == len(heads)
-    assert Branch.return_value == heads[0]
+    assert Repository('owner', 'name').fetch_protected_branches()
 
 
 @patch('jenkins_epo.repository.cached_request')
-@patch('jenkins_epo.repository.PullRequest')
-@patch('jenkins_epo.repository.SETTINGS')
-def test_load_pulls(SETTINGS, PullRequest, cached_request):
+def test_process_protected_branches(cached_request):
     from jenkins_epo.repository import Repository
 
-    cached_request.return_value = [dict(html_url='/123')]
     repo = Repository('owner', 'name')
+    branches = list(repo.process_protected_branches([{
+        'name': 'master',
+        'commit': {'sha': 'd0d0cafec0041edeadbeef'},
+    }]))
 
-    heads = list(repo.load_pulls())
-
-    assert 1 == len(heads)
-    assert PullRequest.return_value == heads[0]
+    assert 1 == len(branches)
+    assert 'master' == branches[0].ref
 
 
 @patch('jenkins_epo.repository.cached_request')
-@patch('jenkins_epo.repository.PullRequest')
-@patch('jenkins_epo.repository.SETTINGS')
-def test_load_pulls_filtered(SETTINGS, PullRequest, cached_request):
+def test_fetch_pull_requests(cached_request):
     from jenkins_epo.repository import Repository
 
-    cached_request.return_value = [dict(
-        head=dict(ref='pr'),
-        html_url='nomatch',
-    )]
+    assert Repository('owner', 'name').fetch_pull_requests()
+
+
+def test_process_pulls():
+    from jenkins_epo.repository import Repository
+
     repo = Repository('owner', 'name')
-    repo.pr_filter = ['match*']
+    repo.pr_filter = ['*2']
 
-    heads = list(repo.load_pulls())
+    heads = list(repo.process_pull_requests([
+        dict(
+            html_url='https://github.com/owner/repo/pull/2',
+            number=2,
+            head=dict(ref='feature', sha='d0d0'),
+        ),
+        dict(
+            html_url='https://github.com/owner/repo/pull/3',
+            number=3,
+            head=dict(ref='hotfix', sha='cafe'),
+        ),
+    ]))
 
-    assert 0 == len(heads)
+    assert 1 == len(heads)
+    head = heads[0]
+    assert 'feature' == head.ref
 
 
 @patch('jenkins_epo.repository.GITHUB')
@@ -114,39 +118,22 @@ def test_load_settings_jenkins_yml(cached_request, GITHUB):
     assert not cached_request.mock_calls
 
 
+def test_load_settings_already_loaded():
+    from jenkins_epo.repository import Repository
+
+    repo = Repository('owner', 'repo1')
+    repo.SETTINGS.update({'REVIEWERS': ['bdfl']})
+    repo.load_settings()
+
+
 def test_process_jenkins_yml_settings():
     from jenkins_epo.repository import Repository
 
     repo = Repository('owner', 'repo1')
     repo.process_settings(
-        jenkins_yml=repr(dict(settings=dict(branches=['master', 'develop']))),
+        jenkins_yml=repr(dict(settings=dict(reviewers=['bdfl', 'hacker']))),
     )
-    wanted = ['refs/heads/master', 'refs/heads/develop']
-    assert wanted == repo.SETTINGS.BRANCHES
-
-
-@patch('jenkins_epo.repository.SETTINGS')
-def test_process_protected_branches_env(SETTINGS):
-    from jenkins_epo.repository import Repository
-
-    SETTINGS.REPOSITORIES = 'owner/repo1:master owner/repo2:stable'
-
-    repo = Repository('owner', 'repo1')
-    repo.process_settings()
-    assert ['refs/heads/master'] == repo.SETTINGS.BRANCHES
-
-
-@patch('jenkins_epo.repository.SETTINGS')
-def test_process_protected_branches(SETTINGS):
-    from jenkins_epo.repository import Repository
-
-    SETTINGS.REPOSITORIES = ''
-
-    repo = Repository('owner', 'repo1')
-    repo.process_settings(branches=[
-        {'name': 'master'},
-    ])
-    assert ['refs/heads/master'] == repo.SETTINGS.BRANCHES
+    assert ['bdfl', 'hacker'] == repo.SETTINGS.REVIEWERS
 
 
 def test_reviewers():
@@ -319,7 +306,7 @@ def test_delete_branch_dry(GITHUB):
 def test_sort_heads():
     from jenkins_epo.repository import Branch, PullRequest
 
-    master = Branch(Mock(), dict(ref='master', object=dict(sha='d0d0')))
+    master = Branch(Mock(), dict(name='master', commit=dict(sha='d0d0')))
     pr = PullRequest(Mock(), dict(
         head=dict(ref='pr', sha='d0d0'), number=1, html_url='pr',
     ))

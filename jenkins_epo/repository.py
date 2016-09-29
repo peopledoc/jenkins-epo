@@ -95,31 +95,20 @@ class Repository(object):
         return 'https://github.com/%s' % (self,)
 
     @retry(wait_fixed=15000)
-    def load_branches(self):
-        branches = self.SETTINGS.BRANCHES
-        if not branches:
-            logger.debug("No explicit branches configured for %s.", self)
-            return []
-
-        for branch in branches:
-            logger.debug("Search remote branch %s.", branch)
-            try:
-                ref = cached_request(GITHUB.repos(self).git(branch))
-            except ApiNotFoundError:
-                logger.warn("Branch %s not found in %s.", branch, self)
-                continue
-
-            yield Branch(self, ref)
+    def fetch_protected_branches(self):
+        logger.debug("Querying GitHub for %s protected branches.", self)
+        return cached_request(GITHUB.repos(self).branches, protected='true')
 
     @retry(wait_fixed=15000)
-    def load_pulls(self):
+    def fetch_pull_requests(self):
         logger.debug("Querying GitHub for %s PR.", self)
-        try:
-            pulls = cached_request(GITHUB.repos(self).pulls)
-        except Exception:
-            logger.exception("Failed to list PR for %s.", self)
-            return []
+        return cached_request(GITHUB.repos(self).pulls)
 
+    def process_protected_branches(self, branches):
+        for branch in branches:
+            yield Branch(self, branch)
+
+    def process_pull_requests(self, pulls):
         for data in pulls:
             if not match(data['html_url'], self.pr_filter):
                 logger.debug(
@@ -130,6 +119,9 @@ class Repository(object):
 
     @retry(wait_fixed=15000)
     def load_settings(self):
+        if self.SETTINGS:
+            return
+
         try:
             jenkins_yml = GITHUB.fetch_file_contents(self, 'jenkins.yml')
             logger.debug("Loading settings from jenkins.yml")
@@ -142,27 +134,10 @@ class Repository(object):
         else:
             collaborators = cached_request(GITHUB.repos(self).collaborators)
 
-        # Save a call to GITHUB if branches is defined in YML.
-        if 'branches' in jenkins_yml:
-            logger.debug("Protected branches defined manually.")
-            branches = []
-        else:
-            branches = cached_request(
-                GITHUB.repos(self).branches, protected='true',
-            )
-
         self.process_settings(
-            branches=branches,
             collaborators=collaborators,
             jenkins_yml=jenkins_yml,
         )
-
-    def process_protected_branches(self, branches=None):
-        branches = [b['name'] for b in branches or []]
-        if branches:
-            logger.debug("Protected branches are %s", branches)
-
-        return branches
 
     def process_reviewers(self, collaborators):
         return [c['login'] for c in collaborators or [] if (
@@ -171,12 +146,8 @@ class Repository(object):
             c['permissions']['push']
         )]
 
-    def process_settings(self, branches=None, collaborators=None, jenkins_yml=None):  # noqa
-        if self.SETTINGS:
-            return
-
+    def process_settings(self, collaborators=None, jenkins_yml=None):  # noqa
         default_settings = dict(
-            BRANCHES=self.process_protected_branches(branches),
             REVIEWERS=self.process_reviewers(collaborators),
         )
 
@@ -198,30 +169,6 @@ class Repository(object):
         self.post_process_settings()
 
     def post_process_settings(self):
-        repositories = filter(None, SETTINGS.REPOSITORIES.split(' '))
-        for entry in repositories:
-            entry = entry.strip()
-            if ':' in entry:
-                repository, env_branches = entry.split(':')
-            else:
-                repository, env_branches = entry, ''
-
-            if self != repository:
-                continue
-
-            env_branches = [b for b in env_branches.split(',') if b]
-            if not env_branches:
-                continue
-
-            logger.debug("Override watched branches %s.", env_branches)
-            self.SETTINGS.BRANCHES = env_branches
-            break
-
-        self.SETTINGS.BRANCHES = [
-            b if b.startswith('refs/heads') else 'refs/heads/%s' % b
-            for b in self.SETTINGS['BRANCHES']
-        ]
-
         logger.debug("Repository settings:")
         for k, v in sorted(self.SETTINGS.items()):
             logger.debug("%s=%r", k, v)
@@ -380,8 +327,8 @@ class Branch(Head):
     def __init__(self, repository, payload, commit=None):
         super(Branch, self).__init__(
             repository=repository,
-            ref=payload['ref'],
-            sha=payload['object']['sha'],
+            ref=payload['name'],
+            sha=payload['commit']['sha'],
             commit=commit,
         )
         self.payload = payload

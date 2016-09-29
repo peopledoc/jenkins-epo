@@ -20,17 +20,22 @@ def test_check_queue_sleep(mocker):
     assert sleep.mock_calls
 
 
-@patch('jenkins_epo.main.procedures')
-@patch('jenkins_epo.main.CACHE')
-def test_bot_logs(CACHE, procedures):
+@pytest.mark.asyncio
+def test_bot_settings_fail(mocker):
+    procedures = mocker.patch('jenkins_epo.main.procedures')
+    mocker.patch('jenkins_epo.main.CACHE')
+    Bot = mocker.patch('jenkins_epo.main.Bot')
+
     from jenkins_epo.main import bot
 
-    procedures.list_repositories.return_value = []
+    head = Mock()
+    head.repository.load_settings.side_effect = ValueError()
+    procedures.iter_heads.return_value = [head]
 
-    for io in bot():
-        pass
+    yield from bot()
 
-    assert procedures.whoami.mock_calls
+    bot = Bot.return_value
+    assert not bot.run.mock_calls
 
 
 @pytest.mark.asyncio
@@ -147,3 +152,12 @@ def test_main(asyncio, exit_):
     from jenkins_epo.main import main
 
     main(argv=['--help'])
+
+
+@patch('jenkins_epo.main.procedures')
+def test_list_heads(procedures):
+    from jenkins_epo.main import list_heads
+
+    procedures.iter_heads.return_value = iter([Mock()])
+
+    list_heads()
