@@ -72,7 +72,6 @@ See `jenkins: help` for documentation.
         )
 
     def workon(self, head):
-        logger.info("Working on %s.", head)
         self.current = Bunch(copy.deepcopy(self.DEFAULTS))
         self.current.head = head
         self.current.repository = head.repository

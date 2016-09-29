@@ -12,6 +12,7 @@
 # You should have received a copy of the GNU General Public License along with
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
+import itertools
 import logging
 
 from .github import GITHUB, cached_request
@@ -21,6 +22,24 @@ from .utils import retry
 
 
 logger = logging.getLogger(__name__)
+
+
+def iter_heads():
+    iterators = []
+
+    for repository in list_repositories(with_settings=True):
+        heads = reversed(sorted(itertools.chain(
+            repository.load_branches(),
+            repository.load_pulls(),
+        ), key=lambda head: head.sort_key()))
+        iterators.append(iter(heads))
+
+    while iterators:
+        for heads in iterators[:]:
+            try:
+                yield next(heads)
+            except (GeneratorExit, StopIteration):
+                iterators.remove(heads)
 
 
 def list_repositories(with_settings=False):

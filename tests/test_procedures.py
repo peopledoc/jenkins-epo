@@ -71,3 +71,32 @@ def test_list_repositories_with_settings_fails(SETTINGS, from_name):
 
     assert 0 == len(list(repositories))
     assert repo.load_settings.mock_calls
+
+
+@patch('jenkins_epo.procedures.list_repositories')
+def test_iter_heads(list_repositories):
+    from jenkins_epo.procedures import iter_heads
+
+    a = Mock()
+    branch = Mock(token='a/branch')
+    branch.sort_key.return_value = False, 100, 'master'
+    a.load_branches.return_value = [branch]
+    pr = Mock(token='a/pr')
+    pr.sort_key.return_value = False, 50, 'feature'
+    a.load_pulls.return_value = [pr]
+    b = Mock()
+    branch = Mock(token='b/branch')
+    branch.sort_key.return_value = False, 100, 'master'
+    b.load_branches.return_value = [branch]
+    pr1 = Mock(token='b/pr1')
+    pr1.sort_key.return_value = False, 50, 'feature'
+    pr2 = Mock(token='b/pr2')
+    pr2.sort_key.return_value = True, 50, 'hotfix'
+    b.load_pulls.return_value = [pr1, pr2]
+
+    list_repositories.return_value = [a, b]
+
+    computed = [h.token for h in iter_heads()]
+    wanted = ['a/branch', 'b/pr2', 'a/pr', 'b/branch', 'b/pr1']
+
+    assert wanted == computed
