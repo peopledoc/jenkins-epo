@@ -37,6 +37,54 @@ def test_from_remote(cached_request):
     assert 'newname' == repo.name
 
 
+@patch('jenkins_epo.repository.cached_request')
+@patch('jenkins_epo.repository.Branch')
+@patch('jenkins_epo.repository.SETTINGS')
+def test_load_branches(SETTINGS, Branch, cached_request):
+    from jenkins_epo.repository import Repository
+
+    repo = Repository('owner', 'name')
+    repo.SETTINGS.BRANCHES = ['refs/heads/master']
+
+    heads = list(repo.load_branches())
+
+    assert 1 == len(heads)
+    assert Branch.return_value == heads[0]
+
+
+@patch('jenkins_epo.repository.cached_request')
+@patch('jenkins_epo.repository.PullRequest')
+@patch('jenkins_epo.repository.SETTINGS')
+def test_load_pulls(SETTINGS, PullRequest, cached_request):
+    from jenkins_epo.repository import Repository
+
+    cached_request.return_value = [dict(html_url='/123')]
+    repo = Repository('owner', 'name')
+
+    heads = list(repo.load_pulls())
+
+    assert 1 == len(heads)
+    assert PullRequest.return_value == heads[0]
+
+
+@patch('jenkins_epo.repository.cached_request')
+@patch('jenkins_epo.repository.PullRequest')
+@patch('jenkins_epo.repository.SETTINGS')
+def test_load_pulls_filtered(SETTINGS, PullRequest, cached_request):
+    from jenkins_epo.repository import Repository
+
+    cached_request.return_value = [dict(
+        head=dict(ref='pr'),
+        html_url='nomatch',
+    )]
+    repo = Repository('owner', 'name')
+    repo.pr_filter = ['match*']
+
+    heads = list(repo.load_pulls())
+
+    assert 0 == len(heads)
+
+
 @patch('jenkins_epo.repository.GITHUB')
 @patch('jenkins_epo.repository.cached_request')
 def test_load_settings_no_yml(cached_request, GITHUB):
@@ -266,3 +314,23 @@ def test_delete_branch_dry(GITHUB):
     pr = PullRequest(Mock(), payload=dict(head=dict(ref='x', sha='x')))
     pr.delete_branch()
     assert not GITHUB.repos.mock_calls
+
+
+def test_sort_heads():
+    from jenkins_epo.repository import Branch, PullRequest
+
+    master = Branch(Mock(), dict(ref='master', object=dict(sha='d0d0')))
+    pr = PullRequest(Mock(), dict(
+        head=dict(ref='pr', sha='d0d0'), number=1, html_url='pr',
+    ))
+    urgent_pr = PullRequest(Mock(), dict(
+        head=dict(ref='urgent_pr', sha='d0d0'), number=2, html_url='urgent_pr',
+    ))
+    urgent_pr.urgent = True
+
+    heads = [master, pr, urgent_pr]
+
+    computed = list(reversed(sorted(heads, key=lambda h: h.sort_key())))
+    wanted = [urgent_pr, master, pr]
+
+    assert wanted == computed

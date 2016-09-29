@@ -85,28 +85,29 @@ def bot():
     procedures.whoami()
     bot = Bot(queue_empty=None)
 
-    for repository in procedures.list_repositories(with_settings=True):
-        for branch in repository.load_branches():
-            try:
-                yield from check_queue(bot)
-            except RestartLoop:
-                if SETTINGS.LOOP:
-                    break
-            bot.run(branch)
+    for head in procedures.iter_heads():
+        head.fetch_commit()
+        if head.is_outdated:
+            logger.debug(
+                'Skipping %s because older than %s weeks.',
+                head, SETTINGS.COMMIT_MAX_WEEKS,
+            )
+            continue
 
-        for pr in repository.load_pulls():
-            try:
-                yield from check_queue(bot)
-            except RestartLoop:
-                if SETTINGS.LOOP:
-                    break
-            try:
-                bot.run(pr)
-            except Exception:
-                if SETTINGS.LOOP:
-                    logger.exception("Failed to process %s", pr)
-                else:
-                    raise
+        try:
+            yield from check_queue(bot)
+        except RestartLoop:
+            if SETTINGS.LOOP:
+                break
+
+        logger.info("Working on %s.", head)
+        try:
+            bot.run(head)
+        except Exception:
+            if SETTINGS.LOOP:
+                logger.exception("Failed to process %s:", head)
+            else:
+                raise
 
     CACHE.purge()
     CACHE.save()

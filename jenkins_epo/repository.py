@@ -109,15 +109,7 @@ class Repository(object):
                 logger.warn("Branch %s not found in %s.", branch, self)
                 continue
 
-            branch = Branch(self, ref)
-            branch.fetch_commit()
-            if branch.is_outdated:
-                logger.debug(
-                    'Skipping branch %s because older than %s weeks.',
-                    branch, self.SETTINGS.COMMIT_MAX_WEEKS,
-                )
-                continue
-            yield branch
+            yield Branch(self, ref)
 
     @retry(wait_fixed=15000)
     def load_pulls(self):
@@ -128,24 +120,13 @@ class Repository(object):
             logger.exception("Failed to list PR for %s.", self)
             return []
 
-        pulls_o = []
         for data in pulls:
             if not match(data['html_url'], self.pr_filter):
                 logger.debug(
                     "Skipping %s (%s).", data['html_url'], data['head']['ref'],
                 )
             else:
-                pulls_o.append(PullRequest(self, data))
-
-        for pr in reversed(sorted(pulls_o, key=PullRequest.sort_key)):
-            pr.fetch_commit()
-            if pr.is_outdated:
-                logger.debug(
-                    'Skipping PR %s because older than %s weeks.',
-                    pr, SETTINGS.COMMIT_MAX_WEEKS,
-                )
-            else:
-                yield pr
+                yield PullRequest(self, data)
 
     @retry(wait_fixed=15000)
     def load_settings(self):
@@ -405,6 +386,10 @@ class Branch(Head):
         )
         self.payload = payload
 
+    def sort_key(self):
+        # Sort by not urgent, type branche, branche name
+        return False, 100, self.ref
+
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.ref)
 
@@ -454,7 +439,7 @@ class PullRequest(Head):
         # Return sort data. Higher is more urgent. By defaults, last PR is
         # built first. This avoid building staled PR first. It's the default
         # order of GitHub PR listing.
-        return self.urgent, self.payload['number']
+        return self.urgent, 50, self.payload['number']
 
     def __str__(self):
         return '%s (%s)' % (self.payload['html_url'], self.ref)
