@@ -61,7 +61,7 @@ SETTINGS = EnvironmentSettings(defaults={
     # Trigger loop
     'LOOP': 0,
     # When commenting on PR
-    'NAME': 'Jenkins GitHub Builder',
+    'NAME': 'Jenkins EPO',
     'PR': '',
     'RATE_LIMIT_THRESHOLD': 250,
     # List repositories: owner/repo1,owner/repo2
