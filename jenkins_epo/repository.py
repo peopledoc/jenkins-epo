@@ -327,7 +327,7 @@ class Branch(Head):
     def __init__(self, repository, payload, commit=None):
         super(Branch, self).__init__(
             repository=repository,
-            ref=payload['name'],
+            ref='refs/heads/' + payload['name'],
             sha=payload['commit']['sha'],
             commit=commit,
         )

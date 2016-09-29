@@ -55,7 +55,7 @@ def test_process_protected_branches(cached_request):
     }]))
 
     assert 1 == len(branches)
-    assert 'master' == branches[0].ref
+    assert 'refs/heads/master' == branches[0].ref
 
 
 @patch('jenkins_epo.repository.cached_request')
