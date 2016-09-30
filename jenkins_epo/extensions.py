@@ -503,7 +503,7 @@ jenkins: opm-processed
 %(mention)s, %(message)s %(emoji)s
 
 <!--
-jenkins: {last-merge-error: %(messages)r}
+jenkins: {last-merge-error: %(message)r}
 -->
 """
 
@@ -589,7 +589,7 @@ jenkins: {last-merge-error: %(messages)r}
                     return logger.debug("Merge still failing: %s", error)
 
             logger.warn("Failed to merge: %s", error)
-            self.current.head.comment(body=self.OPM_COMMENT % dict(
+            self.current.head.comment(body=self.MERGE_ERROR_COMMENT % dict(
                 emoji=random.choice((':confused:', ':disappointed:')),
                 mention='@' + self.current.opm.author, message=error,
             ))
