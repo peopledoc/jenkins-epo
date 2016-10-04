@@ -163,7 +163,6 @@ class CreateJobsExtension(Extension):
     }
 
     SETTINGS = {
-        'JOBS_COMMAND': 'jenkins-yml-runner',
         # Jenkins credentials used to clone
         'JOBS_CREDENTIALS': None,
         # Jenkins node/label
@@ -182,7 +181,6 @@ Failed to create or update Jenkins job `%(name)s`.
     def list_job_specs(self, jenkins_yml=None):
         defaults = dict(
             node=SETTINGS.JOBS_NODE,
-            command=SETTINGS.JOBS_COMMAND,
             github_repository=self.current.head.repository.url,
             scm_credentials=SETTINGS.JOBS_CREDENTIALS,
             set_commit_status=not SETTINGS.DRY_RUN,
