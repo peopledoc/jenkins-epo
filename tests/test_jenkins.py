@@ -9,6 +9,7 @@ def test_freestyle_build(SETTINGS):
     api_instance.name = 'freestyle'
     xml = api_instance._get_config_element_tree.return_value
     xml.findall.return_value = []
+    xml.find.return_value = None
 
     pr = Mock()
     spec = Mock()
@@ -33,6 +34,7 @@ def test_freestyle_build_dry(SETTINGS):
     api_instance.name = 'freestyle'
     xml = api_instance._get_config_element_tree.return_value
     xml.findall.return_value = []
+    xml.find.return_value = None
 
     pr = Mock()
     spec = Mock()
@@ -59,6 +61,7 @@ def test_freestyle_node_param():
     ]
     xml = api_instance._get_config_element_tree.return_value
     xml.findall.return_value = []
+    xml.find.return_value = None
 
     job = FreestyleJob(api_instance)
     assert 'N' == job.node_param
@@ -76,6 +79,7 @@ def test_matrix_combination_param():
 
     xml = api_instance._get_config_element_tree.return_value
     xml.findall.return_value = []
+    xml.find.return_value = None
 
     job = MatrixJob(api_instance)
     assert 'C' == job.combination_param
@@ -89,6 +93,7 @@ def test_matrix_node_axis():
 
     xml = api_instance._get_config_element_tree.return_value
     xml.findall.return_value = []
+    xml.find.return_value = None
 
     job = MatrixJob(api_instance)
 
@@ -114,6 +119,7 @@ def test_matrix_list_context_node():
 
     xml = api_instance._get_config_element_tree.return_value
     xml.findall.return_value = []
+    xml.find.return_value = None
 
     job = MatrixJob(api_instance)
     job._node_axis = 'NODE'
@@ -142,6 +148,7 @@ def test_matrix_list_context_node_axis_only():
 
     xml = api_instance._get_config_element_tree.return_value
     xml.findall.return_value = []
+    xml.find.return_value = None
 
     job = MatrixJob(api_instance)
     job._node_axis = 'NODE'
@@ -172,6 +179,7 @@ def test_matrix_list_context_superset(JobSpec):
 
     xml = api_instance._get_config_element_tree.return_value
     xml.findall.return_value = []
+    xml.find.return_value = None
 
     jenkins_spec = JobSpec.from_xml.return_value
     jenkins_spec.config = dict(axis={'A': [0, 1], 'B': 'abc'})
@@ -200,6 +208,7 @@ def test_matrix_build(post, SETTINGS):
     api_instance._data = {'url': 'https://jenkins/job'}
     xml = api_instance._get_config_element_tree.return_value
     xml.findall.return_value = []
+    xml.find.return_value = None
 
     spec = JobSpec(api_instance.name)
 
@@ -227,6 +236,7 @@ def test_matrix_build_dry(post, SETTINGS):
 
     xml = api_instance._get_config_element_tree.return_value
     xml.findall.return_value = []
+    xml.find.return_value = None
 
     spec = JobSpec(api_instance.name)
 
