@@ -5,7 +5,7 @@ dependencies:
   # Stolen frow https://github.com/samstav/tox-pyenv
   override:
     - pip install codecov tox tox-pyenv
-    - pyenv local 3.4.4 3.5.1
+    - pyenv local 3.4.4 3.5.2
 
 test:
   override:
