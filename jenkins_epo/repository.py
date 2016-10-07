@@ -50,6 +50,24 @@ class CommitStatus(dict):
     def __hash__(self):
         return hash(str(self))
 
+    @property
+    def is_queueable(self):
+        if self.get('state') != 'pending':
+            return False
+        # Jenkins deduplicate jobs in the queue. So it's safe to keep
+        # triggering the job in case the queue was flushed.
+        if self.get('description') not in {'Backed', 'New', 'Queued'}:
+            return False
+        return True
+
+    @property
+    def is_rebuildable(self):
+        if self.get('state') in {'error', 'failure'}:
+            return True
+        if self.get('description') in {'Skipped', 'Disabled on Jenkins.'}:
+            return True
+        return False
+
 
 class Repository(object):
     pr_filter = parse_patterns(SETTINGS.PR)
@@ -236,35 +254,26 @@ class Head(object):
         raise NotImplemented
 
     def filter_not_built_contexts(self, contexts, rebuild_failed=None):
-        not_built = []
         for context in contexts:
-            status = self.statuses.get(context, CommitStatus())
-            state = status.get('state')
-            description = status.get('description')
+            status = CommitStatus(self.statuses.get(context, {}))
             # Skip failed job, unless rebuild asked and old
-            if state in {'error', 'failure'} or description == 'Skipped':
-                if not rebuild_failed:
-                    continue
-                elif status['updated_at'] > rebuild_failed:
+            if rebuild_failed and status.is_rebuildable:
+                if status['updated_at'] > rebuild_failed:
                     continue
                 else:
                     logger.debug(
                         "Requeue context %s failed before %s.",
                         context, rebuild_failed.strftime('%Y-%m-%d %H:%M:%S')
                     )
-            # Skip `Backed`, `New` and `Queued` jobs
-            elif state == 'pending':
-                # Jenkins deduplicate jobs in the queue. So it's safe to keep
-                # triggering the job in case the queue was flushed.
-                if description not in {'Backed', 'New', 'Queued'}:
+            elif status.get('state') == 'pending':
+                # Pending context may be requeued.
+                if not status.is_queueable:
                     continue
-            # Skip other known states
-            elif state:
+            # Other status are considerd built (success, failed, errored).
+            elif status.get('state'):
                 continue
 
-            not_built.append(context)
-
-        return not_built
+            yield context
 
     def process_statuses(self, payload):
         self.statuses = {}
@@ -293,6 +302,7 @@ class Head(object):
             self.statuses[str(status)] = status
         else:
             self.statuses.pop(str(status), None)
+        return new_status
 
     @retry(wait_fixed=15000)
     def push_status(self, status):

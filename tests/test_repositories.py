@@ -223,13 +223,13 @@ def test_push_status_dry(GITHUB):
 
 
 def test_filter_contextes():
-    from jenkins_epo.repository import Head
+    from jenkins_epo.repository import Head, CommitStatus
 
     rebuild_failed = datetime(2016, 8, 11, 16)
 
     head = Head(Mock(), None, None, None)
     head.statuses = {
-        'backed': {'state': 'pending', 'description': 'Backed'},
+        'backed': CommitStatus({'state': 'pending', 'description': 'Backed'}),
         'errored': {
             'state': 'error',
             'updated_at': datetime(2016, 8, 11, 10),
@@ -251,13 +251,13 @@ def test_filter_contextes():
         },
     }
 
-    not_built = head.filter_not_built_contexts(
+    not_built = list(head.filter_not_built_contexts(
         [
             'backed', 'errored', 'failed', 'green', 'newfailed', 'notbuilt',
             'queued', 'running', 'skipped',
         ],
         rebuild_failed,
-    )
+    ))
 
     assert 'backed' in not_built
     assert 'errored' in not_built

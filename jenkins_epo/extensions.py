@@ -12,6 +12,7 @@
 # You should have received a copy of the GNU General Public License along with
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
+from collections import OrderedDict
 import datetime
 import inspect
 import logging
@@ -111,20 +112,19 @@ jenkins: reset-skip-errors
                 continue
 
             job = self.current.jobs[spec.name]
-            if not job.is_enabled():
-                self.current.skip.append(re.compile(spec.name))
-
             not_built = self.current.head.filter_not_built_contexts(
                 job.list_contexts(spec),
                 rebuild_failed=self.current.rebuild_failed
             )
 
+            queued_contexts = []
             for context in not_built:
-                self.current.head.maybe_update_status(
+                new_status = self.current.head.maybe_update_status(
                     self.status_for_new_context(job, context),
                 )
+                if new_status['description'] == 'Queued':
+                    queued_contexts.append(context)
 
-            queued_contexts = [c for c in not_built if not self.skip(c)]
             if queued_contexts and self.bot.queue_empty:
                 try:
                     job.build(self.current.head, spec, queued_contexts)
@@ -148,6 +148,11 @@ jenkins: reset-skip-errors
         if self.skip(context):
             new_status.update({
                 'description': 'Skipped',
+                'state': 'success',
+            })
+        elif not job.is_enabled():
+            new_status.update({
+                'description': 'Disabled on Jenkins.',
                 'state': 'success',
             })
         else:
@@ -382,6 +387,59 @@ class FixStatusExtension(Extension):
                 "Failed to get actual build status for contexts: %s",
                 failed_contexts
             )
+
+
+class Stage(object):
+    def __init__(self, name):
+        self.name = name
+        self.job_specs = []
+        self.statuses = []
+
+    def __str__(self):
+        return self.name
+
+    def is_complete(self, jobs, statuses):
+        for spec in self.job_specs:
+            job = jobs[spec.name]
+            for context in job.list_contexts(spec):
+                state = statuses.get(context, {}).get('state')
+                if state != 'success':
+                    logger.debug("Missing job %s for stage %s.", spec, self)
+                    return False
+        return True
+
+
+class StagesExtension(Extension):
+    stage = '30'
+
+    SETTINGS = {
+        'STAGES': ['build', 'test', 'deploy'],
+    }
+
+    def run(self):
+        # First, group jobs by stages
+        self.current.stages = stages = OrderedDict([
+            (n, Stage(n)) for n in self.current.SETTINGS.STAGES
+        ])
+        default_stage = 'test' if 'test' in stages else next(stages.keys())
+        for spec in self.current.job_specs.values():
+            if spec.config.get('periodic') and not spec.config.get('stage'):
+                logger.debug("Skipping %s with no explicit stage.", spec)
+                continue
+            stage = spec.config.get('stage', default_stage)
+            stages[stage].job_specs.append(spec)
+
+        # Search current stage to build.
+        for stage in stages.values():
+            if not stage.is_complete(self.current.jobs, self.current.statuses):
+                logger.info("Current stage is %s.", stage)
+                break
+        else:
+            logger.info("All stages completed.")
+
+        self.current.current_stage = stage
+        # Filter job specs to the current stage ones.
+        self.current.job_specs = {j.name: j for j in stage.job_specs}
 
 
 class HelpExtension(Extension):

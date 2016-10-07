@@ -125,10 +125,12 @@ def test_skip_disabled_job():
     bot.current.jobs = {'job-disabled': job}
     bot.current.head.filter_not_built_contexts.return_value = ['job-disabled']
     bot.current.head.ref = 'refs/heads/pr'
+    bot.current.head.maybe_update_status.return_value = {
+        'description': 'Disabled',
+    }
 
     bot.extensions_map['builder'].run()
 
-    assert bot.extensions_map['builder'].skip('job-disabled')
     assert not job.build.mock_calls
 
 
@@ -162,16 +164,21 @@ def test_build():
 
     bot = Bot().workon(Mock())
     job = Mock()
-    spec = Mock()
+    spec = Mock(config=dict())
     spec.name = 'job'
     head = bot.current.head
+    head.ref = 'refs/heads/pr'
     head.filter_not_built_contexts.return_value = ['job']
+    head.maybe_update_status.return_value = {'description': 'Queued'}
 
     bot.current.job_specs = {'job': spec}
     bot.current.jobs = {'job': job}
     bot.current.statuses = {}
 
     bot.extensions_map['builder'].run()
+
+    assert head.maybe_update_status.mock_calls
+    assert job.build.mock_calls
 
 
 def test_builder_ignore_perioddc():
