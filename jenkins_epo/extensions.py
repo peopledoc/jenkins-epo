@@ -28,7 +28,7 @@ from .github import GITHUB, ApiNotFoundError
 from .jenkins import JENKINS
 from .repository import ApiError, Branch, CommitStatus
 from .settings import SETTINGS
-from .utils import match
+from .utils import match, parse_patterns
 
 
 logger = logging.getLogger(__name__)
@@ -509,11 +509,7 @@ jenkins: {last-merge-error: %(message)r}
         super(MergerExtension, self).begin()
 
         if hasattr(self.current.head, 'merge'):
-            patterns = [
-                p.lower()
-                for p in self.current.SETTINGS.WIP_TITLE.split(',')
-                if p
-            ]
+            patterns = parse_patterns(self.current.SETTINGS.WIP_TITLE.lower())
             title = self.current.head.payload['title'].lower()
             self.current.wip = match(title, patterns)
             if self.current.wip:
