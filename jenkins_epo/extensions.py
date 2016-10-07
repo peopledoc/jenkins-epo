@@ -111,9 +111,6 @@ jenkins: reset-skip-errors
                 continue
 
             job = self.current.jobs[spec.name]
-            if not job.is_enabled():
-                self.current.skip.append(re.compile(spec.name))
-
             not_built = self.current.head.filter_not_built_contexts(
                 job.list_contexts(spec),
                 rebuild_failed=self.current.rebuild_failed
@@ -124,7 +121,10 @@ jenkins: reset-skip-errors
                     self.status_for_new_context(job, context),
                 )
 
-            queued_contexts = [c for c in not_built if not self.skip(c)]
+            queued_contexts = [
+                c for c in not_built
+                if self.current.statuses[c]['description'] == 'Queued'
+            ]
             if queued_contexts and self.bot.queue_empty:
                 try:
                     job.build(self.current.head, spec, queued_contexts)
@@ -148,6 +148,11 @@ jenkins: reset-skip-errors
         if self.skip(context):
             new_status.update({
                 'description': 'Skipped',
+                'state': 'success',
+            })
+        elif not job.is_enabled():
+            new_status.update({
+                'description': 'Disabled on Jenkins.',
                 'state': 'success',
             })
         else:

@@ -125,10 +125,10 @@ def test_skip_disabled_job():
     bot.current.jobs = {'job-disabled': job}
     bot.current.head.filter_not_built_contexts.return_value = ['job-disabled']
     bot.current.head.ref = 'refs/heads/pr'
+    bot.current.statuses = {'job-disabled': {'description': 'Disabled'}}
 
     bot.extensions_map['builder'].run()
 
-    assert bot.extensions_map['builder'].skip('job-disabled')
     assert not job.build.mock_calls
 
 
