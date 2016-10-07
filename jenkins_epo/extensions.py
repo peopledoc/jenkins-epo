@@ -103,6 +103,13 @@ jenkins: reset-skip-errors
             if spec.config.get('periodic'):
                 continue
 
+            branches = spec.config.get('branches', '*')
+            if isinstance(branches, str):
+                branches = [branches]
+            if not match(self.current.head.ref[len('refs/heads/'):], branches):
+                logger.info("Skipping job %s for this branch.", spec)
+                continue
+
             job = self.current.jobs[spec.name]
             if not job.is_enabled():
                 self.current.skip.append(re.compile(spec.name))
