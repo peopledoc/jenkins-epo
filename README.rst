@@ -16,6 +16,7 @@ Features
 
 - Define jobs from repository in `jenkins.yml
   <https://github.com/novafloss/jenkins-yml>`_.
+- Restrict jobs to known branches.
 - Query GitHub API to poll open PR instead of polling git repository.
 - Read instructions from PR comments.
 - Report issue on broken protected branches.

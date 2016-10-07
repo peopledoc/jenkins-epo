@@ -28,7 +28,7 @@ from .github import GITHUB, ApiNotFoundError
 from .jenkins import JENKINS
 from .repository import ApiError, Branch, CommitStatus
 from .settings import SETTINGS
-from .utils import match
+from .utils import match, parse_patterns
 
 
 logger = logging.getLogger(__name__)
@@ -101,6 +101,13 @@ jenkins: reset-skip-errors
 
         for spec in self.current.job_specs.values():
             if spec.config.get('periodic'):
+                continue
+
+            branches = spec.config.get('branches', '*')
+            if isinstance(branches, str):
+                branches = [branches]
+            if not match(self.current.head.ref[len('refs/heads/'):], branches):
+                logger.info("Skipping job %s for this branch.", spec)
                 continue
 
             job = self.current.jobs[spec.name]
@@ -509,11 +516,7 @@ jenkins: {last-merge-error: %(message)r}
         super(MergerExtension, self).begin()
 
         if hasattr(self.current.head, 'merge'):
-            patterns = [
-                p.lower()
-                for p in self.current.SETTINGS.WIP_TITLE.split(',')
-                if p
-            ]
+            patterns = parse_patterns(self.current.SETTINGS.WIP_TITLE.lower())
             title = self.current.head.payload['title'].lower()
             self.current.wip = match(title, patterns)
             if self.current.wip:

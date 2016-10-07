@@ -64,6 +64,10 @@ def parse_datetime(formatted):
     )
 
 
+def parse_patterns(raw):
+    return [p for p in str(raw).split(',') if p]
+
+
 class Bunch(dict):
     def __getattr__(self, name):
         try:

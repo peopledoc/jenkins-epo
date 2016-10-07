@@ -23,7 +23,7 @@ from jenkins_yml import Job as JobSpec
 import requests
 
 from .settings import SETTINGS
-from .utils import retry
+from .utils import parse_patterns, retry
 
 
 logger = logging.getLogger(__name__)
@@ -101,7 +101,7 @@ JENKINS = LazyJenkins()
 
 
 class Job(object):
-    jobs_filter = [p for p in SETTINGS.JOBS.split(',') if p]
+    jobs_filter = parse_patterns(SETTINGS.JOBS)
 
     @staticmethod
     def factory(instance):

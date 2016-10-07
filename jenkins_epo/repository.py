@@ -23,7 +23,7 @@ import yaml
 
 from .github import cached_request, GITHUB, ApiNotFoundError
 from .settings import SETTINGS
-from .utils import Bunch, match, parse_datetime, retry
+from .utils import Bunch, match, parse_datetime, parse_patterns, retry
 
 
 logger = logging.getLogger(__name__)
@@ -52,7 +52,7 @@ class CommitStatus(dict):
 
 
 class Repository(object):
-    pr_filter = [p for p in str(SETTINGS.PR).split(',') if p]
+    pr_filter = parse_patterns(SETTINGS.PR)
 
     remote_re = re.compile(
         r'.*github.com[:/](?P<owner>[\w-]+)/(?P<name>[\w-]+).*'
@@ -186,7 +186,7 @@ class Repository(object):
 
 
 class Head(object):
-    contexts_filter = [p for p in SETTINGS.JOBS.split(',') if p]
+    contexts_filter = parse_patterns(SETTINGS.JOBS)
 
     def __init__(self, repository, ref, sha, commit):
         self.repository = repository
