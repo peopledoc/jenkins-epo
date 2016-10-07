@@ -132,7 +132,7 @@ def test_skip_disabled_job():
     assert not job.build.mock_calls
 
 
-def test_branch_not_matching():
+def test_only_branches():
     from jenkins_epo.bot import Bot
 
     bot = Bot().workon(Mock())
@@ -140,7 +140,7 @@ def test_branch_not_matching():
     job.is_enabled.return_value = False
     spec = Mock()
     spec.name = 'job'
-    spec.config = dict(branches='master')
+    spec.config = dict(only='master')
     bot.current.job_specs = {'job': spec}
     bot.current.jobs = {'job': job}
     bot.current.head.filter_not_built_contexts.return_value = ['job']
@@ -150,7 +150,7 @@ def test_branch_not_matching():
 
     assert not job.build.mock_calls
 
-    spec.config = dict(branches=['master', 'stable'])
+    spec.config = dict(only=['master', 'stable'])
 
     bot.extensions_map['builder'].run()
 

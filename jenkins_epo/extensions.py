@@ -103,7 +103,7 @@ jenkins: reset-skip-errors
             if spec.config.get('periodic'):
                 continue
 
-            branches = spec.config.get('branches', '*')
+            branches = spec.config.get('only', '*')
             if isinstance(branches, str):
                 branches = [branches]
             if not match(self.current.head.ref[len('refs/heads/'):], branches):
