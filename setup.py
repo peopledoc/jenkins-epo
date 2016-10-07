@@ -43,6 +43,7 @@ setup(
             'help = jenkins_epo.extensions:HelpExtension',
             'merger = jenkins_epo.extensions:MergerExtension',
             'report = jenkins_epo.extensions:ReportExtension',
+            'stages = jenkins_epo.extensions:StagesExtension',
         ],
     },
     extras_require={

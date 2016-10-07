@@ -302,6 +302,7 @@ class Head(object):
             self.statuses[str(status)] = status
         else:
             self.statuses.pop(str(status), None)
+        return new_status
 
     @retry(wait_fixed=15000)
     def push_status(self, status):

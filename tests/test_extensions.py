@@ -125,7 +125,9 @@ def test_skip_disabled_job():
     bot.current.jobs = {'job-disabled': job}
     bot.current.head.filter_not_built_contexts.return_value = ['job-disabled']
     bot.current.head.ref = 'refs/heads/pr'
-    bot.current.statuses = {'job-disabled': {'description': 'Disabled'}}
+    bot.current.head.maybe_update_status.return_value = {
+        'description': 'Disabled',
+    }
 
     bot.extensions_map['builder'].run()
 
@@ -167,6 +169,7 @@ def test_build():
     head = bot.current.head
     head.ref = 'refs/heads/pr'
     head.filter_not_built_contexts.return_value = ['job']
+    head.maybe_update_status.return_value = {'description': 'Queued'}
 
     bot.current.job_specs = {'job': spec}
     bot.current.jobs = {'job': job}
