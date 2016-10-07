@@ -162,9 +162,10 @@ def test_build():
 
     bot = Bot().workon(Mock())
     job = Mock()
-    spec = Mock()
+    spec = Mock(config=dict())
     spec.name = 'job'
     head = bot.current.head
+    head.ref = 'refs/heads/pr'
     head.filter_not_built_contexts.return_value = ['job']
 
     bot.current.job_specs = {'job': spec}
@@ -172,6 +173,9 @@ def test_build():
     bot.current.statuses = {}
 
     bot.extensions_map['builder'].run()
+
+    assert head.maybe_update_status.mock_calls
+    assert job.build.mock_calls
 
 
 def test_builder_ignore_perioddc():
