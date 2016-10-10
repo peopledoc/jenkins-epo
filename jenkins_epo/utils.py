@@ -18,16 +18,18 @@ import datetime
 import fnmatch
 import logging
 
+from github import ApiError
+from http.client import HTTPException
 import retrying
+from requests import HTTPError
 
 
 logger = logging.getLogger(__name__)
 
 
 def retry(*dargs, **dkw):
-    from .github import retry_filter
     defaults = dict(
-        retry_on_exception=retry_filter,
+        retry_on_exception=filter_exception_for_retry,
         wait_exponential_multiplier=500,
         wait_exponential_max=15000,
     )
@@ -37,6 +39,36 @@ def retry(*dargs, **dkw):
     else:
         dkw = dict(defaults, **dkw)
         return retrying.retry(*dargs, **dkw)
+
+
+def filter_exception_for_retry(exception):
+    from .github import wait_rate_limit_reset
+
+    if isinstance(exception, ApiError):
+        try:
+            message = exception.response['json']['message']
+        except KeyError:
+            # Don't retry on ApiError by default. Things like 1000 status
+            # update must be managed by code.
+            return False
+        if 'API rate limit exceeded for' in message:
+            wait_rate_limit_reset()
+            return True
+        # If not a rate limit error, don't retry.
+        return False
+
+    if not isinstance(exception, (IOError, HTTPException, HTTPError)):
+        return False
+
+    if isinstance(exception, HTTPError):
+        if exception.response.status_code < 500:
+            return False
+
+    logger.warn(
+        "Retrying on %r: %s",
+        type(exception), str(exception) or repr(exception)
+    )
+    return True
 
 
 def match(item, patterns):
