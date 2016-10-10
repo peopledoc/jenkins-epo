@@ -318,3 +318,13 @@ def test_update_job(SETTINGS, factory):
 
     assert api_instance.update_config.mock_calls
     assert factory.mock_calls
+
+
+@patch('jenkins_epo.jenkins.SETTINGS')
+def test_queue_empty(SETTINGS):
+    from jenkins_epo.jenkins import LazyJenkins
+
+    JENKINS = LazyJenkins(Mock())
+    JENKINS._instance.get_queue.return_value._data = dict(items=[])
+
+    assert JENKINS.is_queue_empty()
