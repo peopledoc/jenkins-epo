@@ -167,11 +167,16 @@ jenkins: reset-skip-errors
 
 
 class CreateJobsExtension(Extension):
+    """
+    jenkins: refresh-jobs  # Refresh job definition on Jenkins.
+    """
+
     stage = '00'
 
     DEFAULTS = {
         'jobs': {},
         'job_specs': {},
+        'refresh_jobs': {},
     }
 
     SETTINGS = {
@@ -189,6 +194,10 @@ Failed to create or update Jenkins job `%(name)s`.
 %(detail)s
 ```
 """
+
+    def process_instruction(self, instruction):
+        if instruction == 'refresh-jobs':
+            self.current.refresh_jobs = instruction.date
 
     def list_job_specs(self, jenkins_yml=None):
         defaults = dict(
@@ -209,18 +218,23 @@ Failed to create or update Jenkins job `%(name)s`.
     def process_job_specs(self):
         for spec in self.current.job_specs.values():
             current_job = self.current.jobs.get(spec.name)
+            if not current_job:
+                yield JENKINS.create_job, spec
+                continue
 
-            if current_job:
-                if current_job.spec.contains(spec):
-                    continue
+            update = False
+            if self.current.refresh_jobs:
+                update = (
+                    not current_job.updated_at or
+                    self.current.refresh_jobs >= current_job.updated_at
+                )
 
-                jenkins_spec = current_job.spec.merge(spec)
-                action = JENKINS.update_job
-            else:
-                jenkins_spec = spec
-                action = JENKINS.create_job
+            if not current_job.spec.contains(spec):
+                spec = current_job.spec.merge(spec)
+                update = True
 
-            yield action, jenkins_spec
+            if update:
+                yield JENKINS.update_job, spec
 
     def run(self):
         head = self.current.head

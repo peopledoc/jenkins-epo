@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 def test_freestyle_build(SETTINGS):
     from jenkins_epo.jenkins import FreestyleJob
 
-    api_instance = Mock()
+    api_instance = Mock(_data=dict())
     api_instance.name = 'freestyle'
     xml = api_instance._get_config_element_tree.return_value
     xml.findall.return_value = []
@@ -30,7 +30,7 @@ def test_freestyle_build(SETTINGS):
 def test_freestyle_build_dry(SETTINGS):
     from jenkins_epo.jenkins import FreestyleJob
 
-    api_instance = Mock()
+    api_instance = Mock(_data=dict())
     api_instance.name = 'freestyle'
     xml = api_instance._get_config_element_tree.return_value
     xml.findall.return_value = []
@@ -54,6 +54,7 @@ def test_freestyle_node_param():
     from jenkins_epo.jenkins import FreestyleJob
 
     api_instance = Mock(spec=['_get_config_element_tree', 'get_params'])
+    api_instance._data = dict()
     api_instance.name = 'freestyle'
     api_instance.get_params.return_value = [
         {'name': 'P', 'type': 'StringParameter'},
@@ -72,6 +73,7 @@ def test_matrix_combination_param():
 
     api_instance = Mock(spec=['_get_config_element_tree', 'get_params'])
     api_instance.name = 'matrix'
+    api_instance._data = dict()
     api_instance.get_params.return_value = [
         {'name': 'P', 'type': 'StringParameter'},
         {'name': 'C', 'type': 'MatrixCombinationsParameterDefinition'},
@@ -90,6 +92,7 @@ def test_matrix_node_axis():
 
     api_instance = Mock(spec=['_get_config_element_tree', 'get_params'])
     api_instance.name = 'matrix'
+    api_instance._data = dict()
 
     xml = api_instance._get_config_element_tree.return_value
     xml.findall.return_value = []
@@ -257,11 +260,11 @@ def test_create_job(SETTINGS, factory):
     from jenkins_epo.jenkins import LazyJenkins
 
     JENKINS = LazyJenkins(Mock())
-    spec = Mock()
+    spec = Mock(config=dict())
 
     SETTINGS.DRY_RUN = 1
     JENKINS.create_job(spec)
-
+    assert 'updated_at' in spec.config['description']
     assert not JENKINS._instance.create_job.mock_calls
 
     SETTINGS.DRY_RUN = 0
@@ -278,7 +281,7 @@ def test_job_managed(from_xml, SETTINGS):
 
     SETTINGS.JOBS_AUTO = 0
 
-    job = Job(Mock())
+    job = Job(Mock(_data=dict()))
     job.jobs_filter = []
     job._instance.name = 'job'
     job._instance.get_scm_url.return_value = []
@@ -304,7 +307,7 @@ def test_update_job(SETTINGS, factory):
     SETTINGS.DRY_RUN = 1
 
     JENKINS = LazyJenkins(Mock())
-    spec = Mock()
+    spec = Mock(config=dict())
     api_instance = JENKINS._instance.get_job.return_value
 
     JENKINS.update_job(spec)
@@ -328,3 +331,22 @@ def test_queue_empty(SETTINGS):
     JENKINS._instance.get_queue.return_value._data = dict(items=[])
 
     assert JENKINS.is_queue_empty()
+
+
+@patch('jenkins_epo.jenkins.JobSpec')
+def test_job_updated_at(JobSpec):
+    from jenkins_epo.jenkins import Job
+
+    job = Job(Mock(_data=dict(description="""\
+Bla bla.
+
+<!--
+epo:
+  updated_at: 2016-10-10T15:27:00Z
+-->
+""")))
+    assert job.updated_at
+    assert 2016 == job.updated_at.year
+
+    job = Job(Mock(_data=dict(description="""no yaml""")))
+    assert not job.updated_at

@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
 
@@ -49,6 +50,7 @@ def test_job_uptodate(GITHUB, JENKINS, SETTINGS):
 
     ext = CreateJobsExtension('createjob', Mock())
     ext.current = ext.bot.current
+    ext.current.refresh_jobs = None
     ext.current.job_specs = {'new_job': Mock()}
     ext.current.job_specs['new_job'].name = 'new_job'
     ext.current.jobs = {'new_job': Mock()}
@@ -67,7 +69,8 @@ def test_job_update(GITHUB, JENKINS, SETTINGS):
 
     ext = CreateJobsExtension('createjob', Mock())
     ext.current = ext.bot.current
-    ext.current.job_specs = {'new_job': Mock()}
+    ext.current.refresh_jobs = None
+    ext.current.job_specs = {'new_job': Mock(config=dict())}
     ext.current.job_specs['new_job'].name = 'new_job'
     ext.current.jobs = {'new_job': Mock()}
     ext.current.jobs['new_job'].spec.contains.return_value = False
@@ -125,3 +128,36 @@ def test_jenkins_fails_existing(GITHUB, JENKINS, SETTINGS, process_job_specs):
 
     assert ext.current.errors
     assert JENKINS.update_job.mock_calls
+
+
+@patch('jenkins_epo.extensions.JENKINS')
+def test_refresh_job_outdated(JENKINS):
+    from jenkins_epo.extensions import CreateJobsExtension
+    from jenkins_epo.bot import Instruction
+
+    ext = CreateJobsExtension('createjob', Mock())
+    ext.current = ext.bot.current
+    ext.current.errors = []
+    ext.current.refresh_jobs = None
+    ext.current.job_specs = {'job': Mock(config={})}
+    ext.current.job_specs['job'].name = 'job'
+    ext.current.jobs = {'job': Mock(
+        updated_at=datetime.now() - timedelta(hours=1),
+    )}
+    ext.current.jobs['job'].name = 'job'
+    ext.current.jobs['job'].spec.contains.return_value = True
+
+    ext.process_instruction(Instruction(
+        author='author', name='refresh-jobs', date=datetime.now()
+    ))
+
+    assert ext.current.refresh_jobs
+
+    items = list(ext.process_job_specs())
+    assert 1 == len(items)
+    action, spec = items[0]
+    assert JENKINS.update_job == action
+
+    ext.current.jobs['job'].updated_at = datetime.now() + timedelta(hours=1)
+    items = list(ext.process_job_specs())
+    assert 0 == len(items)

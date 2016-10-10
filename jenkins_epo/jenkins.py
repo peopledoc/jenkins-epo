@@ -12,6 +12,7 @@
 # You should have received a copy of the GNU General Public License along with
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
+from datetime import datetime
 from itertools import product
 import logging
 import json
@@ -21,6 +22,7 @@ from jenkinsapi.build import Build
 from jenkinsapi.jenkins import Jenkins
 from jenkins_yml import Job as JobSpec
 import requests
+import yaml
 
 from .settings import SETTINGS
 from .utils import parse_patterns, retry
@@ -74,8 +76,29 @@ class LazyJenkins(object):
         self.load()
         return Job.factory(self._instance.get_job(name))
 
+    DESCRIPTION_TMPL = """\
+%(description)s
+
+<!--
+%(embedded_data)s
+-->
+"""
+
+    def preprocess_spec(self, spec):
+        embedded_data = dict(updated_at=datetime.now())
+        spec.config['description'] = self.DESCRIPTION_TMPL % dict(
+            description=re.sub(
+                r"\s*(<!--\nepo:.*-->)", "",
+                spec.config.get('description', ''),
+                flags=re.S,
+            ),
+            embedded_data=yaml.dump(dict(epo=embedded_data)).strip(),
+        )
+        return spec
+
     @retry
     def create_job(self, job_spec):
+        job_spec = self.preprocess_spec(job_spec)
         config = job_spec.as_xml()
         if SETTINGS.DRY_RUN:
             logger.warn("Would create new Jenkins job %s.", job_spec)
@@ -89,6 +112,7 @@ class LazyJenkins(object):
     @retry
     def update_job(self, job_spec):
         api_instance = self._instance.get_job(job_spec.name)
+        job_spec = self.preprocess_spec(job_spec)
         config = job_spec.as_xml()
         if SETTINGS.DRY_RUN:
             logger.warn("Would update Jenkins job %s.", job_spec)
@@ -105,6 +129,9 @@ JENKINS = LazyJenkins()
 
 class Job(object):
     jobs_filter = parse_patterns(SETTINGS.JOBS)
+    embedded_data_re = re.compile(
+        r'^(?P<yaml>epo:.*)(?=^[^ ])', re.MULTILINE | re.DOTALL,
+    )
 
     @staticmethod
     def factory(instance):
@@ -118,6 +145,11 @@ class Job(object):
         self._instance = api_instance
         self.config = self._instance._get_config_element_tree()
         self.spec = JobSpec.from_xml(self.name, self.config)
+        match = self.embedded_data_re.search(
+            self._instance._data.get('description', '')
+        )
+        data = match.group('yaml') if match else '{}'
+        self.embedded_data = yaml.load(data).get('epo', {})
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.name)
@@ -166,6 +198,10 @@ class Job(object):
                 logger.warn("Can't find a revision param in %s", self)
 
         return self._revision_param
+
+    @property
+    def updated_at(self):
+        return self.embedded_data.get('updated_at')
 
     @property
     def node_param(self):
