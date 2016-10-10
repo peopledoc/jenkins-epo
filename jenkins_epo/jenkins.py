@@ -64,7 +64,10 @@ class LazyJenkins(object):
 
     @retry
     def is_queue_empty(self):
-        return len(self.get_queue().keys()) == 0
+        logging.debug("GET %s queue.", SETTINGS.JENKINS_URL)
+        data = self.get_queue()._data
+        items = filter(lambda i: not i['stuck'], data['items'])
+        return len(list(items)) == 0
 
     @retry
     def get_job(self, name):
