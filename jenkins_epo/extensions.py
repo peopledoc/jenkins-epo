@@ -404,15 +404,28 @@ class FixStatusExtension(Extension):
 
 
 class Stage(object):
-    def __init__(self, name):
+    @classmethod
+    def factory(cls, entry):
+        if isinstance(entry, str):
+            entry = dict(name=entry)
+        return cls(**entry)
+
+    def __init__(self, name, external=None, **kw):
         self.name = name
         self.job_specs = []
+        self.external_contextes = external or []
         self.statuses = []
 
     def __str__(self):
         return self.name
 
     def is_complete(self, jobs, statuses):
+        for context in self.external_contextes:
+            state = statuses.get(context, {}).get('state')
+            if state != 'success':
+                logger.debug("Missing context %s for stage %s.", context, self)
+                return False
+
         for spec in self.job_specs:
             job = jobs[spec.name]
             for context in job.list_contexts(spec):
@@ -431,10 +444,11 @@ class StagesExtension(Extension):
     }
 
     def run(self):
+        stages = [Stage.factory(i) for i in self.current.SETTINGS.STAGES]
         # First, group jobs by stages
-        self.current.stages = stages = OrderedDict([
-            (n, Stage(n)) for n in self.current.SETTINGS.STAGES
-        ])
+        self.current.stages = stages = OrderedDict(
+            [(s.name, s) for s in stages],
+        )
         default_stage = 'test' if 'test' in stages else list(stages.keys())[0]
         for spec in self.current.job_specs.values():
             if spec.config.get('periodic') and not spec.config.get('stage'):

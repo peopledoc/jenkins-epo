@@ -128,6 +128,30 @@ def test_periodic_required():
     assert ext.current.current_stage.name == 'deploy'
 
 
+def test_external_context():
+    from jenkins_epo.extensions import StagesExtension
+
+    ext = StagesExtension('stages', Mock())
+    ext.current = Mock()
+    ext.current.SETTINGS.STAGES = [
+        dict(name='deploy', external=['deploy/prod']),
+        'final',
+    ]
+    ext.current.job_specs = {}
+    ext.current.jobs = {}
+    ext.current.statuses = {}
+
+    ext.run()
+
+    assert 'deploy' == ext.current.current_stage.name
+
+    ext.current.statuses = {'deploy/prod': {'state': 'success'}}
+
+    ext.run()
+
+    assert 'final' == ext.current.current_stage.name
+
+
 def test_complete():
     from jenkins_epo.extensions import StagesExtension
 
