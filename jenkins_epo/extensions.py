@@ -421,7 +421,7 @@ class StagesExtension(Extension):
         self.current.stages = stages = OrderedDict([
             (n, Stage(n)) for n in self.current.SETTINGS.STAGES
         ])
-        default_stage = 'test' if 'test' in stages else next(stages.keys())
+        default_stage = 'test' if 'test' in stages else list(stages.keys())[0]
         for spec in self.current.job_specs.values():
             if spec.config.get('periodic') and not spec.config.get('stage'):
                 logger.debug("Skipping %s with no explicit stage.", spec)

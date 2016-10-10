@@ -51,6 +51,30 @@ def test_second_stage():
     assert ext.current.current_stage.name == 'test'
 
 
+def test_no_test_stage():
+    from jenkins_epo.extensions import StagesExtension
+
+    ext = StagesExtension('stages', Mock())
+    ext.current = Mock()
+    ext.current.SETTINGS.STAGES = ['build', 'deploy']
+    ext.current.job_specs = specs = {
+        'build': Mock(config=dict()),
+    }
+    specs['build'].name = 'build'
+
+    ext.current.jobs = jobs = {
+        'build': Mock(),
+    }
+    jobs['build'].list_contexts.return_value = ['build']
+
+    ext.current.statuses = {}
+
+    ext.run()
+
+    assert 'build' == ext.current.current_stage.name
+    assert 'build' in ext.current.job_specs
+
+
 def test_periodic_ignored():
     from jenkins_epo.extensions import StagesExtension
 
