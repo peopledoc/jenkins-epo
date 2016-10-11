@@ -177,26 +177,6 @@ class LazyGithub(object):
     @retry(wait_fixed=15000)
     def fetch_file_contents(self, repository, path, **kwargs):
         path = os.path.normpath(path)
-        items = path.split('/')
-
-        # We walk to avoid 404, it consumes rate limit. Each step is cached.
-        search = ''
-        for needle in items:
-            out = cached_request(
-                self.repos(repository).contents(search), **kwargs
-            )
-
-            if needle == items[-1]:
-                type_ = 'file'
-            else:
-                type_ = 'dir'
-            entries = [x['name'] for x in out if x['type'] == type_]
-
-            if needle not in entries:
-                logger.debug("%s not found", path)
-                raise ApiNotFoundError(path, {}, {})
-            search = (search + '/' + needle).strip('/')
-
         payload = cached_request(
             self.repos(repository).contents(path), **kwargs
         )
