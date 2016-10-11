@@ -13,7 +13,6 @@
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
 from collections import OrderedDict
-import datetime
 import inspect
 import logging
 import pkg_resources
@@ -112,14 +111,14 @@ jenkins: reset-skip-errors
                 continue
 
             job = self.current.jobs[spec.name]
-            not_built = self.current.head.filter_not_built_contexts(
+            not_built = self.current.last_commit.filter_not_built_contexts(
                 job.list_contexts(spec),
                 rebuild_failed=self.current.rebuild_failed
             )
 
             queued_contexts = []
             for context in not_built:
-                new_status = self.current.head.maybe_update_status(
+                new_status = self.current.last_commit.maybe_update_status(
                     self.status_for_new_context(job, context),
                 )
                 if new_status['description'] == 'Queued':
@@ -131,11 +130,13 @@ jenkins: reset-skip-errors
                 except Exception as e:
                     logger.exception("Failed to queue job %s: %s.", job, e)
                     for context in queued_contexts:
-                        self.current.head.maybe_update_status(CommitStatus(
-                            context=context, state='error',
-                            description='Failed to queue job.',
-                            target_url=job.baseurl,
-                        ))
+                        self.current.last_commit.maybe_update_status(
+                            CommitStatus(
+                                context=context, state='error',
+                                description='Failed to queue job.',
+                                target_url=job.baseurl,
+                            )
+                        )
 
     def skip(self, context):
         for pattern in self.current.skip:
@@ -164,6 +165,48 @@ jenkins: reset-skip-errors
                 'state': 'pending',
             })
         return new_status
+
+
+class CancellerExtension(Extension):
+    stage = '20'
+
+    def iter_pending_status(self):
+        payload = self.current.head.fetch_previous_commits()
+        head = True
+        for commit in self.current.head.process_commits(payload):
+            payload = commit.fetch_statuses()
+            statuses = commit.process_statuses(payload)
+            for context, status in statuses.items():
+                if not status.get('target_url'):
+                    continue
+                if not status['target_url'].startswith(JENKINS.baseurl):
+                    continue
+                if status['state'] != 'pending':
+                    continue
+                yield commit, status, head
+            head = False
+
+    def run(self):
+        for commit, status, head in self.iter_pending_status():
+            logger.debug("Query %s status for %s.", status, commit)
+            try:
+                build = JENKINS.get_build_from_url(status['target_url'])
+            except Exception as e:
+                logger.debug(
+                    "Failed to get pending build status for contexts: %s: %s",
+                    e.__class__.__name__, e,
+                )
+                build = None
+
+            if not head and build and build.is_running():
+                logger.warn("Cancelling %s.", build)
+                build.stop()
+                new_status = status.__class__(
+                    status, state='error', description='Cancelled after push.'
+                )
+            else:
+                new_status = status.from_build(build)
+            commit.maybe_update_status(new_status)
 
 
 class CreateJobsExtension(Extension):
@@ -271,7 +314,7 @@ Failed to create or update Jenkins job `%(name)s`.
             self.current.jobs[job.name] = job
 
             if spec.config.get('periodic'):
-                self.current.head.push_status(CommitStatus(
+                self.current.last_commit.push_status(CommitStatus(
                     context=job.name, state='success',
                     target_url=job.baseurl, description='Created!',
                 ))
@@ -289,118 +332,8 @@ Failed to create or update Jenkins job `%(name)s`.
             self.JOB_ERROR_COMMENT % dict(
                 name=spec.name, error=e, detail=detail,
             ),
-            self.current.commit_date,
+            self.current.last_commit.date,
         )
-
-
-def format_duration(duration):
-    duration = datetime.timedelta(seconds=duration / 1000.)
-    h, m, s = str(duration).split(':')
-    h, m, s = int(h), int(m), float(s)
-    duration = '%.1f sec' % s
-    if h or m:
-        duration = '%d min %s' % (m, duration)
-    if h:
-        duration = '%d h %s' % (h, duration)
-    return duration.replace('.0', '')
-
-
-class FixStatusExtension(Extension):
-    stage = '20'
-
-    SETTINGS = {
-        'STATUS_LOOP': 0,
-    }
-
-    status_map = {
-        # Requeue an aborted job
-        'ABORTED': ('error', 'Aborted!'),
-        'FAILURE': ('failure', 'Build %(name)s failed in %(duration)s!'),
-        'UNSTABLE': ('failure', 'Build %(name)s failed in %(duration)s!'),
-        'SUCCESS': ('success', 'Build %(name)s succeeded in %(duration)s'),
-    }
-
-    def compute_actual_status(self, build, current_status):
-        # If no build found, this may be an old CI build, or any other
-        # unconfirmed build. Retrigger.
-        jenkins_status = build.get_status() if build else 'ABORTED'
-        if build and jenkins_status:
-            state, description = self.status_map[jenkins_status]
-            if description != 'Backed':
-                duration = format_duration(build._data['duration'])
-                try:
-                    description = description % dict(
-                        name=build._data['displayName'],
-                        duration=duration,
-                    )
-                except TypeError:
-                    pass
-        elif self.current.head.repository.SETTINGS.STATUS_LOOP:
-            # Touch the commit status to avoid polling it for the next 5
-            # minutes.
-            state = 'pending'
-            description = current_status['description']
-            ellipsis = '...' if description.endswith('....') else '....'
-            description = description.rstrip('.') + ellipsis
-        else:
-            # Don't touch
-            return CommitStatus()
-
-        return CommitStatus(
-            current_status, description=description, state=state,
-        )
-
-    def run(self):
-        fivemin_ago = (
-            datetime.datetime.utcnow() -
-            datetime.timedelta(
-                seconds=self.current.head.repository.SETTINGS.STATUS_LOOP
-            )
-        )
-
-        failed_contexts = []
-        for context, status in self.current.statuses.items():
-            if status['state'] == 'success':
-                continue
-
-            # There is no build URL.
-            if status['description'] in {'Backed', 'New', 'Queued'}:
-                continue
-
-            # Don't poll Jenkins more than each 5 min.
-            old = status['updated_at'] > fivemin_ago
-            if status['state'] == 'pending' and old:
-                logger.debug("Postpone Jenkins status polling.")
-                continue
-
-            # We mark actual failed with a bang to avoid rechecking it is
-            # aborted.
-            if status['description'].endswith('!'):
-                continue
-
-            if not status['target_url'].startswith(JENKINS.baseurl):
-                continue
-
-            logger.debug("Query %s status on Jenkins", context)
-            try:
-                build = JENKINS.get_build_from_url(status['target_url'])
-            except Exception as e:
-                logger.debug(
-                    "Failed to get actual build status for contexts: %s: %s",
-                    e.__class__.__name__, e,
-                )
-                build = None
-                failed_contexts.append(context)
-
-            new_status = self.compute_actual_status(build, status)
-            if new_status:
-                self.current.head.maybe_update_status(new_status)
-
-        if failed_contexts:
-            logger.warn(
-                "Failed to get actual build status for contexts: %s",
-                failed_contexts
-            )
 
 
 class Stage(object):
@@ -621,7 +554,7 @@ jenkins: {last-merge-error: %(message)r}
         if not hasattr(self.current.head, 'merge'):
             return logger.debug("OPM on a non PR. Weird!")
 
-        if opm.date < self.current.commit_date:
+        if opm.date < self.current.last_commit.date:
             return logger.debug("Skip outdated OPM.")
 
         if opm.author in self.current.SETTINGS.REVIEWERS:
@@ -662,7 +595,7 @@ jenkins: {last-merge-error: %(message)r}
             ))
             return
 
-        status = self.current.head.fetch_combined_status()
+        status = self.current.last_commit.fetch_combined_status()
         if status['state'] != 'success':
             return logger.debug("PR not green. Postpone merge.")
 

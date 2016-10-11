@@ -23,7 +23,9 @@ import yaml
 
 from .github import cached_request, GITHUB, ApiNotFoundError
 from .settings import SETTINGS
-from .utils import Bunch, match, parse_datetime, parse_patterns, retry
+from .utils import (
+    Bunch, format_duration, match, parse_datetime, parse_patterns, retry,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -67,6 +69,30 @@ class CommitStatus(dict):
         if self.get('description') in {'Skipped', 'Disabled on Jenkins.'}:
             return True
         return False
+
+    jenkins_status_map = {
+        # Requeue an aborted job
+        'ABORTED': ('error', 'Aborted!'),
+        'FAILURE': ('failure', 'Build %(name)s failed in %(duration)s!'),
+        'UNSTABLE': ('failure', 'Build %(name)s failed in %(duration)s!'),
+        'SUCCESS': ('success', 'Build %(name)s succeeded in %(duration)s!'),
+    }
+
+    def from_build(self, build=None):
+        # If no build found, this may be an old CI build, or any other
+        # unconfirmed build. Retrigger.
+        jenkins_status = build.get_status() if build else 'ABORTED'
+        if build and jenkins_status:
+            state, description = self.jenkins_status_map[jenkins_status]
+            if description != 'Backed':
+                description = description % dict(
+                    name=build._data['displayName'],
+                    duration=format_duration(build._data['duration']),
+                )
+            return self.__class__(self, description=description, state=state)
+        else:
+            # Don't touch
+            return self.__class__(self)
 
 
 class Repository(object):
@@ -203,15 +229,21 @@ class Repository(object):
         )
 
 
-class Head(object):
+class Commit(object):
     contexts_filter = parse_patterns(SETTINGS.JOBS)
 
-    def __init__(self, repository, ref, sha, commit):
+    def __init__(self, repository, sha, payload=None):
         self.repository = repository
         self.sha = sha
-        self.ref = ref
-        self.commit = commit
-        self._status_cache = None
+        self.payload = payload
+        self.statuses = {}
+
+    def __repr__(self):
+        return '<%s %s>' % (self.__class__.__name__, self.sha[:7])
+
+    @property
+    def date(self):
+        return parse_datetime(self.payload['commit']['author']['date'])
 
     @property
     def is_outdated(self):
@@ -220,24 +252,18 @@ class Head(object):
             return False
 
         now = datetime.datetime.utcnow()
-        age = now - parse_datetime(self.commit['author']['date'])
+        age = now - self.date
         maxage = datetime.timedelta(weeks=weeks)
         return age > maxage
 
     @retry(wait_fixed=15000)
-    def fetch_commit(self):
+    def fetch_payload(self):
         logger.debug("Fetching commit %s.", self.sha[:7])
         payload = cached_request(
             GITHUB.repos(self.repository).commits(self.sha)
         )
-        self.commit = payload['commit']
-        return self.commit
-
-    @retry(wait_fixed=15000)
-    def fetch_combined_status(self):
-        return cached_request(
-            GITHUB.repos(self.repository).commits(self.sha).status,
-        )
+        self.payload = payload
+        return payload
 
     @retry(wait_fixed=15000)
     def fetch_statuses(self):
@@ -250,8 +276,11 @@ class Head(object):
                 GITHUB.repos(self.repository).status(self.sha),
             )
 
-    def list_comments(self):
-        raise NotImplemented
+    @retry(wait_fixed=15000)
+    def fetch_combined_status(self):
+        return cached_request(
+            GITHUB.repos(self.repository).commits(self.sha).status,
+        )
 
     def filter_not_built_contexts(self, contexts, rebuild_failed=None):
         for context in contexts:
@@ -331,15 +360,46 @@ class Head(object):
         except ApiError as e:
             logger.debug('ApiError %r', e.response['json'])
             logger.warn('Hit 1000 status updates on %s.', self.sha)
+            return status
+
+
+class Head(object):
+    contexts_filter = parse_patterns(SETTINGS.JOBS)
+
+    def __init__(self, repository, ref, sha):
+        self.repository = repository
+        self.sha = sha
+        self.ref = ref
+        self.last_commit = Commit(repository, sha, dict())
+
+    @retry(wait_fixed=15000)
+    def fetch_previous_commits(self, last_date=None):
+        logger.debug("Fetching previous commits.")
+        last_date = last_date or datetime.datetime.utcnow()
+        older_date = last_date - datetime.timedelta(hours=1)
+        return cached_request(
+            GITHUB.repos(self.repository).commits,
+            sha=self.sha, since=older_date.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        )
+
+    def list_comments(self):
+        raise NotImplemented
+
+    def process_commits(self, payload):
+        self.last_commit = None
+        for entry in payload:
+            commit = Commit(self.repository, entry['sha'], payload=entry)
+            if not self.last_commit:
+                self.last_commit = commit
+            yield commit
 
 
 class Branch(Head):
-    def __init__(self, repository, payload, commit=None):
+    def __init__(self, repository, payload):
         super(Branch, self).__init__(
             repository=repository,
             ref='refs/heads/' + payload['name'],
             sha=payload['commit']['sha'],
-            commit=commit,
         )
         self.payload = payload
 
@@ -381,12 +441,11 @@ class Branch(Head):
 class PullRequest(Head):
     _urgent_re = re.compile(r'^jenkins: *urgent$', re.MULTILINE)
 
-    def __init__(self, repository, payload, commit=None):
+    def __init__(self, repository, payload):
         super(PullRequest, self).__init__(
             repository,
-            sha=payload['head']['sha'],
             ref=payload['head']['ref'],
-            commit=commit,
+            sha=payload['head']['sha'],
         )
         self.payload = payload
         body = (payload.get('body') or '').replace('\r', '')

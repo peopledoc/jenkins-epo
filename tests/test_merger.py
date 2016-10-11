@@ -34,13 +34,13 @@ def test_deny_non_reviewer():
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
     ext.current.SETTINGS.REVIEWERS = []
-    ext.current.commit_date = datetime.now()
+    ext.current.last_commit.date = datetime.now()
     ext.current.opm = {}
     ext.current.opm_denied = []
 
     ext.process_instruction(Instruction(
         author='nonreviewer', name='opm',
-        date=ext.current.commit_date + timedelta(hours=1),
+        date=ext.current.last_commit.date + timedelta(hours=1),
     ))
 
     assert not ext.current.opm
@@ -58,13 +58,13 @@ def test_deny_outdated_opm():
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
     ext.current.SETTINGS.REVIEWERS = ['reviewer']
-    ext.current.commit_date = datetime.now()
+    ext.current.last_commit.date = datetime.now()
     ext.current.opm = {}
     ext.current.opm_denied = []
 
     ext.process_instruction(Instruction(
         author='reviewer', name='opm',
-        date=ext.current.commit_date - timedelta(hours=1),
+        date=ext.current.last_commit.date - timedelta(hours=1),
     ))
 
     assert not ext.current.opm
@@ -79,7 +79,7 @@ def test_deny_non_reviewer_processed():
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
     ext.current.SETTINGS.REVIEWERS = []
-    ext.current.commit_date = datetime.now()
+    ext.current.last_commit.date = datetime.now()
     ext.current.opm = None
     ext.current.opm_denied = [Instruction(
         author='nonreviewer', name='opm',
@@ -87,7 +87,7 @@ def test_deny_non_reviewer_processed():
 
     ext.process_instruction(Instruction(
         author='bot', name='opm-processed',
-        date=ext.current.commit_date + timedelta(hours=2),
+        date=ext.current.last_commit.date + timedelta(hours=2),
     ))
 
     assert not ext.current.opm
@@ -101,7 +101,7 @@ def test_accept_lgtm():
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
     ext.current.SETTINGS.REVIEWERS = ['reviewer']
-    ext.current.commit_date = commit_date = datetime.now()
+    ext.current.last_commit.date = commit_date = datetime.now()
     ext.current.opm = None
     ext.current.opm_denied = []
 
@@ -120,7 +120,7 @@ def test_merge_wip():
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
     ext.current.SETTINGS.REVIEWERS = ['reviewer']
-    ext.current.commit_date = datetime.now()
+    ext.current.last_commit.date = datetime.now()
     ext.current.opm.author = 'reviewer'
     ext.current.opm.date = datetime.now()
     ext.current.opm_denied = []
@@ -152,7 +152,9 @@ def test_not_green():
     ext.current = Mock()
     ext.current.opm = Mock()
     ext.current.opm_denied = []
-    ext.current.head.fetch_combined_status.return_value = {'state': 'error'}
+    ext.current.last_commit.fetch_combined_status.return_value = {
+        'state': 'error'
+    }
     ext.current.wip = None
 
     ext.run()
@@ -166,12 +168,14 @@ def test_merge_fail():
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
     ext.current.SETTINGS.REVIEWERS = ['reviewer']
-    ext.current.commit_date = datetime.now()
+    ext.current.last_commit.date = datetime.now()
     ext.current.opm.author = 'reviewer'
     ext.current.opm_denied = []
     ext.current.wip = None
 
-    ext.current.head.fetch_combined_status.return_value = {'state': 'success'}
+    ext.current.last_commit.fetch_combined_status.return_value = {
+        'state': 'success'
+    }
     ext.current.head.merge.side_effect = ApiError('url', {}, dict(json=dict(
         message="error",
     )))
@@ -190,12 +194,12 @@ def test_merge_already_failed():
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
     ext.current.SETTINGS.REVIEWERS = ['reviewer']
-    ext.current.commit_date = datetime.now()
+    ext.current.last_commit.date = datetime.now()
     ext.current.opm_denied = []
     ext.current.wip = None
 
-    date_opm = ext.current.commit_date + timedelta(minutes=30)
-    date_failed = ext.current.commit_date + timedelta(hours=1)
+    date_opm = ext.current.last_commit.date + timedelta(minutes=30)
+    date_failed = ext.current.last_commit.date + timedelta(hours=1)
 
     ext.process_instruction(Instruction(
         author='reviewer', name='opm', date=date_opm
@@ -206,7 +210,9 @@ def test_merge_already_failed():
 
     assert 'error' == ext.current.last_merge_error.args
 
-    ext.current.head.fetch_combined_status.return_value = {'state': 'success'}
+    ext.current.last_commit.fetch_combined_status.return_value = {
+        'state': 'success'
+    }
     ext.current.head.merge.side_effect = ApiError('url', {}, dict(json=dict(
         message="error",
     )))
@@ -224,7 +230,9 @@ def test_merge_success():
     ext.current.opm = Mock(author='author')
     ext.current.opm_denied = []
     ext.current.last_merge_error = None
-    ext.current.head.fetch_combined_status.return_value = {'state': 'success'}
+    ext.current.last_commit.fetch_combined_status.return_value = {
+        'state': 'success'
+    }
     ext.current.wip = None
 
     ext.run()

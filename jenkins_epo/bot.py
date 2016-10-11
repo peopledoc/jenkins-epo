@@ -76,10 +76,6 @@ See `jenkins: help` for documentation.
         self.current.head = head
         self.current.repository = head.repository
         self.current.SETTINGS = head.repository.SETTINGS
-        if isinstance(head.commit, dict):
-            self.current.commit_date = parse_datetime(
-                head.commit['committer']['date']
-            )
 
         for ext in self.extensions:
             self.current.update(copy.deepcopy(ext.DEFAULTS))
@@ -89,9 +85,11 @@ See `jenkins: help` for documentation.
     def run(self, head):
         self.workon(head)
 
-        payload = self.current.head.fetch_statuses()
-        self.current.head.process_statuses(payload)
-        self.current.statuses = self.current.head.statuses
+        self.current.last_commit = head.last_commit
+
+        payload = head.last_commit.fetch_statuses()
+        head.last_commit.process_statuses(payload)
+        self.current.statuses = head.last_commit.statuses
         for ext in self.extensions:
             ext.begin()
 

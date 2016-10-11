@@ -46,14 +46,15 @@ def test_bot_loop_outdated(mocker):
 
     from jenkins_epo.main import bot
 
-    head = Mock(is_outdated=True)
+    head = Mock()
+    head.last_commit.is_outdated = True
     procedures.iter_heads.return_value = [head]
 
     yield from bot()
 
     bot = Bot.return_value
     assert not bot.run.mock_calls
-    assert head.fetch_commit.mock_calls
+    assert head.last_commit.fetch_payload.mock_calls
     assert procedures.iter_heads.mock_calls
 
 
@@ -70,7 +71,8 @@ def test_bot_loop_restart_loop(mocker):
 
     check_queue.side_effect = RestartLoop
 
-    head = Mock(is_outdated=False)
+    head = Mock()
+    head.last_commit.is_outdated = False
     procedures.iter_heads.return_value = [head]
 
     yield from bot()
@@ -92,7 +94,8 @@ def test_bot_loop_restart_loop_not_looping(mocker):
 
     check_queue.side_effect = RestartLoop
 
-    head = Mock(is_outdated=False)
+    head = Mock()
+    head.last_commit.is_outdated = False
     procedures.iter_heads.return_value = [head]
 
     yield from bot()
@@ -113,7 +116,8 @@ def test_bot_run_raises(mocker):
 
     from jenkins_epo.main import bot
 
-    head = Mock(is_outdated=False)
+    head = Mock()
+    head.last_commit.is_outdated = False
     procedures.iter_heads.return_value = [head]
 
     bot_instance = Bot.return_value
@@ -135,7 +139,8 @@ def test_bot_run_log_exception(mocker):
 
     from jenkins_epo.main import bot
 
-    head = Mock(is_outdated=False)
+    head = Mock()
+    head.last_commit.is_outdated = False
     procedures.iter_heads.return_value = [head]
 
     bot_instance = Bot.return_value

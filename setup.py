@@ -37,9 +37,9 @@ setup(
         'console_scripts': ['jenkins-epo=jenkins_epo.script:entrypoint'],
         'jenkins_epo.bot.extensions': [
             'builder = jenkins_epo.extensions:BuilderExtension',
+            'canceller = jenkins_epo.extensions:CancellerExtension',
             'createjobs = jenkins_epo.extensions:CreateJobsExtension',
             'error = jenkins_epo.extensions:ErrorExtension',
-            'fix = jenkins_epo.extensions:FixStatusExtension',
             'help = jenkins_epo.extensions:HelpExtension',
             'merger = jenkins_epo.extensions:MergerExtension',
             'report = jenkins_epo.extensions:ReportExtension',
