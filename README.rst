@@ -19,6 +19,7 @@ Features
 - Jobs pipeline façon GitLab CI.
 - Query GitHub API to poll open PR instead of polling git repository.
 - Read instructions from PR comments.
+- Cancel running jobs when pushing new commits.
 - Report issue on broken protected branches.
 - Auto-merge PR.
 - Works behind firewall.
