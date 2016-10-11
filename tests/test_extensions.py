@@ -113,23 +113,28 @@ def test_skip_re_wrong():
 
 
 def test_skip_disabled_job():
-    from jenkins_epo.bot import Bot
+    from jenkins_epo.extensions import BuilderExtension
 
-    bot = Bot().workon(Mock())
+    ext = BuilderExtension('builder', Mock())
+    ext.current = ext.bot.current
     job = Mock()
     job.is_enabled.return_value = False
     spec = Mock()
     spec.name = 'job-disabled'
     spec.config = dict()
-    bot.current.job_specs = {'job-disabled': spec}
-    bot.current.jobs = {'job-disabled': job}
-    bot.current.head.filter_not_built_contexts.return_value = ['job-disabled']
-    bot.current.head.ref = 'refs/heads/pr'
-    bot.current.head.maybe_update_status.return_value = {
+    ext.current.jobs_match = []
+    ext.current.skip = []
+    ext.current.skip_errors = []
+    ext.current.job_specs = {'job-disabled': spec}
+    ext.current.jobs = {'job-disabled': job}
+    ext.current.head.ref = 'refs/heads/pr'
+    ext.current.last_commit.filter_not_built_contexts.return_value = [
+        'job-disabled']
+    ext.current.last_commit.maybe_update_status.return_value = {
         'description': 'Disabled',
     }
 
-    bot.extensions_map['builder'].run()
+    ext.run()
 
     assert not job.build.mock_calls
 
@@ -160,24 +165,55 @@ def test_only_branches():
 
 
 def test_build():
-    from jenkins_epo.bot import Bot
+    from jenkins_epo.extensions import BuilderExtension
 
-    bot = Bot().workon(Mock())
+    ext = BuilderExtension('builder', Mock())
+    ext.current = ext.bot.current
     job = Mock()
     spec = Mock(config=dict())
     spec.name = 'job'
-    head = bot.current.head
-    head.ref = 'refs/heads/pr'
-    head.filter_not_built_contexts.return_value = ['job']
-    head.maybe_update_status.return_value = {'description': 'Queued'}
+    ext.current.head.ref = 'refs/heads/pr'
+    ext.current.last_commit.filter_not_built_contexts.return_value = ['job']
+    ext.current.last_commit.maybe_update_status.return_value = {
+        'description': 'Queued'
+    }
+    ext.current.jobs_match = []
+    ext.current.job_specs = {'job': spec}
+    ext.current.jobs = {'job': job}
+    ext.current.statuses = {}
+    ext.current.skip = []
+    ext.current.skip_errors = []
 
-    bot.current.job_specs = {'job': spec}
-    bot.current.jobs = {'job': job}
-    bot.current.statuses = {}
+    ext.run()
 
-    bot.extensions_map['builder'].run()
+    assert ext.current.last_commit.maybe_update_status.mock_calls
+    assert job.build.mock_calls
 
-    assert head.maybe_update_status.mock_calls
+
+def test_build_failed():
+    from jenkins_epo.extensions import BuilderExtension
+
+    ext = BuilderExtension('builder', Mock())
+    ext.current = ext.bot.current
+    job = Mock()
+    job.build.side_effect = Exception('POUET')
+    spec = Mock(config=dict())
+    spec.name = 'job'
+    ext.current.head.ref = 'refs/heads/pr'
+    ext.current.last_commit.filter_not_built_contexts.return_value = ['job']
+    ext.current.last_commit.maybe_update_status.return_value = {
+        'description': 'Queued'
+    }
+    ext.current.jobs_match = []
+    ext.current.job_specs = {'job': spec}
+    ext.current.jobs = {'job': job}
+    ext.current.statuses = {}
+    ext.current.skip = []
+    ext.current.skip_errors = []
+
+    ext.run()
+
+    assert ext.current.last_commit.maybe_update_status.mock_calls
     assert job.build.mock_calls
 
 
@@ -215,15 +251,6 @@ def test_match_negate():
 
     assert bot.extensions_map['builder'].skip('skip')
     assert not bot.extensions_map['builder'].skip('new')
-
-
-def test_duration_format():
-    from jenkins_epo.extensions import format_duration
-
-    assert '4.2 sec' == format_duration(4200)
-    assert '23 sec' == format_duration(23000)
-    assert '5 min 4.2 sec' == format_duration(304200)
-    assert '2 h 5 min 4.2 sec' == format_duration(7504200)
 
 
 def test_errors():
@@ -277,27 +304,3 @@ def test_report():
 
     assert ext.current.head.comment.mock_calls
     assert ext.current.head.repository.report_issue.mock_calls
-
-
-def test_fix_status_success():
-    from jenkins_epo.extensions import FixStatusExtension
-
-    ext = FixStatusExtension('fix', Mock())
-    build = Mock()
-    build.get_status.return_value = 'SUCCESS'
-    build._data = dict(duration=1000, displayName='toto')
-
-    status = ext.compute_actual_status(build, {})
-    assert 'success' == status['state']
-
-
-def test_fix_status_pending():
-    from jenkins_epo.extensions import FixStatusExtension
-
-    ext = FixStatusExtension('fix', Mock())
-    ext.current = ext.bot.current
-    ext.current.head.repository.SETTINGS.STATUS_LOOP = 5
-    status = ext.compute_actual_status(None, {'description': 'desc'})
-
-    assert 'pending' == status['state']
-    assert '...' in status['description']

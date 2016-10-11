@@ -71,6 +71,18 @@ def filter_exception_for_retry(exception):
     return True
 
 
+def format_duration(duration):
+    duration = datetime.timedelta(seconds=duration / 1000.)
+    h, m, s = str(duration).split(':')
+    h, m, s = int(h), int(m), float(s)
+    duration = '%.1f sec' % s
+    if h or m:
+        duration = '%d min %s' % (m, duration)
+    if h:
+        duration = '%d h %s' % (h, duration)
+    return duration.replace('.0', '')
+
+
 def match(item, patterns):
     matched = not patterns
     for pattern in patterns:
