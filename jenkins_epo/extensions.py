@@ -110,12 +110,12 @@ jenkins: reset-skip-errors
                 logger.info("Skipping job %s for this branch.", spec)
                 continue
 
+            logger.debug("Processing job %s.", spec)
             job = self.current.jobs[spec.name]
             not_built = self.current.last_commit.filter_not_built_contexts(
                 job.list_contexts(spec),
                 rebuild_failed=self.current.rebuild_failed
             )
-
             queued_contexts = []
             for context in not_built:
                 new_status = self.current.last_commit.maybe_update_status(
@@ -188,7 +188,7 @@ class CancellerExtension(Extension):
 
     def run(self):
         for commit, status, head in self.iter_pending_status():
-            logger.debug("Query %s status for %s.", status, commit)
+            logger.debug("Query Jenkins %s status for %s.", status, commit)
             try:
                 build = JENKINS.get_build_from_url(status['target_url'])
             except Exception as e:

@@ -208,22 +208,50 @@ def test_sort_heads():
 
 
 @patch('jenkins_epo.repository.cached_request')
-def test_fetch_previous_commits(cached_request):
-    from jenkins_epo.repository import Head
+def test_branch_fetch_previous_commits(cached_request):
+    cached_request.side_effect = [
+        dict(parents=[dict(sha='d0d0cafe')]),
+        dict()
+    ]
+    from jenkins_epo.repository import Branch
 
-    head = Head(Mock(), 'refs/heads/pr', 'cafed0d0')
-    assert head.fetch_previous_commits()
-    assert head.fetch_previous_commits(datetime.now())
+    head = Branch(Mock(), dict(name='branch', commit=dict(sha='d0d0cafe')))
+    assert list(head.fetch_previous_commits())
+    assert cached_request.mock_calls
 
 
 @patch('jenkins_epo.repository.cached_request')
-def test_process_commits(cached_request):
-    from jenkins_epo.repository import Head
+def test_branch_process_commits(cached_request):
+    from jenkins_epo.repository import Branch
 
-    head = Head(Mock(), 'refs/heads/pr', 'cafed0d0')
-    items = list(head.process_commits([
+    head = Branch(Mock(), dict(name='branch', commit=dict(sha='d0d0cafe')))
+    items = list(head.process_commits([dict(sha='cafed0d0')]))
+    assert 1 == len(items)
+
+
+@patch('jenkins_epo.repository.cached_request')
+def test_pr_fetch_previous_commits(cached_request):
+    from jenkins_epo.repository import PullRequest
+
+    head = PullRequest(Mock(), dict(
+        head=dict(ref='pr', sha='d0d0cafe', label='owner:pr'),
+        base=dict(label='owner:base'),
+    ))
+    assert head.fetch_previous_commits()
+    assert cached_request.mock_calls
+
+
+@patch('jenkins_epo.repository.cached_request')
+def test_pr_process_commits(cached_request):
+    from jenkins_epo.repository import PullRequest
+
+    head = PullRequest(Mock(), dict(
+        head=dict(ref='pr', sha='d0d0cafe', label='owner:pr'),
+        base=dict(label='owner:base'),
+    ))
+    items = list(head.process_commits(dict(commits=[
         dict(sha='cafed0d0'),
-    ]))
+    ])))
     assert 1 == len(items)
 
 

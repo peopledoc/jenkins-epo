@@ -16,6 +16,7 @@ from __future__ import absolute_import
 
 import datetime
 import logging
+from urllib.parse import quote as urlquote
 import re
 
 from github import ApiError
@@ -372,26 +373,8 @@ class Head(object):
         self.ref = ref
         self.last_commit = Commit(repository, sha, dict())
 
-    @retry(wait_fixed=15000)
-    def fetch_previous_commits(self, last_date=None):
-        logger.debug("Fetching previous commits.")
-        last_date = last_date or datetime.datetime.utcnow()
-        older_date = last_date - datetime.timedelta(hours=1)
-        return cached_request(
-            GITHUB.repos(self.repository).commits,
-            sha=self.sha, since=older_date.strftime('%Y-%m-%dT%H:%M:%SZ'),
-        )
-
     def list_comments(self):
         raise NotImplemented
-
-    def process_commits(self, payload):
-        self.last_commit = None
-        for entry in payload:
-            commit = Commit(self.repository, entry['sha'], payload=entry)
-            if not self.last_commit:
-                self.last_commit = commit
-            yield commit
 
 
 class Branch(Head):
@@ -420,6 +403,17 @@ class Branch(Head):
         )
 
     @retry(wait_fixed=15000)
+    def fetch_previous_commits(self, last_date=None):
+        head = cached_request(
+            GITHUB.repos(self.repository).git.commits(self.sha)
+        )
+        yield head
+        yield cached_request(
+            GITHUB.repos(self.repository).git
+            .commits(head['parents'][0]['sha'])
+        )
+
+    @retry(wait_fixed=15000)
     def list_comments(self):
         logger.debug("Queyring comments for instructions")
         return cached_request(
@@ -436,6 +430,18 @@ class Branch(Head):
             GITHUB.repos(self.repository).commits(self.sha).comments
             .post(body=body.strip())
         )
+
+    def process_commits(self, payload):
+        count = 0
+        self.last_commit = None
+        for entry in payload:
+            commit = Commit(self.repository, entry['sha'], payload=entry)
+            if not self.last_commit:
+                self.last_commit = commit
+            yield commit
+            count += 1
+            if count >= 4:
+                return
 
 
 class PullRequest(Head):
@@ -465,6 +471,16 @@ class PullRequest(Head):
     @property
     def author(self):
         return self.payload['user']['login']
+
+    @retry(wait_fixed=15000)
+    def fetch_previous_commits(self, last_date=None):
+        logger.debug("Fetching previous commits.")
+        return cached_request(GITHUB.repos(self.repository).compare(
+            urlquote("%s...%s" % (
+                self.payload['base']['label'],
+                self.payload['head']['label'],
+            ))
+        ))
 
     @retry(wait_fixed=15000)
     def comment(self, body):
@@ -505,3 +521,11 @@ class PullRequest(Head):
             GITHUB.repos(self.repository).pulls(self.payload['number']).merge
             .put(body=body)
         )
+
+    def process_commits(self, payload):
+        self.last_commit = None
+        for entry in payload['commits'][:4]:
+            commit = Commit(self.repository, entry['sha'], payload=entry)
+            if not self.last_commit:
+                self.last_commit = commit
+            yield commit
