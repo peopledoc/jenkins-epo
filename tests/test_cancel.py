@@ -30,7 +30,7 @@ def test_iter_pending(JENKINS):
         },
     }
 
-    items = list(ext.iter_pending_status())
+    items = list(ext.iter_pending_status(Mock()))
     assert 1 == len(items)
     commit, status, head = items[0]
     assert commit == old_commit

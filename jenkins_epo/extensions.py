@@ -170,12 +170,10 @@ jenkins: reset-skip-errors
 class CancellerExtension(Extension):
     stage = '20'
 
-    def iter_pending_status(self):
-        payload = self.current.head.fetch_previous_commits()
-        head = True
-        for commit in self.current.head.process_commits(payload):
-            payload = commit.fetch_statuses()
-            statuses = commit.process_statuses(payload)
+    def iter_pending_status(self, payload):
+        for i, commit in enumerate(self.current.head.process_commits(payload)):
+            commit_payload = commit.fetch_statuses()
+            statuses = commit.process_statuses(commit_payload)
             for context, status in statuses.items():
                 if not status.get('target_url'):
                     continue
@@ -183,11 +181,11 @@ class CancellerExtension(Extension):
                     continue
                 if status['state'] != 'pending':
                     continue
-                yield commit, status, head
-            head = False
+                yield commit, status, i == 0
 
     def run(self):
-        for commit, status, head in self.iter_pending_status():
+        payload = self.current.head.fetch_previous_commits()
+        for commit, status, head in self.iter_pending_status(payload):
             logger.debug("Query Jenkins %s status for %s.", status, commit)
             try:
                 build = JENKINS.get_build_from_url(status['target_url'])
@@ -207,6 +205,8 @@ class CancellerExtension(Extension):
             else:
                 new_status = status.from_build(build)
             commit.maybe_update_status(new_status)
+        self.current.last_commit = self.current.head.last_commit
+        self.current.statuses = self.current.last_commit.statuses
 
 
 class CreateJobsExtension(Extension):
