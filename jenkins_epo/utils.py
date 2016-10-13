@@ -14,9 +14,13 @@
 
 from __future__ import absolute_import
 
+import asyncio
 import datetime
 import fnmatch
 import logging
+import random
+import time
+import sys
 
 from github import ApiError
 from http.client import HTTPException
@@ -27,6 +31,47 @@ from requests import HTTPError
 logger = logging.getLogger(__name__)
 
 
+class ARetrying(retrying.Retrying):
+    def call(self, fn, *args, **kwargs):
+        if asyncio.iscoroutinefunction(fn):
+            return self.acall(fn, *args, **kwargs)
+        else:
+            return super(ARetrying, self).call(fn, *args, **kwargs)
+
+    def acall(self, fn, *args, **kwargs):
+        start_time = int(round(time.time() * 1000))
+        attempt_number = 1
+        while True:
+            try:
+                result = yield from fn(*args, **kwargs)
+                attempt = retrying.Attempt(result, attempt_number, False)
+            except:
+                tb = sys.exc_info()
+                attempt = retrying.Attempt(tb, attempt_number, True)
+
+            if not self.should_reject(attempt):
+                return attempt.get(self._wrap_exception)
+
+            delay_since_first_attempt_ms = (
+                int(round(time.time() * 1000)) - start_time
+            )
+            if self.stop(attempt_number, delay_since_first_attempt_ms):
+                if not self._wrap_exception and attempt.has_exception:
+                    # get() on an attempt with an exception should cause it to
+                    # be raised, but raise just in case
+                    raise attempt.get()
+                else:
+                    raise retrying.RetryError(attempt)
+            else:
+                sleep = self.wait(attempt_number, delay_since_first_attempt_ms)
+                if self._wait_jitter_max:
+                    jitter = random.random() * self._wait_jitter_max
+                    sleep = sleep + max(0, jitter)
+                time.sleep(sleep / 1000.0)
+
+            attempt_number += 1
+
+
 def retry(*dargs, **dkw):
     defaults = dict(
         retry_on_exception=filter_exception_for_retry,
@@ -35,10 +80,21 @@ def retry(*dargs, **dkw):
     )
 
     if len(dargs) == 1 and callable(dargs[0]):
-        return retrying.retry(**defaults)(dargs[0])
+        def wrap_simple(f):
+            def wrapped_f(*args, **kw):
+                return ARetrying(**defaults).call(f, *args, **kw)
+            return wrapped_f
+        return wrap_simple(dargs[0])
     else:
         dkw = dict(defaults, **dkw)
-        return retrying.retry(*dargs, **dkw)
+
+        def wrap(f):
+            def wrapped_f(*args, **kw):
+                return ARetrying(*dargs, **dkw).call(f, *args, **kw)
+
+            return wrapped_f
+
+        return wrap
 
 
 def filter_exception_for_retry(exception):

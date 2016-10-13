@@ -92,10 +92,11 @@ def test_main(asyncio, exit_):
     main(argv=['--help'])
 
 
-@patch('jenkins_epo.main.procedures')
-def test_list_heads(procedures):
+@pytest.mark.asyncio
+def test_list_heads(mocker):
     from jenkins_epo.main import list_heads
 
+    procedures = mocker.patch('jenkins_epo.main.procedures')
     procedures.iter_heads.return_value = iter([Mock()])
 
-    list_heads()
+    yield from list_heads()

@@ -105,7 +105,6 @@ class Repository(object):
     )
 
     @classmethod
-    @retry(wait_fixed=15000)
     def from_name(cls, owner, name):
         data = cached_request(GITHUB.repos(owner)(name))
         return cls(owner=data['owner']['login'], name=data['name'])
@@ -140,12 +139,10 @@ class Repository(object):
     def url(self):
         return 'https://github.com/%s' % (self,)
 
-    @retry(wait_fixed=15000)
     def fetch_protected_branches(self):
         logger.debug("Querying GitHub for %s protected branches.", self)
         return cached_request(GITHUB.repos(self).branches, protected='true')
 
-    @retry(wait_fixed=15000)
     def fetch_pull_requests(self):
         logger.debug("Querying GitHub for %s PR.", self)
         return cached_request(GITHUB.repos(self).pulls)
@@ -163,7 +160,6 @@ class Repository(object):
             else:
                 yield PullRequest(self, data)
 
-    @retry(wait_fixed=15000)
     def load_settings(self):
         if self.SETTINGS:
             return
@@ -258,7 +254,6 @@ class Commit(object):
         maxage = datetime.timedelta(weeks=weeks)
         return age > maxage
 
-    @retry(wait_fixed=15000)
     def fetch_payload(self):
         logger.debug("Fetching commit %s.", self.sha[:7])
         payload = cached_request(
@@ -267,7 +262,6 @@ class Commit(object):
         self.payload = payload
         return payload
 
-    @retry(wait_fixed=15000)
     def fetch_statuses(self):
         if SETTINGS.IGNORE_STATUSES:
             logger.debug("Skip GitHub statuses for %s.", self.sha[:7])
@@ -278,7 +272,6 @@ class Commit(object):
                 GITHUB.repos(self.repository).status(self.sha),
             )
 
-    @retry(wait_fixed=15000)
     def fetch_combined_status(self):
         return cached_request(
             GITHUB.repos(self.repository).commits(self.sha).status,
@@ -403,7 +396,6 @@ class Branch(Head):
             self.repository, self.ref[len('refs/heads/'):],
         )
 
-    @retry(wait_fixed=15000)
     def fetch_previous_commits(self, last_date=None):
         head = cached_request(
             GITHUB.repos(self.repository).git.commits(self.sha)
@@ -414,7 +406,6 @@ class Branch(Head):
             .commits(head['parents'][0]['sha'])
         )
 
-    @retry(wait_fixed=15000)
     def list_comments(self):
         logger.debug("Queyring comments for instructions")
         return cached_request(
@@ -473,7 +464,6 @@ class PullRequest(Head):
     def author(self):
         return self.payload['user']['login']
 
-    @retry(wait_fixed=15000)
     def fetch_previous_commits(self, last_date=None):
         logger.debug("Fetching previous commits.")
         return cached_request(GITHUB.repos(self.repository).compare(
@@ -502,7 +492,6 @@ class PullRequest(Head):
         logger.warn("Deleting branch %s.", self.ref)
         GITHUB.repos(self.repository).git.refs.heads(self.ref).delete()
 
-    @retry(wait_fixed=15000)
     def list_comments(self):
         logger.debug("Queyring comments for instructions")
         issue = GITHUB.repos(self.repository).issues(self.payload['number'])

@@ -49,11 +49,12 @@ setup(
     extras_require={
         'release': ['wheel'],
         'test': [
-            'libfaketime', 'pytest', 'pytest-asyncio', 'pytest-cov',
+            'asynctest', 'libfaketime', 'pytest', 'pytest-asyncio', 'pytest-cov',
             'pytest-logging', 'pytest-mock',
         ],
     },
     install_requires=[
+        'aiohttp',
         'githubpy',
         'jenkinsapi',
         'jenkins-yml[renderer]',
