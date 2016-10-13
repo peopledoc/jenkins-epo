@@ -172,8 +172,7 @@ class CancellerExtension(Extension):
 
     def iter_pending_status(self):
         payload = self.current.head.fetch_previous_commits()
-        head = True
-        for commit in self.current.head.process_commits(payload):
+        for i, commit in enumerate(self.current.head.process_commits(payload)):
             payload = commit.fetch_statuses()
             statuses = commit.process_statuses(payload)
             for context, status in statuses.items():
@@ -183,8 +182,7 @@ class CancellerExtension(Extension):
                     continue
                 if status['state'] != 'pending':
                     continue
-                yield commit, status, head
-            head = False
+                yield commit, status, i == 0
 
     def run(self):
         for commit, status, head in self.iter_pending_status():
