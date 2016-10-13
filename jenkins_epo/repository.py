@@ -15,6 +15,7 @@
 from __future__ import absolute_import
 
 import datetime
+from itertools import islice
 import logging
 from urllib.parse import quote as urlquote
 import re
@@ -524,7 +525,7 @@ class PullRequest(Head):
 
     def process_commits(self, payload):
         self.last_commit = None
-        for entry in payload['commits'][:4]:
+        for entry in islice(reversed(payload['commits']), 4):
             commit = Commit(self.repository, entry['sha'], payload=entry)
             if not self.last_commit:
                 self.last_commit = commit
