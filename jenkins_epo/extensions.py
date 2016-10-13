@@ -205,6 +205,8 @@ class CancellerExtension(Extension):
             else:
                 new_status = status.from_build(build)
             commit.maybe_update_status(new_status)
+        self.current.last_commit = self.current.head.last_commit
+        self.current.statuses = self.current.last_commit.statuses
 
 
 class CreateJobsExtension(Extension):
