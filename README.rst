@@ -38,7 +38,7 @@ On your poller host:
    export GITHUB_TOKEN=YOUR_SECRET_TOKEN JENKINS_URL=http://myjenkins.lan
    export REPOSITORIES=owner/repo
    # Check repository is manageable
-   jenkins-epo list-repositories
+   jenkins-epo list-heads
    # Trigger a dry run
    DRY_RUN=1 jenkins-epo bot
    # Run it for real
