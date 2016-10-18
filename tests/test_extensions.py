@@ -1,4 +1,4 @@
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 
 def comment(login='montecristo', **kwargs):
@@ -89,27 +89,37 @@ def test_compute_help():
 
 
 def test_skip_re():
-    from jenkins_epo.bot import Bot
+    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.bot import Instruction
 
-    bot = Bot().workon(Mock())
-    bot.process_instructions([
-        comment(body="""jenkins: {skip: ['toto.*', '(?!notthis)']}"""),
-    ])
-    assert bot.extensions_map['builder'].skip('toto-doc')
-    assert not bot.extensions_map['builder'].skip('notthis')
+    ext = BuilderExtension('builder', Mock())
+    ext.current = ext.bot.current
+    ext.current.jobs_match = []
+    ext.current.skip = []
+    ext.process_instruction(
+        Instruction(author='epo', name='skip', args=['toto.*', '(?!notthis)']),
+    )
+    assert ext.skip('toto-doc')
+    assert not ext.skip('notthis')
 
 
 def test_skip_re_wrong():
-    from jenkins_epo.bot import Bot
+    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.bot import Instruction
 
-    bot = Bot().workon(Mock())
-    bot.process_instructions([
-        comment(body='''jenkins: {skip: ['*toto)']}'''),
-    ])
-    assert not bot.extensions_map['builder'].skip('toto')
-    assert bot.current.skip_errors
-    bot.extensions_map['builder'].run()
-    assert bot.current.head.comment.mock_calls
+    ext = BuilderExtension('builder', Mock())
+    ext.current = ext.bot.current
+    ext.current.skip = []
+    ext.current.jobs_match = []
+    ext.current.job_specs = {}
+    ext.current.skip_errors = []
+    ext.process_instruction(
+        Instruction(author='epo', name='skip', args=['*toto)']),
+    )
+    assert not ext.skip('toto')
+    assert ext.current.skip_errors
+    ext.run()
+    assert ext.current.head.comment.mock_calls
 
 
 def test_skip_disabled_job():
@@ -140,31 +150,34 @@ def test_skip_disabled_job():
 
 
 def test_only_branches():
-    from jenkins_epo.bot import Bot
+    from jenkins_epo.extensions import BuilderExtension
 
-    bot = Bot().workon(Mock())
+    ext = BuilderExtension('builder', Mock())
+    ext.current = ext.bot.current
     job = Mock()
     job.is_enabled.return_value = False
     spec = Mock()
     spec.name = 'job'
     spec.config = dict(only='master')
-    bot.current.job_specs = {'job': spec}
-    bot.current.jobs = {'job': job}
-    bot.current.head.filter_not_built_contexts.return_value = ['job']
-    bot.current.head.ref = 'refs/heads/pr'
+    ext.current.job_specs = {'job': spec}
+    ext.current.jobs = {'job': job}
+    ext.current.head.filter_not_built_contexts.return_value = ['job']
+    ext.current.head.ref = 'refs/heads/pr'
+    ext.current.skip_errors = []
 
-    bot.extensions_map['builder'].run()
+    ext.run()
 
     assert not job.build.mock_calls
 
     spec.config = dict(only=['master', 'stable'])
 
-    bot.extensions_map['builder'].run()
+    ext.run()
 
     assert not job.build.mock_calls
 
 
-def test_build():
+@patch('jenkins_epo.extensions.JENKINS')
+def test_build_queue_full(JENKINS):
     from jenkins_epo.extensions import BuilderExtension
 
     ext = BuilderExtension('builder', Mock())
@@ -172,6 +185,34 @@ def test_build():
     job = Mock()
     spec = Mock(config=dict())
     spec.name = 'job'
+    ext.current.SETTINGS.ALWAYS_QUEUE = False
+    ext.current.head.ref = 'refs/heads/pr'
+    ext.current.last_commit.filter_not_built_contexts.return_value = ['job']
+    ext.current.jobs_match = []
+    ext.current.job_specs = {'job': spec}
+    ext.current.jobs = {'job': job}
+    ext.current.statuses = {}
+    ext.current.skip = []
+    ext.current.skip_errors = []
+
+    JENKINS.is_queue_empty.return_value = False
+
+    ext.run()
+
+    assert ext.current.last_commit.maybe_update_status.mock_calls
+    assert not job.build.mock_calls
+
+
+@patch('jenkins_epo.extensions.JENKINS')
+def test_build_queue_empty(JENKINS):
+    from jenkins_epo.extensions import BuilderExtension
+
+    ext = BuilderExtension('builder', Mock())
+    ext.current = ext.bot.current
+    job = Mock()
+    spec = Mock(config=dict())
+    spec.name = 'job'
+    ext.current.SETTINGS.ALWAYS_QUEUE = False
     ext.current.head.ref = 'refs/heads/pr'
     ext.current.last_commit.filter_not_built_contexts.return_value = ['job']
     ext.current.last_commit.maybe_update_status.return_value = {
@@ -183,6 +224,8 @@ def test_build():
     ext.current.statuses = {}
     ext.current.skip = []
     ext.current.skip_errors = []
+
+    JENKINS.is_queue_empty.return_value = True
 
     ext.run()
 
@@ -218,39 +261,48 @@ def test_build_failed():
 
 
 def test_builder_ignore_perioddc():
-    from jenkins_epo.bot import Bot
+    from jenkins_epo.extensions import BuilderExtension
 
-    bot = Bot().workon(Mock())
+    ext = BuilderExtension('b', Mock())
+    ext.current = ext.bot.current
+    ext.current.skip_errors = []
     spec = Mock()
     spec.name = 'job'
     spec.config = dict(periodic=True)
 
-    bot.current.job_specs = {'job': spec}
+    ext.current.job_specs = {'job': spec}
 
-    bot.extensions_map['builder'].run()
+    ext.run()
 
 
 def test_match_mixed():
-    from jenkins_epo.bot import Bot
+    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.bot import Instruction
 
-    bot = Bot().workon(Mock())
-    bot.process_instructions([
-        comment(body="""jenkins: {jobs: [-toto*, not*]}"""),
-    ])
-    assert bot.extensions_map['builder'].skip('toto-doc')
-    assert not bot.extensions_map['builder'].skip('notthis')
+    ext = BuilderExtension('b', Mock())
+    ext.current = ext.bot.current
+    ext.current.skip = []
+    ext.process_instruction(
+        Instruction(author='epo', name='jobs', args=['-toto*', 'not*'])
+    )
+
+    assert ext.skip('toto-doc')
+    assert not ext.skip('notthis')
 
 
 def test_match_negate():
-    from jenkins_epo.bot import Bot
+    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.bot import Instruction
 
-    bot = Bot().workon(Mock())
-    bot.process_instructions([
-        comment(body="""jenkins: {jobs: ['*', -skip*]}"""),
-    ])
+    ext = BuilderExtension('b', Mock())
+    ext.current = ext.bot.current
+    ext.current.skip = []
+    ext.process_instruction(
+        Instruction(author='epo', name='jobs', args=['*', '-skip*'])
+    )
 
-    assert bot.extensions_map['builder'].skip('skip')
-    assert not bot.extensions_map['builder'].skip('new')
+    assert ext.skip('skip')
+    assert not ext.skip('new')
 
 
 def test_errors():
