@@ -36,14 +36,14 @@ setup(
     entry_points={
         'console_scripts': ['jenkins-epo=jenkins_epo.script:entrypoint'],
         'jenkins_epo.bot.extensions': [
-            'builder = jenkins_epo.extensions:BuilderExtension',
-            'canceller = jenkins_epo.extensions:CancellerExtension',
-            'createjobs = jenkins_epo.extensions:CreateJobsExtension',
             'error = jenkins_epo.extensions:ErrorExtension',
             'help = jenkins_epo.extensions:HelpExtension',
+            'jenkins-builder = jenkins_epo.extensions:BuilderExtension',
+            'jenkins-canceller = jenkins_epo.extensions:CancellerExtension',
+            'jenkins-createjobs = jenkins_epo.extensions:CreateJobsExtension',
+            'jenkins-stages = jenkins_epo.extensions:StagesExtension',
             'merger = jenkins_epo.extensions:MergerExtension',
             'report = jenkins_epo.extensions:ReportExtension',
-            'stages = jenkins_epo.extensions:StagesExtension',
         ],
     },
     extras_require={
