@@ -24,7 +24,6 @@ import sys
 from .bot import Bot
 from .cache import CACHE
 from .github import GITHUB
-from .jenkins import JENKINS
 from .settings import SETTINGS
 from . import procedures
 
@@ -49,35 +48,6 @@ def loop(wrapped):
         return wrapped
 
 
-class RestartLoop(Exception):
-    pass
-
-
-@asyncio.coroutine
-def check_queue(bot):
-    if SETTINGS.ALWAYS_QUEUE:
-        logger.info("Ignoring queue status. New jobs will be queued.")
-        bot.queue_empty = True
-        return
-
-    first_check = bot.queue_empty is None
-    old, bot.queue_empty = bot.queue_empty, JENKINS.is_queue_empty()
-    if not bot.queue_empty:
-        yield from asyncio.sleep(1)
-        bot.queue_empty = JENKINS.is_queue_empty()
-    if old == bot.queue_empty:
-        return
-    elif bot.queue_empty:
-        if first_check:
-            logger.warn("Queue is empty. New jobs will be queued.")
-        else:
-            logger.warn("Queue is empty. Next loop will will queue jobs.")
-            raise RestartLoop()
-            bot.queue_empty = False
-    elif not bot.queue_empty:
-        logger.warn("Queue is full. No jobs will be queued.")
-
-
 @loop
 @asyncio.coroutine
 def bot():
@@ -99,12 +69,6 @@ def bot():
                 head, SETTINGS.COMMIT_MAX_WEEKS,
             )
             continue
-
-        try:
-            yield from check_queue(bot)
-        except RestartLoop:
-            if SETTINGS.LOOP:
-                break
 
         logger.info("Working on %s.", head)
         try:

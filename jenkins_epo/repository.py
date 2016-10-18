@@ -270,7 +270,7 @@ class Commit(object):
     @retry(wait_fixed=15000)
     def fetch_statuses(self):
         if SETTINGS.IGNORE_STATUSES:
-            logger.debug("Skip GitHub statuses.")
+            logger.debug("Skip GitHub statuses for %s.", self.sha[:7])
             return {'statuses': []}
         else:
             logger.debug("Fetching statuses for %s.", self.sha[:7])

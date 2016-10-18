@@ -91,6 +91,13 @@ jenkins: reset-skip-errors
         elif instruction == 'rebuild':
             self.current.rebuild_failed = instruction.date
 
+    def is_queue_empty(self):
+        if self.current.SETTINGS.ALWAYS_QUEUE:
+            logger.info("Ignoring queue status. New jobs will be queued.")
+            return True
+
+        return JENKINS.is_queue_empty()
+
     def run(self):
         for instruction, pattern, error in self.current.skip_errors:
             self.current.head.comment(body=self.ERROR_COMMENT % dict(
@@ -116,20 +123,21 @@ jenkins: reset-skip-errors
                 job.list_contexts(spec),
                 rebuild_failed=self.current.rebuild_failed
             )
-            queued_contexts = []
+            queue_empty = self.is_queue_empty()
+            toqueue_contexts = []
             for context in not_built:
                 new_status = self.current.last_commit.maybe_update_status(
-                    self.status_for_new_context(job, context),
+                    self.status_for_new_context(job, context, queue_empty),
                 )
-                if new_status['description'] == 'Queued':
-                    queued_contexts.append(context)
+                if new_status.get('description') == 'Queued':
+                    toqueue_contexts.append(context)
 
-            if queued_contexts and self.bot.queue_empty:
+            if toqueue_contexts and queue_empty:
                 try:
-                    job.build(self.current.head, spec, queued_contexts)
+                    job.build(self.current.head, spec, toqueue_contexts)
                 except Exception as e:
                     logger.exception("Failed to queue job %s: %s.", job, e)
-                    for context in queued_contexts:
+                    for context in toqueue_contexts:
                         self.current.last_commit.maybe_update_status(
                             CommitStatus(
                                 context=context, state='error',
@@ -144,7 +152,7 @@ jenkins: reset-skip-errors
                 return True
         return not match(context, self.current.jobs_match)
 
-    def status_for_new_context(self, job, context):
+    def status_for_new_context(self, job, context, queue_empty):
         new_status = CommitStatus(target_url=job.baseurl, context=context)
         if self.skip(context):
             new_status.update({
@@ -159,7 +167,7 @@ jenkins: reset-skip-errors
         else:
             current_status = self.current.statuses.get(context, {})
             already_queued = 'Queued' == current_status.get('description')
-            queued = self.bot.queue_empty or already_queued
+            queued = queue_empty or already_queued
             new_status.update({
                 'description': 'Queued' if queued else 'Backed',
                 'state': 'pending',

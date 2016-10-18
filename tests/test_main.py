@@ -4,23 +4,6 @@ import pytest
 
 
 @pytest.mark.asyncio
-def test_check_queue_sleep(mocker):
-    sleep = mocker.patch('jenkins_epo.main.asyncio.sleep')
-    SETTINGS = mocker.patch('jenkins_epo.main.SETTINGS')
-    JENKINS = mocker.patch('jenkins_epo.main.JENKINS')
-
-    from jenkins_epo.main import check_queue
-
-    SETTINGS.ALWAYS_QUEUE = False
-    JENKINS.is_queue_empty.return_value = False
-    sleep.return_value = []
-
-    yield from check_queue(Mock(queue_empty=False))
-
-    assert sleep.mock_calls
-
-
-@pytest.mark.asyncio
 def test_bot_settings_fail(mocker):
     procedures = mocker.patch('jenkins_epo.main.procedures')
     mocker.patch('jenkins_epo.main.CACHE')
@@ -59,57 +42,9 @@ def test_bot_loop_outdated(mocker):
 
 
 @pytest.mark.asyncio
-def test_bot_loop_restart_loop(mocker):
-    procedures = mocker.patch('jenkins_epo.main.procedures')
-    mocker.patch('jenkins_epo.main.CACHE')
-    SETTINGS = mocker.patch('jenkins_epo.main.SETTINGS')
-    SETTINGS.LOOP = 1
-    Bot = mocker.patch('jenkins_epo.main.Bot')
-    check_queue = mocker.patch('jenkins_epo.main.check_queue')
-
-    from jenkins_epo.main import bot, RestartLoop
-
-    check_queue.side_effect = RestartLoop
-
-    head = Mock()
-    head.last_commit.is_outdated = False
-    procedures.iter_heads.return_value = [head]
-
-    yield from bot()
-
-    bot = Bot.return_value
-    assert not bot.run.mock_calls
-
-
-@pytest.mark.asyncio
-def test_bot_loop_restart_loop_not_looping(mocker):
-    procedures = mocker.patch('jenkins_epo.main.procedures')
-    mocker.patch('jenkins_epo.main.CACHE')
-    SETTINGS = mocker.patch('jenkins_epo.main.SETTINGS')
-    SETTINGS.LOOP = 0
-    Bot = mocker.patch('jenkins_epo.main.Bot')
-    check_queue = mocker.patch('jenkins_epo.main.check_queue')
-
-    from jenkins_epo.main import bot, RestartLoop
-
-    check_queue.side_effect = RestartLoop
-
-    head = Mock()
-    head.last_commit.is_outdated = False
-    procedures.iter_heads.return_value = [head]
-
-    yield from bot()
-
-    bot = Bot.return_value
-    assert bot.run.mock_calls
-
-
-@pytest.mark.asyncio
 def test_bot_run_raises(mocker):
     Bot = mocker.patch('jenkins_epo.main.Bot')
     mocker.patch('jenkins_epo.main.CACHE')
-    check_queue = mocker.patch('jenkins_epo.main.check_queue')
-    check_queue.return_value = []
     procedures = mocker.patch('jenkins_epo.main.procedures')
     SETTINGS = mocker.patch('jenkins_epo.main.SETTINGS')
     SETTINGS.LOOP = 0
@@ -131,8 +66,6 @@ def test_bot_run_raises(mocker):
 def test_bot_run_log_exception(mocker):
     Bot = mocker.patch('jenkins_epo.main.Bot')
     mocker.patch('jenkins_epo.main.CACHE')
-    check_queue = mocker.patch('jenkins_epo.main.check_queue')
-    check_queue.return_value = []
     procedures = mocker.patch('jenkins_epo.main.procedures')
     SETTINGS = mocker.patch('jenkins_epo.main.SETTINGS')
     SETTINGS.LOOP = 1
