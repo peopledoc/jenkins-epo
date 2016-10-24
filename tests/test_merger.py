@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 
 def test_detect_wip():
-    from jenkins_epo.extensions import MergerExtension
+    from jenkins_epo.extensions.core import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
@@ -19,7 +19,7 @@ def test_detect_wip():
 
 
 def test_skip_non_pr():
-    from jenkins_epo.extensions import MergerExtension
+    from jenkins_epo.extensions.core import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
@@ -29,7 +29,7 @@ def test_skip_non_pr():
 
 def test_deny_non_reviewer():
     from jenkins_epo.bot import Instruction
-    from jenkins_epo.extensions import MergerExtension
+    from jenkins_epo.extensions.core import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
@@ -53,7 +53,7 @@ def test_deny_non_reviewer():
 
 def test_deny_outdated_opm():
     from jenkins_epo.bot import Instruction
-    from jenkins_epo.extensions import MergerExtension
+    from jenkins_epo.extensions.core import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
@@ -74,7 +74,7 @@ def test_deny_outdated_opm():
 
 def test_deny_non_reviewer_processed():
     from jenkins_epo.bot import Instruction
-    from jenkins_epo.extensions import MergerExtension
+    from jenkins_epo.extensions.core import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
@@ -96,7 +96,7 @@ def test_deny_non_reviewer_processed():
 
 def test_accept_lgtm():
     from jenkins_epo.bot import Instruction
-    from jenkins_epo.extensions import MergerExtension
+    from jenkins_epo.extensions.core import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
@@ -115,7 +115,7 @@ def test_accept_lgtm():
 
 
 def test_merge_wip():
-    from jenkins_epo.extensions import MergerExtension
+    from jenkins_epo.extensions.core import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
@@ -146,7 +146,7 @@ def test_merge_wip():
 
 
 def test_not_green():
-    from jenkins_epo.extensions import MergerExtension
+    from jenkins_epo.extensions.core import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
@@ -163,7 +163,7 @@ def test_not_green():
 
 
 def test_merge_fail():
-    from jenkins_epo.extensions import MergerExtension, ApiError
+    from jenkins_epo.extensions.core import MergerExtension, ApiError
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
@@ -189,7 +189,7 @@ def test_merge_fail():
 
 def test_merge_already_failed():
     from jenkins_epo.bot import Instruction
-    from jenkins_epo.extensions import MergerExtension, ApiError
+    from jenkins_epo.extensions.core import MergerExtension, ApiError
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
@@ -223,7 +223,7 @@ def test_merge_already_failed():
 
 
 def test_merge_success():
-    from jenkins_epo.extensions import MergerExtension
+    from jenkins_epo.extensions.core import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()

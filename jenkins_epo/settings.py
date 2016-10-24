@@ -68,5 +68,6 @@ SETTINGS = EnvironmentSettings(defaults={
     'REPOSITORIES': '',
     'VERBOSE': '',
     'GITHUB_TOKEN': None,
-    'JENKINS_URL': 'http://localhost:8080',
+    # Jenkins baseurl, like http://jenkins.lan:8080/.
+    'JENKINS_URL': '',
 })

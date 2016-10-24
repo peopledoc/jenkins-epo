@@ -14,49 +14,53 @@ def test_compute_skip_unindented():
     from jenkins_epo.bot import Bot
 
     bot = Bot().workon(Mock())
-    bot.process_instructions([
-        comment(body='```\njenkins:\nskip: [toto]\n```'),
-    ])
-    skip = [re.pattern for re in bot.current.skip]
-    assert ['toto'] == skip
+    comments = [comment(body='```\njenkins:\nskip: [toto]\n```')]
+    instructions = list(bot.parse_instructions(comments))
+    assert 1 == len(instructions)
+    instruction = instructions[0]
+    assert ['toto'] == instruction.args
 
 
 def test_compute_skip_null():
-    from jenkins_epo.bot import Bot
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.bot import Instruction
+    from jenkins_epo.extensions.jenkins import BuilderExtension
 
-    bot = Bot().workon(Mock())
-    bot.process_instructions([
-        comment(body='jenkins: {skip: }'),
-    ])
-    skip = [re.pattern for re in bot.current.skip]
+    ext = BuilderExtension('ext', Mock())
+    ext.current = ext.bot.current
+    ext.process_instruction(Instruction(author='b', name='skip'))
+    skip = [re.pattern for re in ext.current.skip]
     assert skip == list(BuilderExtension.SKIP_ALL)
 
 
 def test_compute_skip():
-    from jenkins_epo.bot import Bot
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.bot import Instruction
+    from jenkins_epo.extensions.jenkins import BuilderExtension
 
-    bot = Bot().workon(Mock())
-
-    bot.process_instructions([comment(body='jenkins: skip')])
-    skip = [re.pattern for re in bot.current.skip]
+    ext = BuilderExtension('ext', Mock())
+    ext.current = ext.bot.current
+    ext.process_instruction(Instruction(author='a', name='skip'))
+    skip = [re.pattern for re in ext.current.skip]
     assert skip == list(BuilderExtension.SKIP_ALL)
 
-    bot.process_instructions([
-        comment(body='jenkins: {skip: }'),
-        comment(body='jenkins: {skip: [this]}'),
-    ])
-    skip = [re.pattern for re in bot.current.skip]
+    ext.process_instruction(Instruction(author='b', name='skip'))
+    ext.process_instruction(
+        Instruction(author='b', name='skip', args=['this'])
+    )
+
+    skip = [re.pattern for re in ext.current.skip]
     assert skip == ['this']
 
 
 def test_compute_rebuild():
-    from jenkins_epo.bot import Bot
+    from jenkins_epo.bot import Instruction
+    from jenkins_epo.extensions.jenkins import BuilderExtension
 
-    bot = Bot().workon(Mock())
-    bot.process_instructions([comment(body='jenkins: rebuild')])
-    assert bot.current.rebuild_failed
+    ext = BuilderExtension('e', Mock())
+    ext.current = ext.bot.current
+    ext.process_instruction(
+        Instruction(author='author', name='rebuild', date=Mock())
+    )
+    assert ext.current.rebuild_failed
 
 
 def test_compute_help():
@@ -89,7 +93,7 @@ def test_compute_help():
 
 
 def test_skip_re():
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
     from jenkins_epo.bot import Instruction
 
     ext = BuilderExtension('builder', Mock())
@@ -104,7 +108,7 @@ def test_skip_re():
 
 
 def test_skip_re_wrong():
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
     from jenkins_epo.bot import Instruction
 
     ext = BuilderExtension('builder', Mock())
@@ -123,7 +127,7 @@ def test_skip_re_wrong():
 
 
 def test_skip_disabled_job():
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
 
     ext = BuilderExtension('builder', Mock())
     ext.current = ext.bot.current
@@ -150,7 +154,7 @@ def test_skip_disabled_job():
 
 
 def test_only_branches():
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
 
     ext = BuilderExtension('builder', Mock())
     ext.current = ext.bot.current
@@ -176,9 +180,9 @@ def test_only_branches():
     assert not job.build.mock_calls
 
 
-@patch('jenkins_epo.extensions.JENKINS')
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
 def test_build_queue_full(JENKINS):
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
 
     ext = BuilderExtension('builder', Mock())
     ext.current = ext.bot.current
@@ -203,9 +207,9 @@ def test_build_queue_full(JENKINS):
     assert not job.build.mock_calls
 
 
-@patch('jenkins_epo.extensions.JENKINS')
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
 def test_build_queue_empty(JENKINS):
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
 
     ext = BuilderExtension('builder', Mock())
     ext.current = ext.bot.current
@@ -234,7 +238,7 @@ def test_build_queue_empty(JENKINS):
 
 
 def test_build_failed():
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
 
     ext = BuilderExtension('builder', Mock())
     ext.current = ext.bot.current
@@ -261,7 +265,7 @@ def test_build_failed():
 
 
 def test_builder_ignore_perioddc():
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
 
     ext = BuilderExtension('b', Mock())
     ext.current = ext.bot.current
@@ -276,7 +280,7 @@ def test_builder_ignore_perioddc():
 
 
 def test_match_mixed():
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
     from jenkins_epo.bot import Instruction
 
     ext = BuilderExtension('b', Mock())
@@ -291,7 +295,7 @@ def test_match_mixed():
 
 
 def test_match_negate():
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
     from jenkins_epo.bot import Instruction
 
     ext = BuilderExtension('b', Mock())
@@ -334,7 +338,7 @@ def test_errors_reset():
 
 
 def test_report():
-    from jenkins_epo.extensions import ReportExtension, Branch
+    from jenkins_epo.extensions.core import ReportExtension, Branch
 
     ext = ReportExtension('merger', Mock())
     ext.current = Mock()
