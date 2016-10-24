@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 
 def test_first_stage():
-    from jenkins_epo.extensions import StagesExtension
+    from jenkins_epo.extensions.jenkins import StagesExtension
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
@@ -29,7 +29,7 @@ def test_first_stage():
 
 
 def test_second_stage():
-    from jenkins_epo.extensions import StagesExtension
+    from jenkins_epo.extensions.jenkins import StagesExtension
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
@@ -52,7 +52,7 @@ def test_second_stage():
 
 
 def test_no_test_stage():
-    from jenkins_epo.extensions import StagesExtension
+    from jenkins_epo.extensions.jenkins import StagesExtension
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
@@ -76,7 +76,7 @@ def test_no_test_stage():
 
 
 def test_periodic_ignored():
-    from jenkins_epo.extensions import StagesExtension
+    from jenkins_epo.extensions.jenkins import StagesExtension
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
@@ -102,7 +102,7 @@ def test_periodic_ignored():
 
 
 def test_periodic_required():
-    from jenkins_epo.extensions import StagesExtension
+    from jenkins_epo.extensions.jenkins import StagesExtension
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
@@ -129,7 +129,7 @@ def test_periodic_required():
 
 
 def test_external_context():
-    from jenkins_epo.extensions import StagesExtension
+    from jenkins_epo.extensions.jenkins import StagesExtension
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
@@ -153,7 +153,7 @@ def test_external_context():
 
 
 def test_complete():
-    from jenkins_epo.extensions import StagesExtension
+    from jenkins_epo.extensions.jenkins import StagesExtension
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()

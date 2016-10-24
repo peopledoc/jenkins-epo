@@ -1,9 +1,9 @@
 from unittest.mock import Mock, patch
 
 
-@patch('jenkins_epo.extensions.JENKINS')
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
 def test_iter_pending(JENKINS):
-    from jenkins_epo.extensions import CancellerExtension
+    from jenkins_epo.extensions.jenkins import CancellerExtension
 
     JENKINS.baseurl = 'https://jenkins.lan/'
 
@@ -38,10 +38,10 @@ def test_iter_pending(JENKINS):
     assert head is False
 
 
-@patch('jenkins_epo.extensions.CancellerExtension.iter_pending_status')
-@patch('jenkins_epo.extensions.JENKINS')
+@patch('jenkins_epo.extensions.jenkins.CancellerExtension.iter_pending_status')
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
 def test_head_build_running(JENKINS, iter_pending_status):
-    from jenkins_epo.extensions import CancellerExtension, CommitStatus
+    from jenkins_epo.extensions.jenkins import CancellerExtension, CommitStatus
 
     ext = CancellerExtension('test', Mock())
     ext.current = ext.bot.current
@@ -60,10 +60,10 @@ def test_head_build_running(JENKINS, iter_pending_status):
     assert commit.maybe_update_status.mock_calls
 
 
-@patch('jenkins_epo.extensions.CancellerExtension.iter_pending_status')
-@patch('jenkins_epo.extensions.JENKINS')
+@patch('jenkins_epo.extensions.jenkins.CancellerExtension.iter_pending_status')
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
 def test_old_build_running(JENKINS, iter_pending_status):
-    from jenkins_epo.extensions import CancellerExtension, CommitStatus
+    from jenkins_epo.extensions.jenkins import CancellerExtension, CommitStatus
 
     ext = CancellerExtension('test', Mock())
     ext.current = ext.bot.current
@@ -82,10 +82,10 @@ def test_old_build_running(JENKINS, iter_pending_status):
     assert commit.maybe_update_status.mock_calls
 
 
-@patch('jenkins_epo.extensions.CancellerExtension.iter_pending_status')
-@patch('jenkins_epo.extensions.JENKINS')
+@patch('jenkins_epo.extensions.jenkins.CancellerExtension.iter_pending_status')
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
 def test_old_build_done(JENKINS, iter_pending_status):
-    from jenkins_epo.extensions import CancellerExtension, CommitStatus
+    from jenkins_epo.extensions.jenkins import CancellerExtension, CommitStatus
 
     ext = CancellerExtension('test', Mock())
     ext.current = ext.bot.current
@@ -106,10 +106,10 @@ def test_old_build_done(JENKINS, iter_pending_status):
     assert commit.maybe_update_status.mock_calls
 
 
-@patch('jenkins_epo.extensions.CancellerExtension.iter_pending_status')
-@patch('jenkins_epo.extensions.JENKINS')
+@patch('jenkins_epo.extensions.jenkins.CancellerExtension.iter_pending_status')
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
 def test_old_build_lost(JENKINS, iter_pending_status):
-    from jenkins_epo.extensions import CancellerExtension, CommitStatus
+    from jenkins_epo.extensions.jenkins import CancellerExtension, CommitStatus
 
     ext = CancellerExtension('test', Mock())
     ext.current = ext.bot.current

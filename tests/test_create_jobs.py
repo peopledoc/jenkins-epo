@@ -2,11 +2,11 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
 
-@patch('jenkins_epo.extensions.SETTINGS')
-@patch('jenkins_epo.extensions.JENKINS')
-@patch('jenkins_epo.extensions.GITHUB')
+@patch('jenkins_epo.extensions.jenkins.SETTINGS')
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
+@patch('jenkins_epo.extensions.jenkins.GITHUB')
 def test_no_yml(GITHUB, JENKINS, SETTINGS):
-    from jenkins_epo.extensions import ApiNotFoundError, CreateJobsExtension
+    from jenkins_epo.extensions.jenkins import ApiNotFoundError, CreateJobsExtension
 
     ext = CreateJobsExtension('createjob', Mock())
     ext.current = ext.bot.current
@@ -25,11 +25,11 @@ def test_no_yml(GITHUB, JENKINS, SETTINGS):
     assert not JENKINS.update_job.mock_calls
 
 
-@patch('jenkins_epo.extensions.SETTINGS')
-@patch('jenkins_epo.extensions.JENKINS')
-@patch('jenkins_epo.extensions.GITHUB')
+@patch('jenkins_epo.extensions.jenkins.SETTINGS')
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
+@patch('jenkins_epo.extensions.jenkins.GITHUB')
 def test_job_new(GITHUB, JENKINS, SETTINGS):
-    from jenkins_epo.extensions import CreateJobsExtension
+    from jenkins_epo.extensions.jenkins import CreateJobsExtension
 
     ext = CreateJobsExtension('createjob', Mock())
     ext.current = ext.bot.current
@@ -42,11 +42,11 @@ def test_job_new(GITHUB, JENKINS, SETTINGS):
     assert JENKINS.create_job == action
 
 
-@patch('jenkins_epo.extensions.SETTINGS')
-@patch('jenkins_epo.extensions.JENKINS')
-@patch('jenkins_epo.extensions.GITHUB')
+@patch('jenkins_epo.extensions.jenkins.SETTINGS')
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
+@patch('jenkins_epo.extensions.jenkins.GITHUB')
 def test_job_uptodate(GITHUB, JENKINS, SETTINGS):
-    from jenkins_epo.extensions import CreateJobsExtension
+    from jenkins_epo.extensions.jenkins import CreateJobsExtension
 
     ext = CreateJobsExtension('createjob', Mock())
     ext.current = ext.bot.current
@@ -61,11 +61,11 @@ def test_job_uptodate(GITHUB, JENKINS, SETTINGS):
     assert not res
 
 
-@patch('jenkins_epo.extensions.SETTINGS')
-@patch('jenkins_epo.extensions.JENKINS')
-@patch('jenkins_epo.extensions.GITHUB')
+@patch('jenkins_epo.extensions.jenkins.SETTINGS')
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
+@patch('jenkins_epo.extensions.jenkins.GITHUB')
 def test_job_update(GITHUB, JENKINS, SETTINGS):
-    from jenkins_epo.extensions import CreateJobsExtension
+    from jenkins_epo.extensions.jenkins import CreateJobsExtension
 
     ext = CreateJobsExtension('createjob', Mock())
     ext.current = ext.bot.current
@@ -83,12 +83,12 @@ def test_job_update(GITHUB, JENKINS, SETTINGS):
     assert action == JENKINS.update_job
 
 
-@patch('jenkins_epo.extensions.CreateJobsExtension.process_job_specs')
-@patch('jenkins_epo.extensions.SETTINGS')
-@patch('jenkins_epo.extensions.JENKINS')
-@patch('jenkins_epo.extensions.GITHUB')
+@patch('jenkins_epo.extensions.jenkins.CreateJobsExtension.process_job_specs')
+@patch('jenkins_epo.extensions.jenkins.SETTINGS')
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
+@patch('jenkins_epo.extensions.jenkins.GITHUB')
 def test_jenkins_create_success(GITHUB, JENKINS, SETTINGS, process_job_specs):
-    from jenkins_epo.extensions import CreateJobsExtension, UnknownJob
+    from jenkins_epo.extensions.jenkins import CreateJobsExtension, UnknownJob
 
     ext = CreateJobsExtension('createjob', Mock())
     ext.current = ext.bot.current
@@ -106,12 +106,12 @@ def test_jenkins_create_success(GITHUB, JENKINS, SETTINGS, process_job_specs):
     assert ext.current.jobs['new_job'] == JENKINS.create_job.return_value
 
 
-@patch('jenkins_epo.extensions.CreateJobsExtension.process_job_specs')
-@patch('jenkins_epo.extensions.SETTINGS')
-@patch('jenkins_epo.extensions.JENKINS')
-@patch('jenkins_epo.extensions.GITHUB')
+@patch('jenkins_epo.extensions.jenkins.CreateJobsExtension.process_job_specs')
+@patch('jenkins_epo.extensions.jenkins.SETTINGS')
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
+@patch('jenkins_epo.extensions.jenkins.GITHUB')
 def test_jenkins_fails_existing(GITHUB, JENKINS, SETTINGS, process_job_specs):
-    from jenkins_epo.extensions import CreateJobsExtension
+    from jenkins_epo.extensions.jenkins import CreateJobsExtension
 
     ext = CreateJobsExtension('createjob', Mock())
     ext.current = ext.bot.current
@@ -130,9 +130,9 @@ def test_jenkins_fails_existing(GITHUB, JENKINS, SETTINGS, process_job_specs):
     assert JENKINS.update_job.mock_calls
 
 
-@patch('jenkins_epo.extensions.JENKINS')
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
 def test_refresh_job_outdated(JENKINS):
-    from jenkins_epo.extensions import CreateJobsExtension
+    from jenkins_epo.extensions.jenkins import CreateJobsExtension
     from jenkins_epo.bot import Instruction
 
     ext = CreateJobsExtension('createjob', Mock())

@@ -12,23 +12,15 @@
 # You should have received a copy of the GNU General Public License along with
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
-from collections import OrderedDict
 import inspect
 import logging
 import pkg_resources
 import random
-import re
 import socket
 
-from jenkins_yml import Job as JobSpec
-from jenkinsapi.custom_exceptions import UnknownJob
-
-from .bot import Extension, Error
-from .github import GITHUB, ApiNotFoundError
-from .jenkins import JENKINS
-from .repository import ApiError, Branch, CommitStatus
-from .settings import SETTINGS
-from .utils import match, parse_patterns
+from ..bot import Extension
+from ..repository import ApiError, Branch
+from ..utils import match, parse_patterns
 
 
 logger = logging.getLogger(__name__)

@@ -23,7 +23,7 @@ def test_compute_skip_unindented():
 
 def test_compute_skip_null():
     from jenkins_epo.bot import Bot
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
 
     bot = Bot().workon(Mock())
     bot.process_instructions([
@@ -35,7 +35,7 @@ def test_compute_skip_null():
 
 def test_compute_skip():
     from jenkins_epo.bot import Bot
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
 
     bot = Bot().workon(Mock())
 
@@ -89,7 +89,7 @@ def test_compute_help():
 
 
 def test_skip_re():
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
     from jenkins_epo.bot import Instruction
 
     ext = BuilderExtension('builder', Mock())
@@ -104,7 +104,7 @@ def test_skip_re():
 
 
 def test_skip_re_wrong():
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
     from jenkins_epo.bot import Instruction
 
     ext = BuilderExtension('builder', Mock())
@@ -123,7 +123,7 @@ def test_skip_re_wrong():
 
 
 def test_skip_disabled_job():
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
 
     ext = BuilderExtension('builder', Mock())
     ext.current = ext.bot.current
@@ -150,7 +150,7 @@ def test_skip_disabled_job():
 
 
 def test_only_branches():
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
 
     ext = BuilderExtension('builder', Mock())
     ext.current = ext.bot.current
@@ -176,9 +176,9 @@ def test_only_branches():
     assert not job.build.mock_calls
 
 
-@patch('jenkins_epo.extensions.JENKINS')
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
 def test_build_queue_full(JENKINS):
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
 
     ext = BuilderExtension('builder', Mock())
     ext.current = ext.bot.current
@@ -203,9 +203,9 @@ def test_build_queue_full(JENKINS):
     assert not job.build.mock_calls
 
 
-@patch('jenkins_epo.extensions.JENKINS')
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
 def test_build_queue_empty(JENKINS):
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
 
     ext = BuilderExtension('builder', Mock())
     ext.current = ext.bot.current
@@ -234,7 +234,7 @@ def test_build_queue_empty(JENKINS):
 
 
 def test_build_failed():
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
 
     ext = BuilderExtension('builder', Mock())
     ext.current = ext.bot.current
@@ -261,7 +261,7 @@ def test_build_failed():
 
 
 def test_builder_ignore_perioddc():
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
 
     ext = BuilderExtension('b', Mock())
     ext.current = ext.bot.current
@@ -276,7 +276,7 @@ def test_builder_ignore_perioddc():
 
 
 def test_match_mixed():
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
     from jenkins_epo.bot import Instruction
 
     ext = BuilderExtension('b', Mock())
@@ -291,7 +291,7 @@ def test_match_mixed():
 
 
 def test_match_negate():
-    from jenkins_epo.extensions import BuilderExtension
+    from jenkins_epo.extensions.jenkins import BuilderExtension
     from jenkins_epo.bot import Instruction
 
     ext = BuilderExtension('b', Mock())
@@ -334,7 +334,7 @@ def test_errors_reset():
 
 
 def test_report():
-    from jenkins_epo.extensions import ReportExtension, Branch
+    from jenkins_epo.extensions.core import ReportExtension, Branch
 
     ext = ReportExtension('merger', Mock())
     ext.current = Mock()
