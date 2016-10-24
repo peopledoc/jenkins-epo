@@ -17,7 +17,7 @@
 
 
 import os
-from setuptools import setup
+from setuptools import find_packages, setup
 import sys
 
 setup_kwargs = dict()
@@ -60,7 +60,7 @@ setup(
         'pyyaml',
         'retrying',
     ],
-    packages=['jenkins_epo'],
+    packages=find_packages(exclude=('tests',)),
     description='Jenkins EPO',
     author=', '.join([
         'Étienne BERSAC <etienne.bersac@people-doc.com>',
