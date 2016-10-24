@@ -30,7 +30,12 @@ from ..utils import match
 logger = logging.getLogger(__name__)
 
 
-class BuilderExtension(Extension):
+class JenkinsExtension(Extension):
+    def is_enabled(self, settings):
+        return bool(settings.JENKINS_URL)
+
+
+class BuilderExtension(JenkinsExtension):
     """
     # Selecting jobs
     jenkins:
@@ -171,7 +176,7 @@ jenkins: reset-skip-errors
         return new_status
 
 
-class CancellerExtension(Extension):
+class CancellerExtension(JenkinsExtension):
     stage = '20'
 
     def iter_pending_status(self, payload):
@@ -213,7 +218,7 @@ class CancellerExtension(Extension):
         self.current.statuses = self.current.last_commit.statuses
 
 
-class CreateJobsExtension(Extension):
+class CreateJobsExtension(JenkinsExtension):
     """
     jenkins: refresh-jobs  # Refresh job definition on Jenkins.
     """
@@ -373,7 +378,7 @@ class Stage(object):
         return True
 
 
-class StagesExtension(Extension):
+class StagesExtension(JenkinsExtension):
     stage = '30'
 
     SETTINGS = {
