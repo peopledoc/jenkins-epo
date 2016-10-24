@@ -6,7 +6,9 @@ from unittest.mock import Mock, patch
 @patch('jenkins_epo.extensions.jenkins.JENKINS')
 @patch('jenkins_epo.extensions.jenkins.GITHUB')
 def test_no_yml(GITHUB, JENKINS, SETTINGS):
-    from jenkins_epo.extensions.jenkins import ApiNotFoundError, CreateJobsExtension
+    from jenkins_epo.extensions.jenkins import (
+        ApiNotFoundError, CreateJobsExtension
+    )
 
     ext = CreateJobsExtension('createjob', Mock())
     ext.current = ext.bot.current

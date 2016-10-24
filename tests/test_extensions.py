@@ -14,49 +14,53 @@ def test_compute_skip_unindented():
     from jenkins_epo.bot import Bot
 
     bot = Bot().workon(Mock())
-    bot.process_instructions([
-        comment(body='```\njenkins:\nskip: [toto]\n```'),
-    ])
-    skip = [re.pattern for re in bot.current.skip]
-    assert ['toto'] == skip
+    comments = [comment(body='```\njenkins:\nskip: [toto]\n```')]
+    instructions = list(bot.parse_instructions(comments))
+    assert 1 == len(instructions)
+    instruction = instructions[0]
+    assert ['toto'] == instruction.args
 
 
 def test_compute_skip_null():
-    from jenkins_epo.bot import Bot
+    from jenkins_epo.bot import Instruction
     from jenkins_epo.extensions.jenkins import BuilderExtension
 
-    bot = Bot().workon(Mock())
-    bot.process_instructions([
-        comment(body='jenkins: {skip: }'),
-    ])
-    skip = [re.pattern for re in bot.current.skip]
+    ext = BuilderExtension('ext', Mock())
+    ext.current = ext.bot.current
+    ext.process_instruction(Instruction(author='b', name='skip'))
+    skip = [re.pattern for re in ext.current.skip]
     assert skip == list(BuilderExtension.SKIP_ALL)
 
 
 def test_compute_skip():
-    from jenkins_epo.bot import Bot
+    from jenkins_epo.bot import Instruction
     from jenkins_epo.extensions.jenkins import BuilderExtension
 
-    bot = Bot().workon(Mock())
-
-    bot.process_instructions([comment(body='jenkins: skip')])
-    skip = [re.pattern for re in bot.current.skip]
+    ext = BuilderExtension('ext', Mock())
+    ext.current = ext.bot.current
+    ext.process_instruction(Instruction(author='a', name='skip'))
+    skip = [re.pattern for re in ext.current.skip]
     assert skip == list(BuilderExtension.SKIP_ALL)
 
-    bot.process_instructions([
-        comment(body='jenkins: {skip: }'),
-        comment(body='jenkins: {skip: [this]}'),
-    ])
-    skip = [re.pattern for re in bot.current.skip]
+    ext.process_instruction(Instruction(author='b', name='skip'))
+    ext.process_instruction(
+        Instruction(author='b', name='skip', args=['this'])
+    )
+
+    skip = [re.pattern for re in ext.current.skip]
     assert skip == ['this']
 
 
 def test_compute_rebuild():
-    from jenkins_epo.bot import Bot
+    from jenkins_epo.bot import Instruction
+    from jenkins_epo.extensions.jenkins import BuilderExtension
 
-    bot = Bot().workon(Mock())
-    bot.process_instructions([comment(body='jenkins: rebuild')])
-    assert bot.current.rebuild_failed
+    ext = BuilderExtension('e', Mock())
+    ext.current = ext.bot.current
+    ext.process_instruction(
+        Instruction(author='author', name='rebuild', date=Mock())
+    )
+    assert ext.current.rebuild_failed
 
 
 def test_compute_help():
