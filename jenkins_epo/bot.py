@@ -63,7 +63,11 @@ See `jenkins: help` for documentation.
         self.extensions_map = {}
         for ep in pkg_resources.iter_entry_points(__name__ + '.extensions'):
             cls = ep.load()
-            self.extensions_map[ep.name] = ext = cls(ep.name, self)
+            ext = cls(ep.name, self)
+            if not ext.is_enabled(SETTINGS):
+                logger.debug("Disabled extension %r.", ext)
+                continue
+            self.extensions_map[ep.name] = ext
             SETTINGS.load(ext.SETTINGS)
             logger.debug("Loaded extension %r.", ext)
 
@@ -221,6 +225,9 @@ class Extension(object):
 
     def sort_key(self):
         return self.stage, self.name
+
+    def is_enabled(self, settings):
+        return True
 
     def begin(self):
         self.bot.current.update(copy.deepcopy(self.DEFAULTS))
