@@ -1,13 +1,21 @@
 from unittest.mock import Mock, patch
 
+from aiohttp.test_utils import make_mocked_coro
+import pytest
 
-@patch('jenkins_epo.procedures.cached_request')
-def test_whoami(cached_request):
+
+@pytest.mark.asyncio
+def test_whoami(mocker):
+    mocker.patch(
+        'jenkins_epo.procedures.cached_arequest',
+        make_mocked_coro(return_value=dict(login='aramis')),
+    )
+
     from jenkins_epo import procedures
 
-    cached_request.return_value = dict(login='aramis')
+    login = yield from procedures.whoami()
 
-    assert 'aramis' == procedures.whoami()
+    assert 'aramis' == login
 
 
 @patch('jenkins_epo.procedures.Repository.from_name')

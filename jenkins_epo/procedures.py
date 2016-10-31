@@ -12,13 +12,13 @@
 # You should have received a copy of the GNU General Public License along with
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
+import asyncio
 import itertools
 import logging
 
-from .github import GITHUB, cached_request
+from .github import GITHUB, cached_arequest
 from .repository import Repository
 from .settings import SETTINGS
-from .utils import retry
 
 
 logger = logging.getLogger(__name__)
@@ -77,9 +77,9 @@ def list_repositories(with_settings=False):
         yield repository
 
 
-@retry(wait_fixed=15000)
+@asyncio.coroutine
 def whoami():
-    user = cached_request(GITHUB.user)
+    user = yield from cached_arequest(GITHUB.user)
     logger.info(
         "I'm @%s on GitHub. %s remaining API calls.",
         user['login'], GITHUB.x_ratelimit_remaining,

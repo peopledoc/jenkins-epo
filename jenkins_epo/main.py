@@ -52,7 +52,7 @@ def loop(wrapped):
 @asyncio.coroutine
 def bot():
     """Poll GitHub to find something to do"""
-    procedures.whoami()
+    yield from procedures.whoami()
     bot = Bot(queue_empty=None)
 
     for head in procedures.iter_heads():
@@ -87,9 +87,10 @@ def bot():
     )
 
 
+@asyncio.coroutine
 def list_heads():
     """List heads to build"""
-    procedures.whoami()
+    yield from procedures.whoami()
     for head in procedures.iter_heads():
         print(head)
 

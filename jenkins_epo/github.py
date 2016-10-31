@@ -14,12 +14,14 @@
 
 from __future__ import absolute_import
 
+import asyncio
 import base64
 import logging
 import os.path
 import time
 
-from github import GitHub, ApiError, ApiNotFoundError
+import aiohttp
+from github import GitHub, ApiError, ApiNotFoundError, _Callable, _Executable
 from github import (
     build_opener, HTTPSHandler, HTTPError, JsonObject, Request,
     TIMEOUT, _METHOD_MAP, _URL,
@@ -64,6 +66,7 @@ def check_rate_limit_threshold():
     )))
 
 
+@retry(wait_fixed=15000)
 def cached_request(query, **kw):
     check_rate_limit_threshold()
     cache_key = '_'.join([
@@ -94,11 +97,94 @@ def cached_request(query, **kw):
     return response
 
 
+@retry(wait_fixed=15000)
+@asyncio.coroutine
+def cached_arequest(query, **kw):
+    check_rate_limit_threshold()
+    cache_key = '_'.join([
+        'gh', SETTINGS.GITHUB_TOKEN[:8], str(query._name), _encode_params(kw),
+    ])
+    headers = {
+        'Accept': 'application/vnd.github.loki-preview+json',
+    }
+    try:
+        response = CACHE.get(cache_key)
+        etag = response._headers['ETag']
+        headers[b'If-None-Match'] = etag
+    except (AttributeError, KeyError):
+        pass
+
+    try:
+        response = yield from query.aget(headers=headers, **kw)
+    except ApiError as e:
+        if e.response['code'] != 304:
+            raise
+        else:
+            logger.debug(
+                "Cache up to date (remaining=%s)",
+                GITHUB.x_ratelimit_remaining,
+            )
+
+    CACHE.set(cache_key, response)
+    return response
+
+
 class GHList(list):
     pass
 
 
+class AExecutable(_Executable):
+    def __call__(self, **kw):
+        return self._gh.ahttp(self._method, self._path, **kw)
+
+
+class ACallable(_Callable):
+    _methods = {'get', 'delete', 'patch', 'post', 'put'}
+
+    def __getattr__(self, attr):
+        if attr in self._methods:
+            return _Executable(self._gh, attr.upper(), self._name)
+        if attr[0] == 'a' and attr[1:] in self._methods:
+            return AExecutable(self._gh, attr[1:].upper(), self._name)
+        return self.__class__(self._gh, '%s/%s' % (self._name, attr))
+
+
 class CustomGitHub(GitHub):
+    def __getattr__(self, attr):
+        return ACallable(self, '/%s' % attr)
+
+    @asyncio.coroutine
+    def ahttp(self, _method, _path, headers={}, **kw):
+        url = '%s%s' % (_URL, _path)
+        headers = headers or {}
+        if self._authorization:
+            headers['Authorization'] = self._authorization
+
+        pre_rate_limit = self.x_ratelimit_remaining
+        logger.debug(
+            "%s %s (remaining=%s)",
+            _method, url, self.x_ratelimit_remaining,
+        )
+
+        headers = {
+            str(k): str(v)
+            for k, v in headers.items()
+        }
+
+        with aiohttp.ClientSession() as session:
+            response = yield from session.get(url, headers=headers)
+            payload = yield from response.json()
+        self._process_resp(response.headers)
+        post_rate_limit = self.x_ratelimit_remaining
+        if pre_rate_limit > 0 and pre_rate_limit < post_rate_limit:
+            logger.info(
+                "GitHub rate limit reset. %d calls remained.",
+                pre_rate_limit,
+            )
+
+        payload['_headers'] = dict(response.headers.items())
+        return payload
+
     def _http(self, _method, _path, headers={}, **kw):
         # Apply https://github.com/michaelliao/githubpy/pull/19
         data = None

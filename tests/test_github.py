@@ -1,18 +1,17 @@
-from unittest.mock import patch, Mock
-
+from asynctest import patch, CoroutineMock, Mock
 import pytest
 
 
 @patch('jenkins_epo.github.SETTINGS')
 @patch('jenkins_epo.github.GITHUB')
 def test_threshold(GITHUB, SETTINGS):
-    from jenkins_epo.github import cached_request, ApiError
+    from jenkins_epo.github import check_rate_limit_threshold, ApiError
 
     SETTINGS.RATE_LIMIT_THRESHOLD = 3000
     GITHUB.x_ratelimit_remaining = 2999
 
     with pytest.raises(ApiError):
-        cached_request(Mock())
+        check_rate_limit_threshold()
 
 
 @patch('jenkins_epo.github.CustomGitHub._process_resp')
@@ -32,6 +31,24 @@ def test_log_reset(build_opener, _process_resp):
     assert _process_resp.mock_calls
 
 
+@pytest.mark.asyncio
+def test_aget(mocker):
+    from jenkins_epo.github import CustomGitHub
+
+    aiohttp = mocker.patch('jenkins_epo.github.aiohttp')
+    session = aiohttp.ClientSession.return_value.__enter__.return_value
+    response = Mock(spec=['headers', 'json'])
+    session.get = CoroutineMock(return_value=response)
+    response.headers = {}
+    response.json = CoroutineMock(return_value={'data': 1})
+
+    GITHUB = CustomGitHub(access_token='cafed0d0')
+    res = yield from GITHUB.user.aget()
+
+    assert '_headers' in res
+    assert 'data' in res
+
+
 @patch('jenkins_epo.github.SETTINGS')
 @patch('jenkins_epo.github.CACHE')
 def test_cached_request_etag(CACHE, SETTINGS):
@@ -46,3 +63,76 @@ def test_cached_request_etag(CACHE, SETTINGS):
 
     headers = query.get.mock_calls[0][2]['headers']
     assert b'If-None-Match' in headers
+
+
+@pytest.mark.asyncio
+@patch('jenkins_epo.github.SETTINGS')
+@patch('jenkins_epo.github.GITHUB')
+@patch('jenkins_epo.github.CACHE')
+def test_cached_arequest_miss(CACHE, GITHUB, SETTINGS):
+    SETTINGS.GITHUB_TOKEN = 'cafec4e3e'
+    GITHUB.x_ratelimit_remaining = -1
+    from jenkins_epo.github import cached_arequest
+
+    CACHE.get.side_effect = KeyError('key')
+
+    query = Mock(aget=CoroutineMock(return_value='plop'))
+    ret = yield from cached_arequest(query)
+
+    assert 'plop' == ret
+
+
+@pytest.mark.asyncio
+@patch('jenkins_epo.github.SETTINGS')
+@patch('jenkins_epo.github.GITHUB')
+@patch('jenkins_epo.github.CACHE')
+@patch('jenkins_epo.utils.time.sleep')
+def test_retry_async(sleep, CACHE, GITHUB, SETTINGS):
+    SETTINGS.GITHUB_TOKEN = 'cafec4e3e'
+    GITHUB.x_ratelimit_remaining = -1
+    from jenkins_epo.github import cached_arequest
+
+    CACHE.get.side_effect = KeyError('key')
+
+    query = Mock(aget=CoroutineMock(side_effect=[IOError(), 'plop']))
+    ret = yield from cached_arequest(query)
+
+    assert 'plop' == ret
+
+
+@pytest.mark.asyncio
+@patch('jenkins_epo.github.SETTINGS')
+@patch('jenkins_epo.github.GITHUB')
+@patch('jenkins_epo.github.CACHE')
+def test_cached_arequest_no_cache_hit_valid(CACHE, GITHUB, SETTINGS):
+    SETTINGS.GITHUB_TOKEN = 'cafec4e3e'
+    GITHUB.x_ratelimit_remaining = -1
+    from jenkins_epo.github import ApiError, cached_arequest
+
+    cached_data = Mock(_headers={'ETag': 'etagsha'})
+    CACHE.get.return_value = cached_data
+
+    query = Mock(aget=CoroutineMock(
+        side_effect=ApiError('url', request={}, response=dict(code=304))
+    ))
+    ret = yield from cached_arequest(query)
+
+    assert cached_data == ret
+
+
+@pytest.mark.asyncio
+@patch('jenkins_epo.github.SETTINGS')
+@patch('jenkins_epo.github.GITHUB')
+@patch('jenkins_epo.github.CACHE')
+def test_cached_arequest_error(CACHE, GITHUB, SETTINGS):
+    SETTINGS.GITHUB_TOKEN = 'cafec4e3e'
+    GITHUB.x_ratelimit_remaining = -1
+    from jenkins_epo.github import ApiError, cached_arequest
+
+    CACHE.get.side_effect = KeyError('pouet')
+
+    query = Mock(aget=CoroutineMock(
+        side_effect=ApiError('url', request={}, response=dict(code=500))
+    ))
+    with pytest.raises(ApiError):
+        yield from cached_arequest(query)
