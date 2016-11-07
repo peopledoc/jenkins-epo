@@ -16,14 +16,11 @@ from collections import OrderedDict
 import logging
 import re
 
-from jenkins_yml import Job as JobSpec
 from jenkinsapi.custom_exceptions import UnknownJob
 
 from ..bot import Extension, Error
-from ..github import GITHUB, ApiNotFoundError
 from ..jenkins import JENKINS
 from ..repository import CommitStatus
-from ..settings import SETTINGS
 from ..utils import match
 
 
@@ -223,7 +220,7 @@ class CreateJobsExtension(JenkinsExtension):
     jenkins: refresh-jobs  # Refresh job definition on Jenkins.
     """
 
-    stage = '00'
+    stage = '05'
 
     DEFAULTS = {
         'jobs': {},
@@ -251,22 +248,6 @@ Failed to create or update Jenkins job `%(name)s`.
         if instruction == 'refresh-jobs':
             self.current.refresh_jobs = instruction.date
 
-    def list_job_specs(self, jenkins_yml=None):
-        defaults = dict(
-            node=SETTINGS.JOBS_NODE,
-            github_repository=self.current.head.repository.url,
-            scm_credentials=SETTINGS.JOBS_CREDENTIALS,
-            set_commit_status=not SETTINGS.DRY_RUN,
-        )
-
-        jenkins_yml = jenkins_yml or '{}'
-        jobs = {}
-        for job in JobSpec.parse_all(jenkins_yml, defaults=defaults):
-            job.repository = self.current.head.repository
-            jobs[job.name] = job
-
-        return jobs
-
     def process_job_specs(self):
         for spec in self.current.job_specs.values():
             current_job = self.current.jobs.get(spec.name)
@@ -289,19 +270,6 @@ Failed to create or update Jenkins job `%(name)s`.
                 yield JENKINS.update_job, spec
 
     def run(self):
-        head = self.current.head
-
-        try:
-            jenkins_yml = GITHUB.fetch_file_contents(
-                head.repository, 'jenkins.yml', ref=head.ref,
-            )
-            logger.debug("Loading jenkins.yml.")
-        except ApiNotFoundError:
-            jenkins_yml = None
-
-        self.current.job_specs = self.list_job_specs(jenkins_yml)
-        self.current.jobs = head.repository.jobs
-
         for name in self.current.job_specs:
             if name in self.current.jobs:
                 continue

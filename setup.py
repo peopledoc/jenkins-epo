@@ -44,6 +44,7 @@ setup(
             'jenkins-stages = jenkins_epo.extensions.jenkins:StagesExtension',
             'merger = jenkins_epo.extensions.core:MergerExtension',
             'report = jenkins_epo.extensions.core:ReportExtension',
+            'yaml = jenkins_epo.extensions.core:YamlExtension'
         ],
     },
     extras_require={
