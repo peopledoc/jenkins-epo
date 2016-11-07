@@ -62,9 +62,10 @@ jenkins:\r
         """\
 ```yml\r
 jenkins:\r
-  yml: []\r
+  clrd: []\r
 ```\r
         """,
+        '\n``` yaml\njenkins:\n  _colored: []\n```\n',
         """\
 ```
 jenkins: unix_eof
@@ -87,7 +88,8 @@ jenkins: unix_eof
     assert 'ticks_one' in haystack
     assert 'indent' in haystack
     assert 'colored' in haystack
-    assert 'yml' in haystack
+    assert 'clrd' in haystack
+    assert '_colored' in haystack
     assert 'unix_eof' in haystack
 
 
