@@ -68,3 +68,13 @@ def test_filter_exception_for_retry(wait_rate_limit_reset):
     assert filter_exception_for_retry(e)
     assert wait_rate_limit_reset.mock_calls
     wait_rate_limit_reset.reset_mock()
+
+
+def test_deepupdate():
+    from jenkins_epo.utils import deepupdate
+
+    a = dict(a=1, common=dict(a=1))
+    b = dict(common=dict(b=1))
+    c = deepupdate(a, b)
+
+    assert dict(a=1, b=1) == c['common']

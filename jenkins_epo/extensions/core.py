@@ -12,15 +12,20 @@
 # You should have received a copy of the GNU General Public License along with
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
+from copy import deepcopy
 import inspect
 import logging
 import pkg_resources
 import random
 import socket
 
-from ..bot import Extension
-from ..repository import ApiError, Branch
-from ..utils import match, parse_patterns
+from jenkins_yml.job import Job as JobSpec
+
+from ..bot import Extension, Error
+from ..github import GITHUB, ApiError, ApiNotFoundError
+from ..repository import Branch
+from ..settings import SETTINGS
+from ..utils import deepupdate, match, parse_patterns
 
 
 logger = logging.getLogger(__name__)
@@ -294,3 +299,69 @@ jenkins: report-done
         self.current.head.comment(body=self.COMMENT_TEMPLATE % dict(
             issue=issue['number']
         ))
+
+
+class YamlExtension(Extension):
+    """
+    # Ephemeral jobs parameters
+    jenkins:
+      parameters:
+        job1:
+          PARAM: value
+    """
+    stage = '00'
+
+    DEFAULTS = {
+        'yaml': {}
+    }
+
+    def process_instruction(self, instruction):
+        if instruction.name in {'yaml', 'yml'}:
+            if not isinstance(instruction.args, dict):
+                self.current.errors.append(
+                    Error("YAML args is not a mapping.", instruction.date)
+                )
+                return
+            deepupdate(self.current.yaml, instruction.args)
+        elif instruction.name in {'parameters', 'params', 'param'}:
+            args = {}
+            for job, parameters in instruction.args.items():
+                args[job] = dict(parameters=parameters)
+            deepupdate(self.current.yaml, args)
+
+    def list_job_specs(self, jenkins_yml=None):
+        defaults = dict(
+            node=SETTINGS.JOBS_NODE,
+            github_repository=self.current.head.repository.url,
+            scm_credentials=SETTINGS.JOBS_CREDENTIALS,
+            set_commit_status=not SETTINGS.DRY_RUN,
+        )
+
+        jenkins_yml = jenkins_yml or '{}'
+        jobs = {}
+        for job in JobSpec.parse_all(jenkins_yml, defaults=defaults):
+            job.repository = self.current.head.repository
+            jobs[job.name] = job
+
+        return jobs
+
+    def run(self):
+        head = self.current.head
+
+        try:
+            jenkins_yml = GITHUB.fetch_file_contents(
+                head.repository, 'jenkins.yml', ref=head.ref,
+            )
+            logger.debug("Loading jenkins.yml.")
+        except ApiNotFoundError:
+            jenkins_yml = None
+
+        self.current.job_specs = self.list_job_specs(jenkins_yml)
+        self.current.jobs = head.repository.jobs
+
+        for name, args in self.current.yaml.items():
+            current_spec = self.current.job_specs[name]
+            config = dict(deepcopy(current_spec.config), **args)
+            overlay_spec = JobSpec(name, config)
+            logger.info("Ephemeral update of %s spec.", name)
+            self.current.job_specs[name] = overlay_spec

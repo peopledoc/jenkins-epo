@@ -2,16 +2,16 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
 
-@patch('jenkins_epo.extensions.jenkins.SETTINGS')
-@patch('jenkins_epo.extensions.jenkins.JENKINS')
-@patch('jenkins_epo.extensions.jenkins.GITHUB')
-def test_no_yml(GITHUB, JENKINS, SETTINGS):
-    from jenkins_epo.extensions.jenkins import (
-        ApiNotFoundError, CreateJobsExtension
+@patch('jenkins_epo.extensions.core.SETTINGS')
+@patch('jenkins_epo.extensions.core.GITHUB')
+def test_yml_notfound(GITHUB, SETTINGS):
+    from jenkins_epo.extensions.core import (
+        ApiNotFoundError, YamlExtension
     )
 
-    ext = CreateJobsExtension('createjob', Mock())
+    ext = YamlExtension('ext', Mock())
     ext.current = ext.bot.current
+    ext.current.yaml = {}
 
     GITHUB.fetch_file_contents.side_effect = ApiNotFoundError(
         'url', Mock(), Mock())
@@ -23,50 +23,115 @@ def test_no_yml(GITHUB, JENKINS, SETTINGS):
     ext.run()
 
     assert GITHUB.fetch_file_contents.mock_calls
-    assert not JENKINS.create_job.mock_calls
-    assert not JENKINS.update_job.mock_calls
+    assert not ext.current.job_specs
 
 
-@patch('jenkins_epo.extensions.jenkins.SETTINGS')
-@patch('jenkins_epo.extensions.jenkins.JENKINS')
-@patch('jenkins_epo.extensions.jenkins.GITHUB')
-def test_job_new(GITHUB, JENKINS, SETTINGS):
-    from jenkins_epo.extensions.jenkins import CreateJobsExtension
+@patch('jenkins_epo.extensions.core.SETTINGS')
+@patch('jenkins_epo.extensions.core.GITHUB')
+def test_yml_found(GITHUB, SETTINGS):
+    from jenkins_epo.extensions.core import YamlExtension
 
-    ext = CreateJobsExtension('createjob', Mock())
+    ext = YamlExtension('ext', Mock())
     ext.current = ext.bot.current
-    ext.current.job_specs = {'new_job': Mock()}
-    ext.current.jobs = {}
+    ext.current.yaml = {'job': dict()}
 
-    res = [x for x in ext.process_job_specs()]
-    action, spec = res[0]
+    GITHUB.fetch_file_contents.return_value = "job: command"
 
-    assert JENKINS.create_job == action
+    head = ext.current.head
+    head.repository.url = 'https://github.com/owner/repo.git'
+    head.repository.jobs = {}
+
+    ext.run()
+
+    assert GITHUB.fetch_file_contents.mock_calls
+    assert 'job' in ext.current.job_specs
 
 
-@patch('jenkins_epo.extensions.jenkins.SETTINGS')
+def test_yml_comment_dict():
+    from jenkins_epo.bot import Instruction
+    from jenkins_epo.extensions.core import YamlExtension
+
+    ext = YamlExtension('ext', Mock())
+    ext.current = ext.bot.current
+    ext.current.yaml = {}
+
+    ext.process_instruction(Instruction(
+        author='a', name='yaml', args=dict(job=dict(parameters=dict(PARAM1=1)))
+    ))
+
+    ext.process_instruction(Instruction(
+        author='a', name='params', args=dict(job=dict(PARAM2=1))
+    ))
+
+    assert 'PARAM1' in ext.current.yaml['job']['parameters']
+    assert 'PARAM2' in ext.current.yaml['job']['parameters']
+
+
+def test_yml_comment_wrong():
+    from jenkins_epo.bot import Instruction
+    from jenkins_epo.extensions.core import YamlExtension
+
+    ext = YamlExtension('ext', Mock())
+    ext.current = ext.bot.current
+    ext.current.yaml = {}
+    ext.current.errors = []
+
+    ext.process_instruction(Instruction(author='a', name='yaml', args=None))
+
+    assert ext.current.errors
+
+
+@patch('jenkins_epo.extensions.core.SETTINGS')
+def test_yml_list_specs(SETTINGS):
+    from jenkins_epo.extensions.core import YamlExtension
+
+    ext = YamlExtension('ext', Mock())
+    ext.current = ext.bot.current
+    ext.current.head.repository.url = 'https://github.com/o/n'
+
+    jobs = ext.list_job_specs("job: command")
+
+    assert 'job' in jobs
+
+
 @patch('jenkins_epo.extensions.jenkins.JENKINS')
-@patch('jenkins_epo.extensions.jenkins.GITHUB')
-def test_job_uptodate(GITHUB, JENKINS, SETTINGS):
+def test_job_new(JENKINS):
     from jenkins_epo.extensions.jenkins import CreateJobsExtension
 
     ext = CreateJobsExtension('createjob', Mock())
     ext.current = ext.bot.current
     ext.current.refresh_jobs = None
-    ext.current.job_specs = {'new_job': Mock()}
+    ext.current.job_specs = {'new_job': Mock(config=dict())}
     ext.current.job_specs['new_job'].name = 'new_job'
-    ext.current.jobs = {'new_job': Mock()}
-    ext.current.jobs['new_job'].spec.contains.return_value = True
+    ext.current.jobs = {}
+
+    res = [x for x in ext.process_job_specs()]
+    assert res
+
+    action, spec = res[0]
+
+    assert action == JENKINS.create_job
+
+
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
+def test_job_uptodate(JENKINS):
+    from jenkins_epo.extensions.jenkins import CreateJobsExtension
+
+    ext = CreateJobsExtension('createjob', Mock())
+    ext.current = ext.bot.current
+    ext.current.refresh_jobs = None
+    ext.current.job_specs = {'job': Mock()}
+    ext.current.job_specs['job'].name = 'job'
+    ext.current.jobs = {'job': Mock()}
+    ext.current.jobs['job'].spec.contains.return_value = True
 
     res = [x for x in ext.process_job_specs()]
 
     assert not res
 
 
-@patch('jenkins_epo.extensions.jenkins.SETTINGS')
 @patch('jenkins_epo.extensions.jenkins.JENKINS')
-@patch('jenkins_epo.extensions.jenkins.GITHUB')
-def test_job_update(GITHUB, JENKINS, SETTINGS):
+def test_job_update(JENKINS):
     from jenkins_epo.extensions.jenkins import CreateJobsExtension
 
     ext = CreateJobsExtension('createjob', Mock())
@@ -86,41 +151,39 @@ def test_job_update(GITHUB, JENKINS, SETTINGS):
 
 
 @patch('jenkins_epo.extensions.jenkins.CreateJobsExtension.process_job_specs')
-@patch('jenkins_epo.extensions.jenkins.SETTINGS')
 @patch('jenkins_epo.extensions.jenkins.JENKINS')
-@patch('jenkins_epo.extensions.jenkins.GITHUB')
-def test_jenkins_create_success(GITHUB, JENKINS, SETTINGS, process_job_specs):
+def test_jenkins_create_success(JENKINS, process_job_specs):
+    from jenkins_yml.job import Job as JobSpec
     from jenkins_epo.extensions.jenkins import CreateJobsExtension, UnknownJob
 
     ext = CreateJobsExtension('createjob', Mock())
     ext.current = ext.bot.current
     ext.current.head.repository.jobs = {}
-
-    GITHUB.fetch_file_contents.return_value = '{new_job: {periodic: true}}'
+    ext.current.job_specs = dict(new=JobSpec('new', dict(periodic=True)))
+    ext.current.jobs = {}
     JENKINS.get_job.side_effect = UnknownJob('POUET')
-    JENKINS.create_job.return_value.name = 'new_job'
+    JENKINS.create_job.return_value.name = 'new'
     process_job_specs.return_value = [(JENKINS.create_job, Mock())]
 
     ext.run()
 
     assert not ext.current.errors.append.mock_calls
     assert JENKINS.create_job.mock_calls
-    assert ext.current.jobs['new_job'] == JENKINS.create_job.return_value
+    assert ext.current.jobs['new'] == JENKINS.create_job.return_value
 
 
 @patch('jenkins_epo.extensions.jenkins.CreateJobsExtension.process_job_specs')
-@patch('jenkins_epo.extensions.jenkins.SETTINGS')
 @patch('jenkins_epo.extensions.jenkins.JENKINS')
-@patch('jenkins_epo.extensions.jenkins.GITHUB')
-def test_jenkins_fails_existing(GITHUB, JENKINS, SETTINGS, process_job_specs):
+def test_jenkins_fails_existing(JENKINS, process_job_specs):
+    from jenkins_yml.job import Job as JobSpec
     from jenkins_epo.extensions.jenkins import CreateJobsExtension
 
     ext = CreateJobsExtension('createjob', Mock())
     ext.current = ext.bot.current
     ext.current.errors = []
     ext.current.head.repository.jobs = {'job': Mock()}
-
-    GITHUB.fetch_file_contents.return_value = '{job: toto}'
+    ext.current.job_specs = dict(job=JobSpec.factory('job', 'toto'))
+    ext.current.jobs = {'job': Mock()}
 
     JENKINS.update_job.side_effect = Exception('POUET')
 

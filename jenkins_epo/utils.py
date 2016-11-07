@@ -15,6 +15,7 @@
 from __future__ import absolute_import
 
 import asyncio
+import collections
 import datetime
 import fnmatch
 import logging
@@ -177,3 +178,13 @@ class Bunch(dict):
 
     def __setattr__(self, name, value):
         self[name] = value
+
+
+def deepupdate(self, other):
+    for k, v in other.items():
+        if isinstance(v, collections.Mapping):
+            r = deepupdate(self.get(k, {}), v)
+            self[k] = r
+        else:
+            self[k] = other[k]
+    return self
