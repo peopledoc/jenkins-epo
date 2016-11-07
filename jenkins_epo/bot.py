@@ -53,7 +53,7 @@ See `jenkins: help` for documentation.
         # Case middle line teletype:  `jenkins: ...`
         '\n`+jenkins:[^\n]*`+' '|'
         # Case block code: ```\njenkins:\n  ...```
-        '```(?:ya?ml)?\njenkins:[\s\S]*?\n```'
+        '```(?: *ya?ml)?\njenkins:[\s\S]*?\n```'
         ')'
     )
 
@@ -114,7 +114,7 @@ See `jenkins: help` for documentation.
 
             body = comment['body'].replace('\r', '')
             for stanza in self.instruction_re.findall(body):
-                stanza = stanza.strip().strip('`')
+                stanza = stanza.strip().strip('`').strip()
 
                 if stanza.startswith('yml\n'):
                     stanza = stanza[3:].strip()
