@@ -39,8 +39,8 @@ class CommitStatus(dict):
             return str(self) == other
         elif isinstance(other, dict):
             known_keys = {'context', 'description', 'state', 'target_url'}
-            a = {k: self[k] for k in known_keys}
-            b = {k: other[k] for k in known_keys}
+            a = {k: self.get(k) for k in known_keys}
+            b = {k: other.get(k) for k in known_keys}
             return a == b
         else:
             raise TypeError("Can't compare with %s.", type(other))
@@ -49,7 +49,7 @@ class CommitStatus(dict):
         return '<%s %s>' % (self.__class__.__name__, self['state'])
 
     def __str__(self):
-        return self['context']
+        return self.get('context', '**UNKNOWN**')
 
     def __hash__(self):
         return hash(str(self))
