@@ -47,6 +47,7 @@ setup(
             'merger = jenkins_epo.extensions.core:MergerExtension',
             'outdated = jenkins_epo.extensions.core:OutdatedExtension',
             'report = jenkins_epo.extensions.core:ReportExtension',
+            'skip = jenkins_epo.extensions.core:SkipExtension',
             'yaml = jenkins_epo.extensions.core:YamlExtension'
         ],
     },

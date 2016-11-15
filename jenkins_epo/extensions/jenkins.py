@@ -15,7 +15,6 @@
 from collections import OrderedDict
 from datetime import datetime, timedelta
 import logging
-import re
 
 from jenkinsapi.custom_exceptions import UnknownJob
 
@@ -35,59 +34,16 @@ class JenkinsExtension(Extension):
 
 class BuilderExtension(JenkinsExtension):
     """
-    # Selecting jobs
-    jenkins:
-      jobs: only*
-      jobs: ['*', '-notthis*']
-      jobs: ['this*', '+andthis*', '-notthis*']
-
-    # Skipping
-    jenkins: skip
-
     # Requeue past failed/skipped jobs
     jenkins: rebuild
     """
 
     DEFAULTS = {
-        'jobs_match': [],
-        'skip': [],
-        'skip_errors': [],
         'rebuild_failed': None,
     }
-    SKIP_ALL = ('.*',)
-    BUILD_ALL = ['*']
-
-    ERROR_COMMENT = """
-Sorry %(mention)s, I don't understand your pattern `%(pattern)r`: `%(error)s`.
-
-<!--
-jenkins: reset-skip-errors
--->
-"""
 
     def process_instruction(self, instruction):
-        if instruction == 'skip':
-            patterns = instruction.args
-            if isinstance(patterns, str):
-                patterns = [patterns]
-            patterns = patterns or self.SKIP_ALL
-            self.current.skip = skip = []
-            self.current.skip_errors = errors = []
-            for pattern in patterns:
-                try:
-                    skip.append(re.compile(pattern))
-                except re.error as e:
-                    logger.warn("Bad pattern for skip: %s", e)
-                    errors.append((instruction, pattern, e))
-        elif instruction == 'jobs':
-            patterns = instruction.args
-            if isinstance(patterns, str):
-                patterns = [patterns]
-
-            self.current.jobs_match = patterns
-        elif instruction == 'reset-skip-errors':
-            self.current.skip_errors = []
-        elif instruction == 'rebuild':
+        if instruction == 'rebuild':
             self.current.rebuild_failed = instruction.date
 
     def is_queue_empty(self):
@@ -98,13 +54,6 @@ jenkins: reset-skip-errors
         return JENKINS.is_queue_empty()
 
     def run(self):
-        for instruction, pattern, error in self.current.skip_errors:
-            self.current.head.comment(body=self.ERROR_COMMENT % dict(
-                mention='@' + instruction.author,
-                pattern=pattern,
-                error=str(error),
-            ))
-
         for spec in self.current.job_specs.values():
             if spec.config.get('periodic'):
                 continue
@@ -145,20 +94,9 @@ jenkins: reset-skip-errors
                             )
                         )
 
-    def skip(self, context):
-        for pattern in self.current.skip:
-            if pattern.match(context):
-                return True
-        return not match(context, self.current.jobs_match)
-
     def status_for_new_context(self, job, context, queue_empty):
         new_status = CommitStatus(target_url=job.baseurl, context=context)
-        if self.skip(context):
-            new_status.update({
-                'description': 'Skipped',
-                'state': 'success',
-            })
-        elif not job.is_enabled():
+        if not job.is_enabled():
             new_status.update({
                 'description': 'Disabled on Jenkins.',
                 'state': 'success',

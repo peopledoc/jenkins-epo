@@ -64,6 +64,14 @@ class CommitStatus(dict):
         return True
 
     @property
+    def is_running(self):
+        if self.is_queueable:
+            return False
+        if self.get('state') == 'pending':
+            return True
+        return False
+
+    @property
     def is_rebuildable(self):
         if self.get('state') in {'error', 'failure'}:
             return True
