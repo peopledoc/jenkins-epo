@@ -87,6 +87,12 @@ def bot():
     )
 
 
+def list_extensions():
+    bot = Bot()
+    for extension in bot.extensions:
+        print(extension.name)
+
+
 @asyncio.coroutine
 def list_heads():
     """List heads to build"""
@@ -122,7 +128,7 @@ def main(argv=None):
     argv = argv or sys.argv
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='command', metavar='COMMAND')
-    for command in [bot, list_heads]:
+    for command in [bot, list_extensions, list_heads]:
         subparser = subparsers.add_parser(
             command.__name__.replace('_', '-'),
             help=inspect.cleandoc(command.__doc__ or '').split('\n')[0],
