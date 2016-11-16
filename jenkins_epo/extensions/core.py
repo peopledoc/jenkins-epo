@@ -316,7 +316,8 @@ class YamlExtension(Extension):
     stage = '00'
 
     DEFAULTS = {
-        'yaml': {}
+        'yaml': {},
+        'yaml_date': None,
     }
 
     def process_instruction(self, instruction):
@@ -327,11 +328,13 @@ class YamlExtension(Extension):
                 )
                 return
             deepupdate(self.current.yaml, instruction.args)
+            self.current.yaml_date = instruction.date
         elif instruction.name in {'parameters', 'params', 'param'}:
             args = {}
             for job, parameters in instruction.args.items():
                 args[job] = dict(parameters=parameters)
             deepupdate(self.current.yaml, args)
+            self.current.yaml_date = instruction.date
 
     def list_job_specs(self, jenkins_yml=None):
         defaults = dict(
@@ -364,6 +367,13 @@ class YamlExtension(Extension):
         self.current.jobs = head.repository.jobs
 
         for name, args in self.current.yaml.items():
+            if name not in self.current.job_specs:
+                self.current.errors.append(Error(
+                    body="Can't override unknown job %s.",
+                    date=self.current.yaml_date,
+                ))
+                continue
+
             current_spec = self.current.job_specs[name]
             config = dict(deepcopy(current_spec.config), **args)
             overlay_spec = JobSpec(name, config)

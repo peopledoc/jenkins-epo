@@ -82,6 +82,24 @@ def test_yml_comment_wrong():
 
 
 @patch('jenkins_epo.extensions.core.SETTINGS')
+@patch('jenkins_epo.extensions.core.GITHUB')
+def test_yml_override_unknown_job(GITHUB, SETTINGS):
+    from jenkins_epo.extensions.core import YamlExtension
+
+    GITHUB.fetch_file_contents.return_value = '{}'
+
+    ext = YamlExtension('ext', Mock())
+    ext.current = ext.bot.current
+    ext.current.errors = []
+    ext.current.head.repository.jobs = []
+    ext.current.yaml = {'unknown_jobs': {}}
+
+    ext.run()
+
+    assert ext.current.errors
+
+
+@patch('jenkins_epo.extensions.core.SETTINGS')
 def test_yml_list_specs(SETTINGS):
     from jenkins_epo.extensions.core import YamlExtension
 
