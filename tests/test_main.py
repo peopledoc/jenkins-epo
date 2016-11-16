@@ -100,3 +100,9 @@ def test_list_heads(mocker):
     procedures.iter_heads.return_value = iter([Mock()])
 
     yield from list_heads()
+
+
+def test_list_extensions():
+    from jenkins_epo.main import list_extensions
+
+    list_extensions()
