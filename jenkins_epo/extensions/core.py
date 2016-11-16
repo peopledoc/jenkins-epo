@@ -32,6 +32,8 @@ logger = logging.getLogger(__name__)
 
 
 class HelpExtension(Extension):
+    stage = '90'
+
     DEFAULTS = {
         'help_mentions': set(),
     }
@@ -247,6 +249,8 @@ jenkins: {last-merge-error: %(message)r}
 
 
 class ReportExtension(Extension):
+    stage = '90'
+
     ISSUE_TEMPLATE = """
 Commit %(abbrev)s is broken on %(branch)s:
 
