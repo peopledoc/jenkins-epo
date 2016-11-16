@@ -369,7 +369,7 @@ class YamlExtension(Extension):
         for name, args in self.current.yaml.items():
             if name not in self.current.job_specs:
                 self.current.errors.append(Error(
-                    body="Can't override unknown job %s.",
+                    body="Can't override unknown job %s." % (name,),
                     date=self.current.yaml_date,
                 ))
                 continue
