@@ -90,7 +90,7 @@ def bot():
 def list_extensions():
     bot = Bot()
     for extension in bot.extensions:
-        print(extension.name)
+        print(extension.stage, extension.name)
 
 
 @asyncio.coroutine
