@@ -202,7 +202,7 @@ class CancellerExtension(JenkinsExtension):
                 build = None
 
             if not build:
-                new_status = dict(
+                new_status = status.__class__(
                     status, state='error', description="Build not on Jenkins."
                 )
             elif cancel and build.is_running():
