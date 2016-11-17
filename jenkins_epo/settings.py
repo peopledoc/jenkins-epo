@@ -54,6 +54,7 @@ SETTINGS = EnvironmentSettings(defaults={
     'DEBUG': False,
     # Do not trigger jobs nor touch GitHub statuses.
     'DRY_RUN': False,
+    'EXTENSIONS': '*',
     # Whether to touch GitHub statuses or not
     'GITHUB_RO': False,
     'IGNORE_STATUSES': '',
