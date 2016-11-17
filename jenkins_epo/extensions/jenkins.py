@@ -188,7 +188,7 @@ class CancellerExtension(JenkinsExtension):
         )
 
         for commit, status, cancel in aggregated_queue:
-            if not status['target_url'].startswith(JENKINS.baseurl):
+            if not str(status['target_url']).startswith(JENKINS.baseurl):
                 continue
 
             logger.debug("Query Jenkins %s status for %s.", status, commit)
