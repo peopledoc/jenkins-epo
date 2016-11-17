@@ -85,7 +85,7 @@ class LazyJenkins(object):
 """
 
     def preprocess_spec(self, spec):
-        embedded_data = dict(updated_at=datetime.now())
+        embedded_data = dict(updated_at=datetime.utcnow())
         spec.config['description'] = self.DESCRIPTION_TMPL % dict(
             description=re.sub(
                 r"\s*(<!--\nepo:.*-->)", "",
