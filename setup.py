@@ -38,9 +38,10 @@ setup(
         'jenkins_epo.bot.extensions': [
             'error = jenkins_epo.extensions.core:ErrorExtension',
             'help = jenkins_epo.extensions.core:HelpExtension',
-            'jenkins-builder = jenkins_epo.extensions.jenkins:BuilderExtension',
-            'jenkins-canceller = jenkins_epo.extensions.jenkins:CancellerExtension',
-            'jenkins-createjobs = jenkins_epo.extensions.jenkins:CreateJobsExtension',
+            'autocancel = jenkins_epo.extensions.core:AutoCancelExtension',
+            'jenkins-builder = jenkins_epo.extensions.jenkins:BuilderExtension',  # noqa
+            'jenkins-canceller = jenkins_epo.extensions.jenkins:CancellerExtension',  # noqa
+            'jenkins-createjobs = jenkins_epo.extensions.jenkins:CreateJobsExtension',  # noqa
             'jenkins-stages = jenkins_epo.extensions.jenkins:StagesExtension',
             'merger = jenkins_epo.extensions.core:MergerExtension',
             'report = jenkins_epo.extensions.core:ReportExtension',

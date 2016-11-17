@@ -30,6 +30,8 @@ logger = logging.getLogger(__name__)
 class Bot(object):
     DEFAULTS = {
         'errors': [],
+        'poll_queue': [],
+        'cancel_queue': [],
     }
 
     PARSE_ERROR_COMMENT = """\

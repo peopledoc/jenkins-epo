@@ -176,22 +176,21 @@ jenkins: reset-skip-errors
 class CancellerExtension(JenkinsExtension):
     stage = '20'
 
-    def iter_pending_status(self, payload):
-        for i, commit in enumerate(self.current.head.process_commits(payload)):
-            commit_payload = commit.fetch_statuses()
-            statuses = commit.process_statuses(commit_payload)
-            for context, status in statuses.items():
-                if not status.get('target_url'):
-                    continue
-                if not status['target_url'].startswith(JENKINS.baseurl):
-                    continue
-                if status['state'] != 'pending':
-                    continue
-                yield commit, status, i == 0
+    def aggregate_queues(self, cancel_queue, poll_queue):
+        for commit, status in cancel_queue:
+            yield commit, status, True
+        for commit, status in poll_queue:
+            yield commit, status, False
 
     def run(self):
-        payload = self.current.head.fetch_previous_commits()
-        for commit, status, head in self.iter_pending_status(payload):
+        aggregated_queue = self.aggregate_queues(
+            self.current.cancel_queue, self.current.poll_queue
+        )
+
+        for commit, status, cancel in aggregated_queue:
+            if not status['target_url'].startswith(JENKINS.baseurl):
+                continue
+
             logger.debug("Query Jenkins %s status for %s.", status, commit)
             try:
                 build = JENKINS.get_build_from_url(status['target_url'])
@@ -202,7 +201,11 @@ class CancellerExtension(JenkinsExtension):
                 )
                 build = None
 
-            if not head and build and build.is_running():
+            if not build:
+                new_status = dict(
+                    status, state='error', description="Build not on Jenkins."
+                )
+            elif cancel and build.is_running():
                 logger.warn("Cancelling %s.", build)
                 build.stop()
                 new_status = status.__class__(
@@ -210,7 +213,9 @@ class CancellerExtension(JenkinsExtension):
                 )
             else:
                 new_status = status.from_build(build)
+
             commit.maybe_update_status(new_status)
+
         self.current.last_commit = self.current.head.last_commit
         self.current.statuses = self.current.last_commit.statuses
 
@@ -226,13 +231,6 @@ class CreateJobsExtension(JenkinsExtension):
         'jobs': {},
         'job_specs': {},
         'refresh_jobs': {},
-    }
-
-    SETTINGS = {
-        # Jenkins credentials used to clone
-        'JOBS_CREDENTIALS': None,
-        # Jenkins node/label
-        'JOBS_NODE': 'yml',
     }
 
     JOB_ERROR_COMMENT = """\

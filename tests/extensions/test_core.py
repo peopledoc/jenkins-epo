@@ -101,3 +101,50 @@ def test_report():
 
     assert ext.current.head.comment.mock_calls
     assert ext.current.head.repository.report_issue.mock_calls
+
+
+def test_autocancel():
+    from jenkins_epo.extensions.core import AutoCancelExtension
+
+    ext = AutoCancelExtension('merger', Mock())
+    ext.current = Mock()
+    ext.current.cancel_queue = cancel_queue = []
+    ext.current.poll_queue = []
+    last_commit = Mock()
+    old_commit = Mock()
+    ext.current.head.process_commits.return_value = [
+        last_commit, old_commit,
+    ]
+
+    last_commit.process_statuses.return_value = last_statuses = {
+        'backed': {
+            'description': 'Backed',
+            'state': 'pending',
+            'target_url': 'https://jenkins.lan/job/backed/',
+        },
+        'running': {
+            'description': '#2 running',
+            'state': 'pending',
+            'target_url': 'https://jenkins.lan/job/running/build/2/',
+        },
+    }
+    old_commit.process_statuses.return_value = old_statuses = {
+        'backed': {'state': 'pending', 'description': 'Backed'},
+        'success': {
+            'state': 'success',
+            'target_url': 'https://jenkins.lan/job/success/build/1/',
+        },
+        'running': {
+            'description': '#1 running',
+            'state': 'pending',
+            'target_url': 'https://jenkins.lan/job/running/build/1/',
+        },
+    }
+
+    ext.run()
+
+    assert (old_commit, old_statuses['backed']) not in cancel_queue
+    assert (old_commit, old_statuses['success']) not in cancel_queue
+    assert (old_commit, old_statuses['running']) in cancel_queue
+    assert (last_commit, last_statuses['backed']) not in cancel_queue
+    assert (last_commit, last_statuses['running']) not in cancel_queue

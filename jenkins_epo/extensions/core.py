@@ -23,12 +23,35 @@ from jenkins_yml.job import Job as JobSpec
 
 from ..bot import Extension, Error
 from ..github import GITHUB, ApiError, ApiNotFoundError
-from ..repository import Branch
+from ..repository import Branch, CommitStatus
 from ..settings import SETTINGS
 from ..utils import deepupdate, match, parse_patterns
 
 
 logger = logging.getLogger(__name__)
+
+
+class AutoCancelExtension(Extension):
+    stage = '10'
+
+    def run(self):
+        payload = self.current.head.fetch_previous_commits()
+        head = True
+        for i, commit in enumerate(self.current.head.process_commits(payload)):
+            commit_payload = commit.fetch_statuses()
+            statuses = commit.process_statuses(commit_payload)
+            for status in statuses.values():
+                if status['state'] != 'pending':
+                    continue
+
+                status = CommitStatus(status)
+                if head:
+                    self.current.poll_queue.append((commit, status))
+                elif not status.is_queueable:
+                    logger.info("Queue cancel of %s on %s.", status, commit)
+                    self.current.cancel_queue.append((commit, status))
+
+            head = False
 
 
 class HelpExtension(Extension):
@@ -318,6 +341,13 @@ class YamlExtension(Extension):
     DEFAULTS = {
         'yaml': {},
         'yaml_date': None,
+    }
+
+    SETTINGS = {
+        # Jenkins credentials used to clone
+        'JOBS_CREDENTIALS': None,
+        # Jenkins node/label
+        'JOBS_NODE': 'yml',
     }
 
     def process_instruction(self, instruction):

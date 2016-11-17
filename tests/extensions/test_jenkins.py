@@ -258,3 +258,93 @@ def test_only_branches():
     ext.run()
 
     assert not job.build.mock_calls
+
+
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
+def test_cancel_ignore_other(JENKINS):
+    from jenkins_epo.extensions.jenkins import CancellerExtension, CommitStatus
+
+    JENKINS.baseurl = 'jenkins://'
+
+    commit = Mock()
+
+    ext = CancellerExtension('test', Mock())
+    ext.current = ext.bot.current
+    ext.current.poll_queue = []
+    ext.current.cancel_queue = [
+        (commit, CommitStatus(context='ci/...', target_url='circleci://1')),
+    ]
+
+    ext.run()
+
+    assert not JENKINS.get_build_from_url.mock_calls
+    assert not commit.maybe_update_status.mock_calls
+
+
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
+def test_cancel_build_running(JENKINS):
+    from jenkins_epo.extensions.jenkins import CancellerExtension, CommitStatus
+
+    JENKINS.baseurl = 'jenkins://'
+
+    commit = Mock()
+
+    ext = CancellerExtension('test', Mock())
+    ext.current = ext.bot.current
+    ext.current.poll_queue = []
+    ext.current.cancel_queue = [
+        (commit, CommitStatus(context='job', target_url='jenkins://job/1')),
+    ]
+
+    build = JENKINS.get_build_from_url.return_value
+    build.get_status.return_value = None
+
+    ext.run()
+
+    assert build.stop.mock_calls
+    assert commit.maybe_update_status.mock_calls
+
+
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
+def test_poll_build_running(JENKINS):
+    from jenkins_epo.extensions.jenkins import CancellerExtension, CommitStatus
+
+    JENKINS.baseurl = 'jenkins://'
+
+    commit = Mock()
+
+    ext = CancellerExtension('test', Mock())
+    ext.current = ext.bot.current
+    ext.current.cancel_queue = []
+    ext.current.poll_queue = [
+        (commit, CommitStatus(context='job', target_url='jenkins://job/1')),
+    ]
+
+    build = JENKINS.get_build_from_url.return_value
+    build.get_status.return_value = None
+
+    ext.run()
+
+    assert not build.stop.mock_calls
+    assert commit.maybe_update_status.mock_calls
+
+
+@patch('jenkins_epo.extensions.jenkins.JENKINS')
+def test_poll_lost_build(JENKINS):
+    from jenkins_epo.extensions.jenkins import CancellerExtension, CommitStatus
+
+    commit = Mock()
+
+    ext = CancellerExtension('test', Mock())
+    ext.current = ext.bot.current
+    ext.current.poll_queue = []
+    ext.current.cancel_queue = [
+        (commit, CommitStatus(context='job', target_url='jenkins://job/1')),
+    ]
+
+    JENKINS.baseurl = 'jenkins://'
+    JENKINS.get_build_from_url.side_effect = Exception('POUET')
+
+    ext.run()
+
+    assert commit.maybe_update_status.mock_calls
