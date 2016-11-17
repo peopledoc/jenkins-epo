@@ -41,13 +41,16 @@ class AutoCancelExtension(Extension):
             commit_payload = commit.fetch_statuses()
             statuses = commit.process_statuses(commit_payload)
             for status in statuses.values():
-                if status['state'] != 'pending':
+                status = CommitStatus(status)
+                if status.get('state') != 'pending':
                     continue
 
-                status = CommitStatus(status)
+                if status.is_queueable:
+                    continue
+
                 if head:
                     self.current.poll_queue.append((commit, status))
-                elif not status.is_queueable:
+                else:
                     logger.info("Queue cancel of %s on %s.", status, commit)
                     self.current.cancel_queue.append((commit, status))
 
