@@ -21,7 +21,7 @@ import reprlib
 import yaml
 
 from .settings import SETTINGS
-from .utils import Bunch, parse_datetime
+from .utils import Bunch, parse_datetime, match, parse_patterns
 
 
 logger = logging.getLogger(__name__)
@@ -56,6 +56,7 @@ See `jenkins: help` for documentation.
         '```(?: *ya?ml)?\njenkins:[\s\S]*?\n```'
         ')'
     )
+    ext_patterns = parse_patterns(SETTINGS.EXTENSIONS)
 
     def __init__(self, queue_empty=True):
         self.queue_empty = queue_empty
@@ -63,13 +64,16 @@ See `jenkins: help` for documentation.
         self.extensions_map = {}
         for ep in pkg_resources.iter_entry_points(__name__ + '.extensions'):
             cls = ep.load()
+            if not match(ep.name, self.ext_patterns):
+                logger.debug("Filtered extension %s.", ep.name)
+                continue
             ext = cls(ep.name, self)
             if not ext.is_enabled(SETTINGS):
-                logger.debug("Disabled extension %r.", ext)
+                logger.debug("Disabled extension %s.", ext)
                 continue
             self.extensions_map[ep.name] = ext
             SETTINGS.load(ext.SETTINGS)
-            logger.debug("Loaded extension %r.", ext)
+            logger.debug("Loaded extension %s.", ext)
 
         self.extensions = sorted(
             self.extensions_map.values(), key=Extension.sort_key
@@ -222,6 +226,9 @@ class Extension(object):
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.name)
+
+    def __str__(self):
+        return self.name
 
     def sort_key(self):
         return self.stage, self.name

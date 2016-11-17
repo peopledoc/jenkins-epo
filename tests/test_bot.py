@@ -139,3 +139,25 @@ def test_run_extension(pkg_resources):
     bot.run(pr)
 
     assert ext.run.mock_calls
+
+
+@patch('jenkins_epo.bot.pkg_resources.iter_entry_points')
+@patch('jenkins_epo.bot.Bot.ext_patterns', new=[])
+def test_filter_extension(iter_entry_points):
+    loaded = Mock()
+    loaded.name = 'loaded'
+    ext = loaded.load.return_value.return_value
+    ext.SETTINGS = {}
+    skipped = Mock()
+    skipped.name = 'skipped'
+
+    iter_entry_points.return_value = [loaded, skipped]
+
+    from jenkins_epo.bot import Bot
+
+    Bot.ext_patterns.extend(['*', '-skip*'])
+
+    bot = Bot()
+
+    assert 'loaded' in bot.extensions_map
+    assert 'skipped' not in bot.extensions_map
