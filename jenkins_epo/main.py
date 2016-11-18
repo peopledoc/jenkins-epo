@@ -59,7 +59,7 @@ def bot():
         try:
             head.repository.load_settings()
         except Exception:
-            logger.warn("Fail to load %s settings.", head.repository)
+            logger.exception("Failed to load %s settings.", head.repository)
             continue
 
         head.last_commit.fetch_payload()
