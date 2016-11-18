@@ -288,7 +288,10 @@ class MatrixJob(Job):
             axis.append(['%s=%s' % (self.node_axis, node)])
 
         for name, values in spec.config['axis'].items():
-            axis.append(['%s=%s' % (name, v) for v in sorted(values)])
+            axis.append([
+                '%s=%s' % (name, v)
+                for v in sorted(map(str, values))
+            ])
 
         for name, values in self.spec.config['axis'].items():
             if name in spec.config['axis']:

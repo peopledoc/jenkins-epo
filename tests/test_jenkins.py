@@ -129,7 +129,7 @@ def test_matrix_list_context_node():
 
     spec = Job('matrix', dict(
         node='slave-ng',
-        axis={'P': ['a', 'b']},
+        axis={'P': ['a', 'b', 4.3]},
     ))
     contexts = [c for c in job.list_contexts(spec)]
 
