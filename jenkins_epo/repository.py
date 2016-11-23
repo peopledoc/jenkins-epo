@@ -215,7 +215,7 @@ class Repository(object):
         for k, v in sorted(self.SETTINGS.items()):
             logger.debug("%s=%r", k, v)
 
-    @retry(wait_fixed=15000)
+    @retry
     def report_issue(self, title, body):
         if GITHUB.dry:
             logger.info("Would report issue '%s'", title)
@@ -328,7 +328,7 @@ class Commit(object):
             self.statuses.pop(str(status), None)
         return new_status
 
-    @retry(wait_fixed=15000)
+    @retry
     def push_status(self, status):
         kwargs = {
             k: status[k]
@@ -412,7 +412,7 @@ class Branch(Head):
             GITHUB.repos(self.repository).commits(self.sha).comments
         )
 
-    @retry(wait_fixed=15000)
+    @retry
     def comment(self, body):
         if GITHUB.dry:
             return logger.info("Would comment on %s", self)
@@ -473,7 +473,7 @@ class PullRequest(Head):
             ))
         ))
 
-    @retry(wait_fixed=15000)
+    @retry
     def comment(self, body):
         if GITHUB.dry:
             return logger.info("Would comment on %s", self)
@@ -484,7 +484,7 @@ class PullRequest(Head):
             .comments.post(body=body)
         )
 
-    @retry(wait_fixed=15000)
+    @retry
     def delete_branch(self):
         if GITHUB.dry:
             return logger.info("Would delete branch %s", self.ref)
@@ -497,7 +497,7 @@ class PullRequest(Head):
         issue = GITHUB.repos(self.repository).issues(self.payload['number'])
         return [self.payload] + cached_request(issue.comments)
 
-    @retry(wait_fixed=15000)
+    @retry
     def merge(self, message=None):
         body = {
             'sha': self.payload['head']['sha'],

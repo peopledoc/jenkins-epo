@@ -97,7 +97,7 @@ def _cached_request_middleware(query, **kw):
     return response
 
 
-@retry(wait_fixed=15000)
+@retry
 def cached_request(query, **kw):
     generator = _cached_request_middleware(query, **kw)
     headers = next(generator)
@@ -114,7 +114,7 @@ def cached_request(query, **kw):
         return e.value
 
 
-@retry(wait_fixed=15000)
+@retry
 @asyncio.coroutine
 def cached_arequest(query, **kw):
     generator = _cached_request_middleware(query, **kw)
@@ -263,7 +263,7 @@ class LazyGithub(object):
         if not self._instance:
             self._instance = CustomGitHub(access_token=SETTINGS.GITHUB_TOKEN)
 
-    @retry(wait_fixed=15000)
+    @retry
     def fetch_file_contents(self, repository, path, **kwargs):
         path = os.path.normpath(path)
         payload = cached_request(
