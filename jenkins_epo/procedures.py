@@ -67,7 +67,10 @@ def list_repositories(with_settings=False):
             repository = Repository.from_name(owner, name)
         except Exception as e:
             logger.warn("Failed to fetch repo %s: %s", repository, e)
-            continue
+            if SETTINGS.DEBUG:
+                raise
+            else:
+                continue
 
         if repository in repositories:
             continue
