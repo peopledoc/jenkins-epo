@@ -19,65 +19,92 @@ import collections
 import datetime
 import fnmatch
 import logging
-import random
-import time
 import sys
+import time
 
 from github import ApiError
 from http.client import HTTPException
-import retrying
+import tenacity
 from requests import HTTPError
 
 
 logger = logging.getLogger(__name__)
 
 
-class ARetrying(retrying.Retrying):
+class ARetrying(tenacity.Retrying):
+    def __init__(self, sleep=time.sleep, *args, **kwargs):
+        super(ARetrying, self).__init__(sleep=time.sleep, *args, **kwargs)
+
     def call(self, fn, *args, **kwargs):
         if asyncio.iscoroutinefunction(fn):
             return self.acall(fn, *args, **kwargs)
         else:
             return super(ARetrying, self).call(fn, *args, **kwargs)
 
+    @asyncio.coroutine
     def acall(self, fn, *args, **kwargs):
-        start_time = int(round(time.time() * 1000))
+        self.statistics.clear()
+        start_time = tenacity.now()
+        self.statistics['start_time'] = start_time
         attempt_number = 1
+        self.statistics['attempt_number'] = attempt_number
+        self.statistics['idle_for'] = 0
         while True:
+            trial_start_time = tenacity.now()
+            if self.before is not None:
+                self.before(fn, attempt_number)
+
+            fut = tenacity.Future(attempt_number)
             try:
                 result = yield from fn(*args, **kwargs)
-                attempt = retrying.Attempt(result, attempt_number, False)
-            except:
+            except tenacity.TryAgain:
+                trial_end_time = tenacity.now()
+                retry = True
+            except Exception:
+                trial_end_time = tenacity.now()
                 tb = sys.exc_info()
-                attempt = retrying.Attempt(tb, attempt_number, True)
-
-            if not self.should_reject(attempt):
-                return attempt.get(self._wrap_exception)
-
-            delay_since_first_attempt_ms = (
-                int(round(time.time() * 1000)) - start_time
-            )
-            if self.stop(attempt_number, delay_since_first_attempt_ms):
-                if not self._wrap_exception and attempt.has_exception:
-                    # get() on an attempt with an exception should cause it to
-                    # be raised, but raise just in case
-                    raise attempt.get()
-                else:
-                    raise retrying.RetryError(attempt)
+                try:
+                    tenacity._utils.capture(fut, tb)
+                finally:
+                    del tb
+                retry = self.retry(fut)
             else:
-                sleep = self.wait(attempt_number, delay_since_first_attempt_ms)
-                if self._wait_jitter_max:
-                    jitter = random.random() * self._wait_jitter_max
-                    sleep = sleep + max(0, jitter)
-                time.sleep(sleep / 1000.0)
+                trial_end_time = tenacity.now()
+                fut.set_result(result)
+                retry = self.retry(fut)
+
+            if not retry:
+                return fut.result()
+
+            if self.after is not None:
+                trial_time_taken = trial_end_time - trial_start_time
+                self.after(fn, attempt_number, trial_time_taken)
+
+            delay_since_first_attempt = tenacity.now() - start_time
+            self.statistics['delay_since_first_attempt'] = \
+                delay_since_first_attempt
+            if self.stop(attempt_number, delay_since_first_attempt):
+                if self.reraise:
+                    raise tenacity.RetryError(fut).reraise()
+                tenacity.six.raise_from(
+                    tenacity.RetryError(fut), fut.exception()
+                )
+
+            if self.wait:
+                sleep = self.wait(attempt_number, delay_since_first_attempt)
+            else:
+                sleep = 0
+            self.statistics['idle_for'] += sleep
+            self.sleep(sleep)
 
             attempt_number += 1
+            self.statistics['attempt_number'] = attempt_number
 
 
 def retry(*dargs, **dkw):
     defaults = dict(
-        retry_on_exception=filter_exception_for_retry,
-        wait_exponential_multiplier=500,
-        wait_exponential_max=15000,
+        retry=tenacity.retry_if_exception(filter_exception_for_retry),
+        wait=tenacity.wait_exponential(multiplier=500, max=15000),
     )
 
     if len(dargs) == 1 and callable(dargs[0]):

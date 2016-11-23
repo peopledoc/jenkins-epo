@@ -61,7 +61,7 @@ setup(
         'jenkinsapi',
         'jenkins-yml[renderer]',
         'pyyaml',
-        'retrying',
+        'tenacity',
     ],
     packages=find_packages(exclude=('tests',)),
     description='Jenkins EPO',
