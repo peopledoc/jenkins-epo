@@ -18,6 +18,7 @@ import asyncio
 import base64
 import logging
 import os.path
+import sys
 import time
 
 import aiohttp
@@ -66,8 +67,7 @@ def check_rate_limit_threshold():
     )))
 
 
-@retry(wait_fixed=15000)
-def cached_request(query, **kw):
+def _cached_request_middleware(query, **kw):
     check_rate_limit_threshold()
     cache_key = '_'.join([
         'gh', SETTINGS.GITHUB_TOKEN[:8], str(query._name), _encode_params(kw),
@@ -83,7 +83,7 @@ def cached_request(query, **kw):
         pass
 
     try:
-        response = query.get(headers=headers, **kw)
+        response = yield headers
     except ApiError as e:
         if e.response['code'] != 304:
             raise
@@ -98,35 +98,38 @@ def cached_request(query, **kw):
 
 
 @retry(wait_fixed=15000)
+def cached_request(query, **kw):
+    generator = _cached_request_middleware(query, **kw)
+    headers = next(generator)
+    try:
+        response = query.get(headers=headers, **kw)
+    except Exception as e:
+        callable, args = generator.throw, sys.exc_info()
+    else:
+        callable, args = generator.send, (response,)
+
+    try:
+        callable(*args)
+    except StopIteration as e:
+        return e.value
+
+
+@retry(wait_fixed=15000)
 @asyncio.coroutine
 def cached_arequest(query, **kw):
-    check_rate_limit_threshold()
-    cache_key = '_'.join([
-        'gh', SETTINGS.GITHUB_TOKEN[:8], str(query._name), _encode_params(kw),
-    ])
-    headers = {
-        'Accept': 'application/vnd.github.loki-preview+json',
-    }
-    try:
-        response = CACHE.get(cache_key)
-        etag = response._headers['ETag']
-        headers[b'If-None-Match'] = etag
-    except (AttributeError, KeyError):
-        pass
-
+    generator = _cached_request_middleware(query, **kw)
+    headers = next(generator)
     try:
         response = yield from query.aget(headers=headers, **kw)
-    except ApiError as e:
-        if e.response['code'] != 304:
-            raise
-        else:
-            logger.debug(
-                "Cache up to date (remaining=%s)",
-                GITHUB.x_ratelimit_remaining,
-            )
+    except Exception as e:
+        callable, args = generator.throw, sys.exc_info()
+    else:
+        callable, args = generator.send, (response,)
 
-    CACHE.set(cache_key, response)
-    return response
+    try:
+        callable(*args)
+    except StopIteration as e:
+        return e.value
 
 
 class GHList(list):

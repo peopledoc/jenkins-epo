@@ -45,7 +45,7 @@ class EnvironmentSettings(Bunch):
             logger.debug("%s=%r", k, v)
 
 
-SETTINGS = EnvironmentSettings(defaults={
+DEFAULTS = {
     'ALWAYS_QUEUE': False,
     'CACHE_PATH': '.epo-cache',
     'CACHE_LIFE': 30,
@@ -71,4 +71,6 @@ SETTINGS = EnvironmentSettings(defaults={
     'GITHUB_TOKEN': None,
     # Jenkins baseurl, like http://jenkins.lan:8080/.
     'JENKINS_URL': '',
-})
+}
+
+SETTINGS = EnvironmentSettings(defaults=DEFAULTS)

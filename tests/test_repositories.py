@@ -420,7 +420,6 @@ def test_commit_date(cached_request):
     assert 2016 == commit.date.year
 
 
-@patch('jenkins_epo.repository.SETTINGS')
 def test_commit_outdated(SETTINGS):
     from jenkins_epo.repository import Commit
 
