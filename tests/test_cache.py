@@ -5,7 +5,6 @@ from libfaketime import fake_time
 import pytest
 
 
-@patch('jenkins_epo.cache.SETTINGS')
 def test_purge(SETTINGS):
     SETTINGS.LOOP = 10
     SETTINGS.CACHE_LIFE = 10
@@ -20,7 +19,7 @@ def test_purge(SETTINGS):
         data = cache.get('key')
         assert 'data' == data
 
-        time.tick(timedelta(seconds=60))
+        time.tick(timedelta(seconds=120))
         cache.purge()
         with pytest.raises(KeyError):
             cache.get('key')

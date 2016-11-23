@@ -19,8 +19,7 @@ def test_whoami(mocker):
 
 
 @patch('jenkins_epo.procedures.Repository.from_name')
-@patch('jenkins_epo.procedures.SETTINGS')
-def test_list_repositories(SETTINGS, from_name):
+def test_list_repositories(from_name, SETTINGS):
     from jenkins_epo import procedures
 
     SETTINGS.REPOSITORIES = "owner/repo1,owner/repo1"
@@ -29,8 +28,7 @@ def test_list_repositories(SETTINGS, from_name):
 
 
 @patch('jenkins_epo.procedures.Repository.from_name')
-@patch('jenkins_epo.procedures.SETTINGS')
-def test_list_repositories_from_envvar_404(SETTINGS, from_name):
+def test_list_repositories_from_envvar_404(from_name, SETTINGS):
     from jenkins_epo import procedures
 
     SETTINGS.REPOSITORIES = "owner/repo1 owner/repo1"

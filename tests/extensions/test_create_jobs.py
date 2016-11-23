@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
 
-@patch('jenkins_epo.extensions.core.SETTINGS')
 @patch('jenkins_epo.extensions.core.GITHUB')
 def test_yml_notfound(GITHUB, SETTINGS):
     from jenkins_epo.extensions.core import (
@@ -26,7 +25,6 @@ def test_yml_notfound(GITHUB, SETTINGS):
     assert not ext.current.job_specs
 
 
-@patch('jenkins_epo.extensions.core.SETTINGS')
 @patch('jenkins_epo.extensions.core.GITHUB')
 def test_yml_found(GITHUB, SETTINGS):
     from jenkins_epo.extensions.core import YamlExtension
@@ -81,7 +79,6 @@ def test_yml_comment_wrong():
     assert ext.current.errors
 
 
-@patch('jenkins_epo.extensions.core.SETTINGS')
 @patch('jenkins_epo.extensions.core.GITHUB')
 def test_yml_override_unknown_job(GITHUB, SETTINGS):
     from jenkins_epo.extensions.core import YamlExtension
@@ -99,7 +96,6 @@ def test_yml_override_unknown_job(GITHUB, SETTINGS):
     assert ext.current.errors
 
 
-@patch('jenkins_epo.extensions.core.SETTINGS')
 def test_yml_list_specs(SETTINGS):
     from jenkins_epo.extensions.core import YamlExtension
 

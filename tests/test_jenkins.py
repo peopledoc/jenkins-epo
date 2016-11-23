@@ -1,7 +1,6 @@
 from unittest.mock import Mock, patch
 
 
-@patch('jenkins_epo.jenkins.SETTINGS')
 def test_freestyle_build(SETTINGS):
     from jenkins_epo.jenkins import FreestyleJob
 
@@ -26,7 +25,6 @@ def test_freestyle_build(SETTINGS):
     assert api_instance.invoke.mock_calls
 
 
-@patch('jenkins_epo.jenkins.SETTINGS')
 def test_freestyle_build_dry(SETTINGS):
     from jenkins_epo.jenkins import FreestyleJob
 
@@ -199,7 +197,6 @@ def test_matrix_list_context_superset(JobSpec):
     assert 2 == len(contexts)
 
 
-@patch('jenkins_epo.jenkins.SETTINGS')
 @patch('jenkins_epo.jenkins.requests.post')
 def test_matrix_build(post, SETTINGS):
     from jenkins_epo.jenkins import MatrixJob, JobSpec
@@ -226,7 +223,6 @@ def test_matrix_build(post, SETTINGS):
     assert post.mock_calls
 
 
-@patch('jenkins_epo.jenkins.SETTINGS')
 @patch('jenkins_epo.jenkins.requests.post')
 def test_matrix_build_dry(post, SETTINGS):
     from jenkins_epo.jenkins import MatrixJob, JobSpec
@@ -255,8 +251,7 @@ def test_matrix_build_dry(post, SETTINGS):
 
 
 @patch('jenkins_epo.jenkins.Job.factory')
-@patch('jenkins_epo.jenkins.SETTINGS')
-def test_create_job(SETTINGS, factory):
+def test_create_job(factory, SETTINGS):
     from jenkins_epo.jenkins import LazyJenkins
 
     JENKINS = LazyJenkins(Mock())
@@ -274,7 +269,6 @@ def test_create_job(SETTINGS, factory):
     assert factory.mock_calls
 
 
-@patch('jenkins_epo.jenkins.SETTINGS')
 @patch('jenkins_epo.jenkins.JobSpec.from_xml')
 def test_job_managed(from_xml, SETTINGS):
     from jenkins_epo.jenkins import Job
@@ -291,8 +285,7 @@ def test_job_managed(from_xml, SETTINGS):
 
 @patch('jenkins_epo.jenkins.LazyJenkins.load')
 @patch('jenkins_epo.jenkins.Job.factory')
-@patch('jenkins_epo.jenkins.SETTINGS')
-def test_get_job(SETTINGS, factory, load):
+def test_get_job(factory, load, SETTINGS):
     from jenkins_epo.jenkins import LazyJenkins
     my = LazyJenkins()
     my._instance = Mock()
@@ -300,8 +293,7 @@ def test_get_job(SETTINGS, factory, load):
 
 
 @patch('jenkins_epo.jenkins.Job.factory')
-@patch('jenkins_epo.jenkins.SETTINGS')
-def test_update_job(SETTINGS, factory):
+def test_update_job(factory, SETTINGS):
     from jenkins_epo.jenkins import LazyJenkins
 
     SETTINGS.DRY_RUN = 1
@@ -323,7 +315,6 @@ def test_update_job(SETTINGS, factory):
     assert factory.mock_calls
 
 
-@patch('jenkins_epo.jenkins.SETTINGS')
 def test_queue_empty(SETTINGS):
     from jenkins_epo.jenkins import LazyJenkins
 

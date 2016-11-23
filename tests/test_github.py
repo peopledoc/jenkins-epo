@@ -2,7 +2,6 @@ from asynctest import patch, CoroutineMock, Mock
 import pytest
 
 
-@patch('jenkins_epo.github.SETTINGS')
 @patch('jenkins_epo.github.GITHUB')
 def test_threshold(GITHUB, SETTINGS):
     from jenkins_epo.github import check_rate_limit_threshold, ApiError
@@ -49,7 +48,6 @@ def test_aget(mocker):
     assert 'data' in res
 
 
-@patch('jenkins_epo.github.SETTINGS')
 @patch('jenkins_epo.github.CACHE')
 def test_cached_request_etag(CACHE, SETTINGS):
     from jenkins_epo.github import cached_request
@@ -66,7 +64,6 @@ def test_cached_request_etag(CACHE, SETTINGS):
 
 
 @pytest.mark.asyncio
-@patch('jenkins_epo.github.SETTINGS')
 @patch('jenkins_epo.github.GITHUB')
 @patch('jenkins_epo.github.CACHE')
 def test_cached_arequest_miss(CACHE, GITHUB, SETTINGS):
@@ -83,7 +80,6 @@ def test_cached_arequest_miss(CACHE, GITHUB, SETTINGS):
 
 
 @pytest.mark.asyncio
-@patch('jenkins_epo.github.SETTINGS')
 @patch('jenkins_epo.github.GITHUB')
 @patch('jenkins_epo.github.CACHE')
 @patch('jenkins_epo.utils.time.sleep')
@@ -101,7 +97,6 @@ def test_retry_async(sleep, CACHE, GITHUB, SETTINGS):
 
 
 @pytest.mark.asyncio
-@patch('jenkins_epo.github.SETTINGS')
 @patch('jenkins_epo.github.GITHUB')
 @patch('jenkins_epo.github.CACHE')
 def test_cached_arequest_no_cache_hit_valid(CACHE, GITHUB, SETTINGS):
@@ -121,7 +116,6 @@ def test_cached_arequest_no_cache_hit_valid(CACHE, GITHUB, SETTINGS):
 
 
 @pytest.mark.asyncio
-@patch('jenkins_epo.github.SETTINGS')
 @patch('jenkins_epo.github.GITHUB')
 @patch('jenkins_epo.github.CACHE')
 def test_cached_arequest_error(CACHE, GITHUB, SETTINGS):
