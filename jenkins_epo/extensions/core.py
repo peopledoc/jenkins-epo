@@ -401,7 +401,15 @@ class YamlExtension(Extension):
         except ApiNotFoundError:
             jenkins_yml = None
 
-        self.current.job_specs = self.list_job_specs(jenkins_yml)
+        try:
+            self.current.job_specs = self.list_job_specs(jenkins_yml)
+        except Exception as e:
+            self.current.errors.append(Error(
+                "Failed to load `jenkins.yml`:\n\n```\n%s\n```" % (e,),
+                self.current.last_commit.date
+            ))
+            return
+
         self.current.jobs = head.repository.jobs
 
         for name, args in self.current.yaml.items():

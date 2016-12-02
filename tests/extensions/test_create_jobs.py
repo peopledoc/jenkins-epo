@@ -26,6 +26,27 @@ def test_yml_notfound(GITHUB, SETTINGS):
 
 
 @patch('jenkins_epo.extensions.core.GITHUB')
+def test_yml_invalid(GITHUB, SETTINGS):
+    from jenkins_epo.extensions.core import YamlExtension
+
+    ext = YamlExtension('ext', Mock())
+    ext.current = ext.bot.current
+    ext.current.yaml = {}
+    ext.current.errors = []
+
+    GITHUB.fetch_file_contents.return_value = "{INVALID YAML"
+
+    head = ext.current.head
+    head.repository.url = 'https://github.com/owner/repo.git'
+    head.repository.jobs = []
+
+    ext.run()
+
+    assert GITHUB.fetch_file_contents.mock_calls
+    assert ext.current.errors
+
+
+@patch('jenkins_epo.extensions.core.GITHUB')
 def test_yml_found(GITHUB, SETTINGS):
     from jenkins_epo.extensions.core import YamlExtension
 
