@@ -135,15 +135,20 @@ jenkins: reset-errors
 -->
 """  # noqa
 
+    DEFAULTS = {
+        'error_reset': None,
+    }
+
     def process_instruction(self, instruction):
         if instruction == 'reset-errors':
-            self.current.errors = [
-                e for e in self.current.errors
-                if e.date > instruction.date
-            ]
+            self.current.error_reset = instruction.date
 
     def run(self):
+        reset = self.current.error_reset
         for error in self.current.errors:
+            if reset and error.date < reset:
+                continue
+
             self.current.head.comment(body=self.ERROR_COMMENT % dict(
                 emoji=random.choice((
                     ':see_no_evil:', ':bangbang:', ':confused:',
@@ -396,7 +401,15 @@ class YamlExtension(Extension):
         except ApiNotFoundError:
             jenkins_yml = None
 
-        self.current.job_specs = self.list_job_specs(jenkins_yml)
+        try:
+            self.current.job_specs = self.list_job_specs(jenkins_yml)
+        except Exception as e:
+            self.current.errors.append(Error(
+                "Failed to load `jenkins.yml`:\n\n```\n%s\n```" % (e,),
+                self.current.last_commit.date
+            ))
+            return
+
         self.current.jobs = head.repository.jobs
 
         for name, args in self.current.yaml.items():
