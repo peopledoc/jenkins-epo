@@ -25,7 +25,7 @@ import requests
 import yaml
 
 from .settings import SETTINGS
-from .utils import parse_patterns, retry
+from .utils import match, parse_patterns, retry
 
 
 logger = logging.getLogger(__name__)
@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 class LazyJenkins(object):
     build_url_re = re.compile(r'.*/job/(?P<job>.*?)/.*(?P<buildno>\d+)/?')
+    queue_patterns = parse_patterns(SETTINGS.JENKINS_QUEUE)
 
     def __init__(self, instance=None):
         self._instance = instance
@@ -68,8 +69,11 @@ class LazyJenkins(object):
     def is_queue_empty(self):
         logging.debug("GET %s queue.", SETTINGS.JENKINS_URL)
         data = self.get_queue()._data
-        items = filter(lambda i: not i['stuck'], data['items'])
-        return len(list(items)) == 0
+        items = [
+            i for i in data['items']
+            if not i['stuck'] and match(i['task']['name'], self.queue_patterns)
+        ]
+        return len(items) == 0
 
     @retry
     def get_job(self, name):
