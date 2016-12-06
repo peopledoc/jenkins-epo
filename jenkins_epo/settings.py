@@ -71,6 +71,7 @@ DEFAULTS = {
     'GITHUB_TOKEN': None,
     # Jenkins baseurl, like http://jenkins.lan:8080/.
     'JENKINS_URL': '',
+    'JENKINS_QUEUE': '*',
 }
 
 SETTINGS = EnvironmentSettings(defaults=DEFAULTS)
