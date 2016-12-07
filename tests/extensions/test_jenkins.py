@@ -295,6 +295,7 @@ def test_cancel_build_running(JENKINS):
     ext.current.cancel_queue = [
         (commit, CommitStatus(context='job', target_url='jenkins://job/1')),
     ]
+    ext.current.SETTINGS.DRY_RUN = 0
 
     build = JENKINS.get_build_from_url.return_value
     build.get_status.return_value = None

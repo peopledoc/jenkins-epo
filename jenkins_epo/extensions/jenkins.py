@@ -206,8 +206,11 @@ class CancellerExtension(JenkinsExtension):
                     status, state='error', description="Build not on Jenkins."
                 )
             elif cancel and build.is_running():
-                logger.warn("Cancelling %s.", build)
-                build.stop()
+                if self.current.SETTINGS.DRY_RUN:
+                    logger.warn("Would cancelling %s.", build)
+                else:
+                    logger.warn("Cancelling %s.", build)
+                    build.stop()
                 new_status = status.__class__(
                     status, state='error', description='Cancelled after push.'
                 )
