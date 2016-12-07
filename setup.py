@@ -39,6 +39,7 @@ setup(
             'error = jenkins_epo.extensions.core:ErrorExtension',
             'help = jenkins_epo.extensions.core:HelpExtension',
             'autocancel = jenkins_epo.extensions.core:AutoCancelExtension',
+            'jenkins-autocancel = jenkins_epo.extensions.jenkins:AutoCancelExtension',  # noqa
             'jenkins-builder = jenkins_epo.extensions.jenkins:BuilderExtension',  # noqa
             'jenkins-canceller = jenkins_epo.extensions.jenkins:CancellerExtension',  # noqa
             'jenkins-createjobs = jenkins_epo.extensions.jenkins:CreateJobsExtension',  # noqa
