@@ -112,7 +112,7 @@ def test_autocancel():
     ext.current.poll_queue = []
     last_commit = Mock()
     old_commit = Mock()
-    ext.current.head.process_commits.return_value = [
+    ext.current.repository.process_commits.return_value = [
         last_commit, old_commit,
     ]
 

@@ -20,6 +20,7 @@ import re
 import reprlib
 import yaml
 
+from .repository import Commit
 from .settings import SETTINGS
 from .utils import Bunch, parse_datetime, match, parse_patterns
 
@@ -95,7 +96,11 @@ See `jenkins: help` for documentation.
     def run(self, head):
         self.workon(head)
 
-        self.current.last_commit = head.last_commit
+        sha = self.current.head.sha
+        payload = self.current.head.repository.fetch_commit(sha)
+        self.current.last_commit = Commit(
+            self.current.head.repository, sha, payload,
+        )
 
         payload = head.last_commit.fetch_statuses()
         head.last_commit.process_statuses(payload)

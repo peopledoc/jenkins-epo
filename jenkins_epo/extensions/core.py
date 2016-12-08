@@ -36,8 +36,9 @@ class AutoCancelExtension(Extension):
 
     def run(self):
         payload = self.current.head.fetch_previous_commits()
+        commits = self.current.repository.process_commits(payload)
         head = True
-        for i, commit in enumerate(self.current.head.process_commits(payload)):
+        for i, commit in enumerate(commits):
             commit_payload = commit.fetch_statuses()
             statuses = commit.process_statuses(commit_payload)
             for status in statuses.values():

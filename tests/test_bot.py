@@ -117,7 +117,8 @@ def test_parse_error():
 
 
 @patch('jenkins_epo.bot.pkg_resources')
-def test_run_extension(pkg_resources):
+@patch('jenkins_epo.bot.Commit')
+def test_run_extension(Commit, pkg_resources):
     from jenkins_epo.bot import Bot
 
     ep = Mock()
@@ -131,7 +132,6 @@ def test_run_extension(pkg_resources):
     assert 'ext' in bot.extensions_map
 
     pr = Mock()
-    pr.commit = dict(committer=dict(date='2016-08-03T16:47:52Z'))
     pr.repository.list_job_specs.return_value = {}
     pr.repository.jobs = []
     pr.list_comments.return_value = []
