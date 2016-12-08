@@ -14,5 +14,6 @@ def SETTINGS():
     patcher = patch.dict('jenkins_epo.settings.SETTINGS', DEFAULTS)
     patcher.start()
     SETTINGS.DEBUG = 0
+    SETTINGS.DRY_RUN = 0
     yield SETTINGS
     patcher.stop()

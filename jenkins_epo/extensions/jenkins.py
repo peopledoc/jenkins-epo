@@ -13,6 +13,7 @@
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
 from collections import OrderedDict
+from datetime import datetime, timedelta
 import logging
 import re
 
@@ -20,7 +21,7 @@ from jenkinsapi.custom_exceptions import UnknownJob
 
 from ..bot import Extension, Error
 from ..jenkins import JENKINS
-from ..repository import CommitStatus
+from ..repository import Commit, CommitStatus
 from ..utils import match
 
 
@@ -173,6 +174,51 @@ jenkins: reset-skip-errors
         return new_status
 
 
+class AutoCancelExtension(JenkinsExtension):
+    stage = '10'
+
+    def run(self):
+        now = datetime.now()
+        maxage = timedelta(hours=4)
+        current_sha = self.current.last_commit.sha
+        for name, job in self.current.jobs.items():
+            if not job.is_running():
+                continue
+
+            for id_ in job.get_build_ids():
+                build = job.get_build(id_)
+                if not build.is_running():
+                    continue
+
+                seconds = build._data['timestamp'] / 1000.
+                build_age = now - datetime.fromtimestamp(seconds)
+                if build_age > maxage:
+                    break
+
+                branch = (
+                    build.get_revision_branch()[0]['name']
+                    .replace('origin/', '')
+                )
+                if branch != self.current.head.ref:
+                    continue
+
+                building_sha = build.get_revision()
+                if building_sha == current_sha:
+                    continue
+
+                commit = Commit(
+                    self.current.head.repository,
+                    building_sha,
+                )
+                status = CommitStatus(
+                    context=job.name,
+                    target_url=build._data['url'],
+                    state='pending',
+                )
+                logger.info("Queuing %s for cancel.", build)
+                self.current.cancel_queue.append((commit, status))
+
+
 class CancellerExtension(JenkinsExtension):
     stage = '20'
 
@@ -206,8 +252,11 @@ class CancellerExtension(JenkinsExtension):
                     status, state='error', description="Build not on Jenkins."
                 )
             elif cancel and build.is_running():
-                logger.warn("Cancelling %s.", build)
-                build.stop()
+                if self.current.SETTINGS.DRY_RUN:
+                    logger.warn("Would cancelling %s.", build)
+                else:
+                    logger.warn("Cancelling %s.", build)
+                    build.stop()
                 new_status = status.__class__(
                     status, state='error', description='Cancelled after push.'
                 )
