@@ -405,9 +405,8 @@ def test_commit_date(cached_request):
     commit = Commit(Mock(), 'd0d0')
     assert repr(commit)
 
-    cached_request.return_value = {
-        'commit': {'author': {'date': '2016-10-11T14:45:00Z'}},
-    }
+    cached_request.return_value = {'author': {'date': '2016-10-11T14:45:00Z'}}
+
     commit.fetch_payload()
 
     assert 2016 == commit.date.year

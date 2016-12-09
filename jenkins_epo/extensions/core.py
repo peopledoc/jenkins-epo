@@ -285,7 +285,7 @@ class OutdatedExtension(Extension):
     stage = '00'
 
     SETTINGS = {
-        'COMMIT_MAX_WEEKS': 0,
+        'COMMIT_MAX_WEEKS': 4,
     }
 
     def begin(self):
