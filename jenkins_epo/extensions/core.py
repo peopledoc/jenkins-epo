@@ -13,6 +13,7 @@
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
 from copy import deepcopy
+import datetime
 import inspect
 import logging
 import pkg_resources
@@ -21,7 +22,7 @@ import socket
 
 from jenkins_yml.job import Job as JobSpec
 
-from ..bot import Extension, Error
+from ..bot import Extension, Error, SkipHead
 from ..github import GITHUB, ApiError, ApiNotFoundError
 from ..repository import Branch, CommitStatus
 from ..settings import SETTINGS
@@ -278,6 +279,25 @@ jenkins: {last-merge-error: %(message)r}
         else:
             logger.warn("Merged %s!", self.current.head)
             self.current.head.delete_branch()
+
+
+class OutdatedExtension(Extension):
+    stage = '00'
+
+    SETTINGS = {
+        'COMMIT_MAX_WEEKS': 0,
+    }
+
+    def begin(self):
+        weeks = self.current.SETTINGS.COMMIT_MAX_WEEKS
+        maxage = datetime.timedelta(weeks=weeks)
+        age = datetime.datetime.utcnow() - self.current.last_commit.date
+        if age > maxage:
+            logger.debug(
+                'Skipping %s because older than %s weeks.',
+                self.current.head, self.current.SETTINGS.COMMIT_MAX_WEEKS,
+            )
+            raise SkipHead()
 
 
 class ReportExtension(Extension):

@@ -411,14 +411,3 @@ def test_commit_date(cached_request):
     commit.fetch_payload()
 
     assert 2016 == commit.date.year
-
-
-def test_commit_outdated(SETTINGS):
-    from jenkins_epo.repository import Commit
-
-    repository = Mock()
-    repository.SETTINGS.COMMIT_MAX_WEEKS = 5
-    commit = Commit(repository, 'cafed0d0', {'commit': {
-        'author': {'date': '2015-10-11T14:45:00Z'},
-    }})
-    assert commit.is_outdated

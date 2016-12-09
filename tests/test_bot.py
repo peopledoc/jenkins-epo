@@ -132,12 +132,51 @@ def test_run_extension(Commit, pkg_resources):
     assert 'ext' in bot.extensions_map
 
     pr = Mock()
-    pr.repository.list_job_specs.return_value = {}
-    pr.repository.jobs = []
     pr.list_comments.return_value = []
 
     bot.run(pr)
 
+    assert ext.begin.mock_calls
+    assert ext.run.mock_calls
+
+
+@patch('jenkins_epo.bot.pkg_resources')
+@patch('jenkins_epo.bot.Commit')
+def test_begin_skip_head(Commit, pkg_resources):
+    from jenkins_epo.bot import Bot, SkipHead
+
+    ep = Mock()
+    ep.name = 'ext'
+    pkg_resources.iter_entry_points.return_value = [ep]
+    ext = ep.load.return_value.return_value
+    ext.DEFAULTS = {}
+    ext.SETTINGS = {}
+    ext.begin.side_effect = SkipHead()
+
+    Bot().run(Mock())
+
+    assert ext.begin.mock_calls
+    assert not ext.run.mock_calls
+
+
+@patch('jenkins_epo.bot.pkg_resources')
+@patch('jenkins_epo.bot.Commit')
+def test_run_skip_head(Commit, pkg_resources):
+    from jenkins_epo.bot import Bot, SkipHead
+
+    ep = Mock()
+    ep.name = 'ext'
+    pkg_resources.iter_entry_points.return_value = [ep]
+    ext = ep.load.return_value.return_value
+    ext.DEFAULTS = {}
+    ext.SETTINGS = {}
+    ext.run.side_effect = SkipHead()
+
+    pr = Mock()
+    pr.list_comments.return_value = []
+    Bot().run(pr)
+
+    assert ext.begin.mock_calls
     assert ext.run.mock_calls
 
 

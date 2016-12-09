@@ -14,7 +14,6 @@
 
 from __future__ import absolute_import
 
-import datetime
 from itertools import islice
 import logging
 from urllib.parse import quote as urlquote
@@ -249,17 +248,6 @@ class Commit(object):
     @property
     def date(self):
         return parse_datetime(self.payload['commit']['author']['date'])
-
-    @property
-    def is_outdated(self):
-        weeks = self.repository.SETTINGS.COMMIT_MAX_WEEKS
-        if not weeks:
-            return False
-
-        now = datetime.datetime.utcnow()
-        age = now - self.date
-        maxage = datetime.timedelta(weeks=weeks)
-        return age > maxage
 
     def fetch_payload(self):
         logger.debug("Fetching commit %s.", self.sha[:7])

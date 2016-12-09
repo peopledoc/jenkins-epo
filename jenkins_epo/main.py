@@ -62,14 +62,6 @@ def bot():
             logger.exception("Failed to load %s settings.", head.repository)
             continue
 
-        head.last_commit.fetch_payload()
-        if head.last_commit.is_outdated:
-            logger.debug(
-                'Skipping %s because older than %s weeks.',
-                head, SETTINGS.COMMIT_MAX_WEEKS,
-            )
-            continue
-
         logger.info("Working on %s.", head)
         try:
             bot.run(head)
