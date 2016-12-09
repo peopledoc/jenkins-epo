@@ -14,7 +14,6 @@
 
 from __future__ import absolute_import
 
-import datetime
 from itertools import islice
 import logging
 from urllib.parse import quote as urlquote
@@ -139,6 +138,9 @@ class Repository(object):
     def url(self):
         return 'https://github.com/%s' % (self,)
 
+    def fetch_commit(self, sha):
+        return cached_request(GITHUB.repos(self).git.commits(sha))
+
     def fetch_protected_branches(self):
         logger.debug("Querying GitHub for %s protected branches.", self)
         return cached_request(GITHUB.repos(self).branches, protected='true')
@@ -159,6 +161,10 @@ class Repository(object):
                 )
             else:
                 yield PullRequest(self, data)
+
+    def process_commits(self, payload):
+        for entry in islice(payload, 4):
+            yield Commit(self, entry['sha'], payload=entry)
 
     def load_settings(self):
         if self.SETTINGS:
@@ -242,17 +248,6 @@ class Commit(object):
     @property
     def date(self):
         return parse_datetime(self.payload['commit']['author']['date'])
-
-    @property
-    def is_outdated(self):
-        weeks = self.repository.SETTINGS.COMMIT_MAX_WEEKS
-        if not weeks:
-            return False
-
-        now = datetime.datetime.utcnow()
-        age = now - self.date
-        maxage = datetime.timedelta(weeks=weeks)
-        return age > maxage
 
     def fetch_payload(self):
         logger.debug("Fetching commit %s.", self.sha[:7])
@@ -365,7 +360,6 @@ class Head(object):
         self.repository = repository
         self.sha = sha
         self.ref = ref
-        self.last_commit = Commit(repository, sha, dict())
 
     def list_comments(self):
         raise NotImplemented
@@ -423,18 +417,6 @@ class Branch(Head):
             .post(body=body.strip())
         )
 
-    def process_commits(self, payload):
-        count = 0
-        self.last_commit = None
-        for entry in payload:
-            commit = Commit(self.repository, entry['sha'], payload=entry)
-            if not self.last_commit:
-                self.last_commit = commit
-            yield commit
-            count += 1
-            if count >= 4:
-                return
-
 
 class PullRequest(Head):
     _urgent_re = re.compile(r'^jenkins: *urgent$', re.MULTILINE)
@@ -466,12 +448,13 @@ class PullRequest(Head):
 
     def fetch_previous_commits(self, last_date=None):
         logger.debug("Fetching previous commits.")
-        return cached_request(GITHUB.repos(self.repository).compare(
+        payload = cached_request(GITHUB.repos(self.repository).compare(
             urlquote("%s...%s" % (
                 self.payload['base']['label'],
                 self.payload['head']['label'],
             ))
         ))
+        return payload['commits']
 
     @retry
     def comment(self, body):
@@ -511,11 +494,3 @@ class PullRequest(Head):
             GITHUB.repos(self.repository).pulls(self.payload['number']).merge
             .put(body=body)
         )
-
-    def process_commits(self, payload):
-        self.last_commit = None
-        for entry in islice(reversed(payload['commits']), 4):
-            commit = Commit(self.repository, entry['sha'], payload=entry)
-            if not self.last_commit:
-                self.last_commit = commit
-            yield commit

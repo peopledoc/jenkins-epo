@@ -22,26 +22,6 @@ def test_bot_settings_fail(mocker):
 
 
 @pytest.mark.asyncio
-def test_bot_loop_outdated(mocker):
-    procedures = mocker.patch('jenkins_epo.main.procedures')
-    mocker.patch('jenkins_epo.main.CACHE')
-    Bot = mocker.patch('jenkins_epo.main.Bot')
-
-    from jenkins_epo.main import bot
-
-    head = Mock()
-    head.last_commit.is_outdated = True
-    procedures.iter_heads.return_value = [head]
-
-    yield from bot()
-
-    bot = Bot.return_value
-    assert not bot.run.mock_calls
-    assert head.last_commit.fetch_payload.mock_calls
-    assert procedures.iter_heads.mock_calls
-
-
-@pytest.mark.asyncio
 def test_bot_run_raises(mocker):
     Bot = mocker.patch('jenkins_epo.main.Bot')
     mocker.patch('jenkins_epo.main.CACHE')

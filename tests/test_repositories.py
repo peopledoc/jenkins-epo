@@ -45,6 +45,13 @@ def test_fetch_protected_branches(cached_request):
 
 
 @patch('jenkins_epo.repository.cached_request')
+def test_fetch_commit(cached_request):
+    from jenkins_epo.repository import Repository
+
+    assert Repository('owner', 'name').fetch_commit('cafedodo')
+
+
+@patch('jenkins_epo.repository.cached_request')
 def test_process_protected_branches(cached_request):
     from jenkins_epo.repository import Repository
 
@@ -221,15 +228,6 @@ def test_branch_fetch_previous_commits(cached_request):
 
 
 @patch('jenkins_epo.repository.cached_request')
-def test_branch_process_commits(cached_request):
-    from jenkins_epo.repository import Branch
-
-    head = Branch(Mock(), dict(name='branch', commit=dict(sha='d0d0cafe')))
-    items = list(head.process_commits([dict(sha='cafed0d0')]))
-    assert 1 == len(items)
-
-
-@patch('jenkins_epo.repository.cached_request')
 def test_pr_fetch_previous_commits(cached_request):
     from jenkins_epo.repository import PullRequest
 
@@ -242,16 +240,11 @@ def test_pr_fetch_previous_commits(cached_request):
 
 
 @patch('jenkins_epo.repository.cached_request')
-def test_pr_process_commits(cached_request):
-    from jenkins_epo.repository import PullRequest
+def test_process_commits(cached_request):
+    from jenkins_epo.repository import Repository
 
-    head = PullRequest(Mock(), dict(
-        head=dict(ref='pr', sha='d0d0cafe', label='owner:pr'),
-        base=dict(label='owner:base'),
-    ))
-    items = list(head.process_commits(dict(commits=[
-        dict(sha='cafed0d0'),
-    ])))
+    repo = Repository('owner', 'name')
+    items = list(repo.process_commits([dict(sha='cafed0d0')]))
     assert 1 == len(items)
 
 
@@ -418,14 +411,3 @@ def test_commit_date(cached_request):
     commit.fetch_payload()
 
     assert 2016 == commit.date.year
-
-
-def test_commit_outdated(SETTINGS):
-    from jenkins_epo.repository import Commit
-
-    repository = Mock()
-    repository.SETTINGS.COMMIT_MAX_WEEKS = 5
-    commit = Commit(repository, 'cafed0d0', {'commit': {
-        'author': {'date': '2015-10-11T14:45:00Z'},
-    }})
-    assert commit.is_outdated

@@ -20,11 +20,16 @@ import re
 import reprlib
 import yaml
 
+from .repository import Commit
 from .settings import SETTINGS
 from .utils import Bunch, parse_datetime, match, parse_patterns
 
 
 logger = logging.getLogger(__name__)
+
+
+class SkipHead(Exception):
+    """When raised by an ext, breaks process of current HEAD."""
 
 
 class Bot(object):
@@ -95,22 +100,34 @@ See `jenkins: help` for documentation.
     def run(self, head):
         self.workon(head)
 
-        self.current.last_commit = head.last_commit
+        sha = self.current.head.sha
+        payload = self.current.head.repository.fetch_commit(sha)
+        self.current.last_commit = Commit(
+            self.current.head.repository, sha, payload,
+        )
 
-        payload = head.last_commit.fetch_statuses()
-        head.last_commit.process_statuses(payload)
-        self.current.statuses = head.last_commit.statuses
+        payload = self.current.last_commit.fetch_statuses()
+        self.current.last_commit.process_statuses(payload)
+        self.current.statuses = self.current.last_commit.statuses
+
         for ext in self.extensions:
-            ext.begin()
+            try:
+                ext.begin()
+            except SkipHead:
+                return
 
         self.process_instructions(self.current.head.list_comments())
+
         repr_ = reprlib.Repr()
         repr_.maxdict = repr_.maxlist = repr_.maxother = 64
         vars_repr = repr_.repr1(dict(self.current), 2)
         logger.debug("Bot vars: %s", vars_repr)
 
         for ext in self.extensions:
-            ext.run()
+            try:
+                ext.run()
+            except SkipHead:
+                return
 
     def parse_instructions(self, comments):
         process = True

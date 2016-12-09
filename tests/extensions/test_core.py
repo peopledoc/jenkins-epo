@@ -1,4 +1,7 @@
 from unittest.mock import Mock
+from datetime import datetime
+
+import pytest
 
 
 def comment(login='montecristo', **kwargs):
@@ -112,7 +115,7 @@ def test_autocancel():
     ext.current.poll_queue = []
     last_commit = Mock()
     old_commit = Mock()
-    ext.current.head.process_commits.return_value = [
+    ext.current.repository.process_commits.return_value = [
         last_commit, old_commit,
     ]
 
@@ -148,3 +151,15 @@ def test_autocancel():
     assert (old_commit, old_statuses['running']) in cancel_queue
     assert (last_commit, last_statuses['backed']) not in cancel_queue
     assert (last_commit, last_statuses['running']) not in cancel_queue
+
+
+def test_outdated():
+    from jenkins_epo.extensions.core import OutdatedExtension, SkipHead
+
+    ext = OutdatedExtension('merger', Mock())
+    ext.current = Mock()
+    ext.current.SETTINGS.COMMIT_MAX_WEEKS = 1
+    ext.current.last_commit.date = datetime(2015, 1, 1, 1, 1, 1)
+
+    with pytest.raises(SkipHead):
+        ext.begin()

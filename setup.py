@@ -45,6 +45,7 @@ setup(
             'jenkins-createjobs = jenkins_epo.extensions.jenkins:CreateJobsExtension',  # noqa
             'jenkins-stages = jenkins_epo.extensions.jenkins:StagesExtension',
             'merger = jenkins_epo.extensions.core:MergerExtension',
+            'outdated = jenkins_epo.extensions.core:OutdatedExtension',
             'report = jenkins_epo.extensions.core:ReportExtension',
             'yaml = jenkins_epo.extensions.core:YamlExtension'
         ],
