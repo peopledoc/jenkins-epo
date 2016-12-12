@@ -163,3 +163,54 @@ def test_outdated():
 
     with pytest.raises(SkipHead):
         ext.begin()
+
+
+def test_skip_instruction():
+    from jenkins_epo.bot import Instruction
+    from jenkins_epo.extensions.core import SkipExtension, match
+
+    ext = SkipExtension('ext', Mock())
+    ext.current = ext.bot.current
+
+    ext.process_instruction(Instruction(author='a', name='skip'))
+
+    assert not match('job', ext.current.jobs_match)
+
+    ext.process_instruction(Instruction(author='a', name='jobs', args='*'))
+
+    assert match('job', ext.current.jobs_match)
+
+
+def test_skip_run():
+    from jenkins_epo.extensions.core import CommitStatus, SkipExtension
+
+    ext = SkipExtension('ext', Mock())
+    ext.current = ext.bot.current
+    ext.current.cancel_queue = []
+    ext.current.jobs_match = ['matching']
+    ext.current.job_specs = dict(job=Mock())
+    ext.current.jobs = {}
+    ext.current.jobs['job'] = job = Mock()
+    job.list_contexts.return_value = [
+        'done', 'matching', 'null', 'queued', 'running',
+    ]
+    ext.current.statuses = statuses = {}
+    statuses['queued'] = CommitStatus(state='pending', description='Queued')
+    statuses['running'] = CommitStatus(
+        state='pending', description='Build #1 running...',
+        target_url='jenkins:///job/1',
+    )
+    statuses['done'] = CommitStatus(state='success')
+
+    ext.run()
+
+    assert 1 == len(ext.current.cancel_queue)
+    pushed_contextes = [
+        c[1][0]['context']
+        for c in ext.current.last_commit.maybe_update_status.mock_calls
+    ]
+    assert 'done' not in pushed_contextes
+    assert 'matching' not in pushed_contextes
+    assert 'null' in pushed_contextes
+    assert 'queued' in pushed_contextes
+    assert 'running' in pushed_contextes

@@ -357,6 +357,55 @@ jenkins: report-done
         ))
 
 
+class SkipExtension(Extension):
+    """
+    jenkins: skip  # Skip all jobs
+
+    # Selecting jobs
+    jenkins:
+      jobs: only*
+      jobs: ['this*', '+andthis*', '-notthis*']
+    """
+
+    stage = '10'
+
+    DEFAULTS = {
+        'jobs_match': [],
+    }
+    BUILD_ALL = ['*']
+
+    def process_instruction(self, instruction):
+        if instruction == 'skip':
+            self.current.jobs_match = ['!*']
+        elif instruction == 'jobs':
+            patterns = instruction.args
+            if isinstance(patterns, str):
+                patterns = [patterns]
+            self.current.jobs_match = patterns
+
+    def run(self):
+        for name, spec in self.current.job_specs.items():
+            job = self.current.jobs[name]
+            for context in job.list_contexts(spec):
+                if match(context, self.current.jobs_match):
+                    continue
+
+                status = self.current.statuses.get(context, CommitStatus())
+                if status.get('state') == 'success':
+                    continue
+
+                if status.is_running:
+                    self.current.cancel_queue.append(
+                        (self.current.last_commit, status)
+                    )
+
+                logger.info("Skipping %s.", context)
+                self.current.last_commit.maybe_update_status(CommitStatus(
+                    context=context, target_url=job.baseurl,
+                    state='success', description='Skipped!',
+                ))
+
+
 class YamlExtension(Extension):
     """
     # Ephemeral jobs parameters
