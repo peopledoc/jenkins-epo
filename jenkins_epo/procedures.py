@@ -39,7 +39,7 @@ def iter_heads():
         queue = iter(heads)
         try:
             yield next(heads)
-        except StopIteration:
+        except (GeneratorExit, StopIteration):
             continue
         else:
             queues.append(queue)
