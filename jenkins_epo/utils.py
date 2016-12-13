@@ -14,13 +14,10 @@
 
 from __future__ import absolute_import
 
-import asyncio
 import collections
 import datetime
 import fnmatch
 import logging
-import sys
-import time
 
 from github import ApiError
 from http.client import HTTPException
@@ -31,98 +28,12 @@ from requests import HTTPError
 logger = logging.getLogger(__name__)
 
 
-class ARetrying(tenacity.Retrying):
-    def __init__(self, sleep=time.sleep, *args, **kwargs):
-        super(ARetrying, self).__init__(sleep=time.sleep, *args, **kwargs)
-
-    def call(self, fn, *args, **kwargs):
-        if asyncio.iscoroutinefunction(fn):
-            return self.acall(fn, *args, **kwargs)
-        else:
-            return super(ARetrying, self).call(fn, *args, **kwargs)
-
-    @asyncio.coroutine
-    def acall(self, fn, *args, **kwargs):
-        self.statistics.clear()
-        start_time = tenacity.now()
-        self.statistics['start_time'] = start_time
-        attempt_number = 1
-        self.statistics['attempt_number'] = attempt_number
-        self.statistics['idle_for'] = 0
-        while True:
-            trial_start_time = tenacity.now()
-            if self.before is not None:
-                self.before(fn, attempt_number)
-
-            fut = tenacity.Future(attempt_number)
-            try:
-                result = yield from fn(*args, **kwargs)
-            except tenacity.TryAgain:
-                trial_end_time = tenacity.now()
-                retry = True
-            except Exception:
-                trial_end_time = tenacity.now()
-                tb = sys.exc_info()
-                try:
-                    tenacity._utils.capture(fut, tb)
-                finally:
-                    del tb
-                retry = self.retry(fut)
-            else:
-                trial_end_time = tenacity.now()
-                fut.set_result(result)
-                retry = self.retry(fut)
-
-            if not retry:
-                return fut.result()
-
-            if self.after is not None:
-                trial_time_taken = trial_end_time - trial_start_time
-                self.after(fn, attempt_number, trial_time_taken)
-
-            delay_since_first_attempt = tenacity.now() - start_time
-            self.statistics['delay_since_first_attempt'] = \
-                delay_since_first_attempt
-            if self.stop(attempt_number, delay_since_first_attempt):
-                if self.reraise:
-                    raise tenacity.RetryError(fut).reraise()
-                tenacity.six.raise_from(
-                    tenacity.RetryError(fut), fut.exception()
-                )
-
-            if self.wait:
-                sleep = self.wait(attempt_number, delay_since_first_attempt)
-            else:
-                sleep = 0
-            self.statistics['idle_for'] += sleep
-            self.sleep(sleep)
-
-            attempt_number += 1
-            self.statistics['attempt_number'] = attempt_number
-
-
-def retry(*dargs, **dkw):
+def retry(callable_):
     defaults = dict(
         retry=tenacity.retry_if_exception(filter_exception_for_retry),
         wait=tenacity.wait_exponential(multiplier=500, max=15000),
     )
-
-    if len(dargs) == 1 and callable(dargs[0]):
-        def wrap_simple(f):
-            def wrapped_f(*args, **kw):
-                return ARetrying(**defaults).call(f, *args, **kw)
-            return wrapped_f
-        return wrap_simple(dargs[0])
-    else:
-        dkw = dict(defaults, **dkw)
-
-        def wrap(f):
-            def wrapped_f(*args, **kw):
-                return ARetrying(*dargs, **dkw).call(f, *args, **kw)
-
-            return wrapped_f
-
-        return wrap
+    return tenacity.retry(**defaults)(callable_)
 
 
 def filter_exception_for_retry(exception):
