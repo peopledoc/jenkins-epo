@@ -40,7 +40,7 @@ def test_list_repositories_from_envvar_404(from_name, SETTINGS):
 
 
 @patch('jenkins_epo.procedures.list_repositories')
-def test_iter_heads(list_repositories):
+def test_iter_heads_order(list_repositories):
     from jenkins_epo.procedures import iter_heads
 
     a = Mock()
@@ -69,3 +69,38 @@ def test_iter_heads(list_repositories):
     wanted = ['a/branch', 'b/pr2', 'a/pr', 'b/branch', 'b/pr1']
 
     assert wanted == computed
+
+
+@patch('jenkins_epo.procedures.list_repositories')
+def test_iter_heads_close_first(list_repositories):
+    from jenkins_epo.procedures import iter_heads
+
+    repo = Mock()
+    repo.process_pull_requests.return_value = []
+    list_repositories.return_value = [repo]
+    branch = Mock(token='repo/branch')
+    branch.sort_key.return_value = False, 100, 'master'
+    repo.process_protected_branches.return_value = [branch]
+
+    iterator = iter_heads()
+    next(iterator)
+    iterator.close()
+
+
+@patch('jenkins_epo.procedures.list_repositories')
+def test_iter_heads_close_next(list_repositories):
+    from jenkins_epo.procedures import iter_heads
+
+    repo = Mock()
+    repo.process_pull_requests.return_value = []
+    list_repositories.return_value = [repo]
+    master = Mock(token='repo/master')
+    master.sort_key.return_value = False, 100, 'master'
+    branch = Mock(token='repo/master')
+    branch.sort_key.return_value = False, 100, 'master'
+    repo.process_protected_branches.return_value = [master, branch]
+
+    iterator = iter_heads()
+    next(iterator)
+    next(iterator)
+    iterator.close()

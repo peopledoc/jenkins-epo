@@ -39,8 +39,10 @@ def iter_heads():
         queue = iter(heads)
         try:
             yield next(heads)
-        except (GeneratorExit, StopIteration):
+        except StopIteration:
             continue
+        except GeneratorExit:
+            return
         else:
             queues.append(queue)
 
@@ -48,8 +50,10 @@ def iter_heads():
         for queue in queues[:]:
             try:
                 yield next(queue)
-            except (GeneratorExit, StopIteration):
+            except StopIteration:
                 queues.remove(queue)
+            except GeneratorExit:
+                return
 
 
 def list_repositories(with_settings=False):
