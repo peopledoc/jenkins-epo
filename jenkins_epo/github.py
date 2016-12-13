@@ -148,6 +148,7 @@ class ACallable(_Callable):
         return self.__getattr__(attr)
 
     def __getattr__(self, attr):
+        attr = str(attr)
         if attr in self._methods:
             return _Executable(self._gh, attr.upper(), self._name)
         if attr[0] == 'a' and attr[1:] in self._methods:
