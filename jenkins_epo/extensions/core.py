@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 class AutoCancelExtension(Extension):
-    stage = '10'
+    stage = '30'
 
     def run(self):
         payload = self.current.head.fetch_previous_commits()
@@ -367,7 +367,7 @@ class SkipExtension(Extension):
       jobs: ['this*', '+andthis*', '-notthis*']
     """
 
-    stage = '10'
+    stage = '30'
 
     DEFAULTS = {
         'jobs_match': [],
