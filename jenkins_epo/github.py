@@ -144,6 +144,9 @@ class AExecutable(_Executable):
 class ACallable(_Callable):
     _methods = {'get', 'delete', 'patch', 'post', 'put'}
 
+    def __call__(self, attr):
+        return self.__getattr__(attr)
+
     def __getattr__(self, attr):
         if attr in self._methods:
             return _Executable(self._gh, attr.upper(), self._name)
