@@ -1,4 +1,5 @@
 from unittest.mock import Mock
+from time import time
 
 
 def test_jenkins_skip_job_not_running():
@@ -17,6 +18,49 @@ def test_jenkins_skip_job_not_running():
     assert 0 == len(ext.current.cancel_queue)
 
 
+def test_jenkins_skip_outdated():
+    from jenkins_epo.extensions.jenkins import AutoCancelExtension
+
+    ext = AutoCancelExtension('test', Mock())
+    ext.current = ext.bot.current
+    ext.current.cancel_queue = []
+    ext.current.jobs = {}
+
+    ext.current.jobs['job'] = job = Mock()
+    job.is_running.return_value = True
+    job.get_build_ids.return_value = [1]
+    build = job.get_build.return_value
+    build._data = {'timestamp': (time() - 7 * 3600) * 1000}
+
+    ext.run()
+
+    assert job.is_running.mock_calls
+    assert not build.is_running.mock_calls
+    assert 0 == len(ext.current.cancel_queue)
+
+
+def test_jenkins_wrong_timezone():
+    from jenkins_epo.extensions.jenkins import AutoCancelExtension
+
+    ext = AutoCancelExtension('test', Mock())
+    ext.current = ext.bot.current
+    ext.current.cancel_queue = []
+    ext.current.jobs = {}
+
+    ext.current.jobs['job'] = job = Mock()
+    job.is_running.return_value = True
+    job.get_build_ids.return_value = [1]
+    build = job.get_build.return_value
+    build._data = {'timestamp': (time() + 2 * 3600) * 1000}
+    build.is_running.return_value = False
+
+    ext.run()
+
+    assert job.is_running.mock_calls
+    assert build.is_running.mock_calls
+    assert 0 == len(ext.current.cancel_queue)
+
+
 def test_jenkins_skip_build_not_running():
     from jenkins_epo.extensions.jenkins import AutoCancelExtension
 
@@ -28,34 +72,12 @@ def test_jenkins_skip_build_not_running():
     job.is_running.return_value = True
     job.get_build_ids.return_value = [1]
     build = job.get_build.return_value
+    build._data = {'timestamp': (time() - 7 * 3600) * 1000}
     build.is_running.return_value = False
 
     ext.run()
 
     assert job.is_running.mock_calls
-    assert 0 == len(ext.current.cancel_queue)
-
-
-def test_jenkins_skip_outdated():
-    from time import time
-    from jenkins_epo.extensions.jenkins import AutoCancelExtension
-
-    ext = AutoCancelExtension('test', Mock())
-    ext.current = ext.bot.current
-    ext.current.cancel_queue = []
-    ext.current.jobs = {}
-
-    ext.current.jobs['job'] = job = Mock()
-    job.is_running.return_value = True
-    job.get_build_ids.return_value = [1]
-    build = job.get_build.return_value
-    build.is_running.return_value = True
-    build._data = {'timestamp': (time() - 7 * 3600) * 1000}
-
-    ext.run()
-
-    assert job.is_running.mock_calls
-    assert build.is_running.mock_calls
     assert 0 == len(ext.current.cancel_queue)
 
 
