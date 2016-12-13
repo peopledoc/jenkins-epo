@@ -113,7 +113,7 @@ class BuilderExtension(JenkinsExtension):
 
 
 class AutoCancelExtension(JenkinsExtension):
-    stage = '10'
+    stage = '30'
 
     def run(self):
         now = datetime.now()
@@ -166,7 +166,7 @@ class AutoCancelExtension(JenkinsExtension):
 
 
 class CancellerExtension(JenkinsExtension):
-    stage = '20'
+    stage = '49'
 
     def aggregate_queues(self, cancel_queue, poll_queue):
         for commit, status in cancel_queue:
@@ -342,7 +342,7 @@ class Stage(object):
 
 
 class StagesExtension(JenkinsExtension):
-    stage = '30'
+    stage = '10'
 
     SETTINGS = {
         'STAGES': ['build', 'test', 'deploy'],
