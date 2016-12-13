@@ -91,8 +91,10 @@ def entrypoint(argv=None):
         logger.debug("Executing %s", ' '.join(argv))
         main(argv)
     except KeyboardInterrupt:
-        tb = sys.exc_info()[-1]
-        logger.debug("Interrupted at:\n%s", traceback.format_tb(tb)[-1])
+        tb = traceback.format_tb(sys.exc_info()[-1])
+        if not debug:
+            tb = tb[-2:]
+        logger.debug("Interrupted at:\n%s", ''.join(tb).strip())
         logger.info("Done")
 
 
