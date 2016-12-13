@@ -230,13 +230,13 @@ def test_branch_fetch_previous_commits(cached_request):
 @patch('jenkins_epo.repository.cached_request')
 def test_pr_fetch_previous_commits(cached_request):
     from jenkins_epo.repository import PullRequest
-
+    cached_request.return_value = dict(commits=['previous', 'last'])
     head = PullRequest(Mock(), dict(
         head=dict(ref='pr', sha='d0d0cafe', label='owner:pr'),
         base=dict(label='owner:base'),
     ))
-    assert head.fetch_previous_commits()
-    assert cached_request.mock_calls
+    commits = list(head.fetch_previous_commits())
+    assert ['last', 'previous'] == commits
 
 
 @patch('jenkins_epo.repository.cached_request')
