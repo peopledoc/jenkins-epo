@@ -82,23 +82,6 @@ def test_cached_arequest_miss(CACHE, GITHUB, SETTINGS):
 @pytest.mark.asyncio
 @patch('jenkins_epo.github.GITHUB')
 @patch('jenkins_epo.github.CACHE')
-@patch('jenkins_epo.utils.time.sleep')
-def test_retry_async(sleep, CACHE, GITHUB, SETTINGS):
-    SETTINGS.GITHUB_TOKEN = 'cafec4e3e'
-    GITHUB.x_ratelimit_remaining = -1
-    from jenkins_epo.github import cached_arequest
-
-    CACHE.get.side_effect = KeyError('key')
-
-    query = Mock(aget=CoroutineMock(side_effect=[IOError(), 'plop']))
-    ret = yield from cached_arequest(query)
-
-    assert 'plop' == ret
-
-
-@pytest.mark.asyncio
-@patch('jenkins_epo.github.GITHUB')
-@patch('jenkins_epo.github.CACHE')
 def test_cached_arequest_no_cache_hit_valid(CACHE, GITHUB, SETTINGS):
     SETTINGS.GITHUB_TOKEN = 'cafec4e3e'
     GITHUB.x_ratelimit_remaining = -1
