@@ -462,7 +462,7 @@ class PullRequest(Head):
                 self.payload['head']['label'],
             ))
         ))
-        return payload['commits']
+        return reversed(payload['commits'])
 
     @retry
     def comment(self, body):
