@@ -124,14 +124,22 @@ class AutoCancelExtension(JenkinsExtension):
                 continue
 
             for id_ in job.get_build_ids():
+                logger.debug("GET build %s #%s.", job, id_)
                 build = job.get_build(id_)
-                if not build.is_running():
-                    continue
 
                 seconds = build._data['timestamp'] / 1000.
-                build_age = now - datetime.fromtimestamp(seconds)
-                if build_age > maxage:
+                build_date = datetime.fromtimestamp(seconds)
+                build_age = now - build_date
+                if build_date > now:
+                    logger.warning(
+                        "Build %s in the future. Is timezone correct?", build
+                    )
+                elif build_age > maxage:
+                    logger.debug("Stopping build iteration for older builds.")
                     break
+
+                if not build.is_running():
+                    continue
 
                 branch = (
                     build.get_revision_branch()[0]['name']
