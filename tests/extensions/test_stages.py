@@ -6,6 +6,7 @@ def test_first_stage():
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
+    ext.current.head.ref = 'pr'
     ext.current.SETTINGS.STAGES = ['build', 'test']
     ext.current.job_specs = specs = {
         'build': Mock(config=dict(stage='build')),
@@ -33,6 +34,7 @@ def test_second_stage():
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
+    ext.current.head.ref = 'pr'
     ext.current.SETTINGS.STAGES = ['build', 'test']
     ext.current.job_specs = specs = {
         'test': Mock(config=dict()),
@@ -56,6 +58,7 @@ def test_no_test_stage():
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
+    ext.current.head.ref = 'pr'
     ext.current.SETTINGS.STAGES = ['build', 'deploy']
     ext.current.job_specs = specs = {
         'build': Mock(config=dict()),
@@ -80,6 +83,7 @@ def test_periodic_ignored():
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
+    ext.current.head.ref = 'pr'
     ext.current.SETTINGS.STAGES = ['deploy', 'test']
     ext.current.job_specs = specs = {
         'periodic': Mock(config=dict(periodic=True)),
@@ -99,6 +103,7 @@ def test_periodic_ignored():
     ext.run()
 
     assert ext.current.current_stage.name == 'test'
+    assert 'periodic' not in ext.current.job_specs
 
 
 def test_periodic_required():
@@ -106,6 +111,7 @@ def test_periodic_required():
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
+    ext.current.head.ref = 'pr'
     ext.current.SETTINGS.STAGES = ['deploy', 'test']
     ext.current.job_specs = specs = {
         'deploy': Mock(config=dict(stage='deploy', periodic=True)),
@@ -128,11 +134,35 @@ def test_periodic_required():
     assert ext.current.current_stage.name == 'deploy'
 
 
+def test_branches_limit():
+    from jenkins_epo.extensions.jenkins import StagesExtension
+
+    ext = StagesExtension('stages', Mock())
+    ext.current = Mock()
+    ext.current.head.ref = 'pr'
+    ext.current.SETTINGS.STAGES = ['test']
+    ext.current.job_specs = specs = {
+        'job': Mock(config=dict(branches=['master'])),
+    }
+    specs['job'].name = 'job'
+
+    ext.current.jobs = jobs = {'job': Mock()}
+    jobs['job'].list_contexts.return_value = ['job']
+
+    ext.current.statuses = {}
+
+    ext.run()
+
+    assert ext.current.current_stage.name == 'test'
+    assert 'job' not in ext.current.job_specs
+
+
 def test_external_context():
     from jenkins_epo.extensions.jenkins import StagesExtension
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
+    ext.current.head.ref = 'pr'
     ext.current.SETTINGS.STAGES = [
         dict(name='deploy', external=['deploy/prod']),
         'final',
@@ -157,6 +187,7 @@ def test_complete():
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
+    ext.current.head.ref = 'pr'
     ext.current.SETTINGS.STAGES = ['build', 'test', 'deploy']
     ext.current.job_specs = {}
     ext.current.jobs = {}

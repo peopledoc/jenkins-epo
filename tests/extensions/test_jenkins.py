@@ -91,46 +91,6 @@ def test_build_failed():
     assert job.build.mock_calls
 
 
-def test_builder_ignore_perioddc():
-    from jenkins_epo.extensions.jenkins import BuilderExtension
-
-    ext = BuilderExtension('b', Mock())
-    ext.current = ext.bot.current
-    spec = Mock()
-    spec.name = 'job'
-    spec.config = dict(periodic=True)
-
-    ext.current.job_specs = {'job': spec}
-
-    ext.run()
-
-
-def test_only_branches():
-    from jenkins_epo.extensions.jenkins import BuilderExtension
-
-    ext = BuilderExtension('builder', Mock())
-    ext.current = ext.bot.current
-    job = Mock()
-    job.is_enabled.return_value = False
-    spec = Mock()
-    spec.name = 'job'
-    spec.config = dict(only='master')
-    ext.current.job_specs = {'job': spec}
-    ext.current.jobs = {'job': job}
-    ext.current.head.filter_not_built_contexts.return_value = ['job']
-    ext.current.head.ref = 'refs/heads/pr'
-
-    ext.run()
-
-    assert not job.build.mock_calls
-
-    spec.config = dict(only=['master', 'stable'])
-
-    ext.run()
-
-    assert not job.build.mock_calls
-
-
 @patch('jenkins_epo.extensions.jenkins.JENKINS')
 def test_cancel_ignore_other(JENKINS):
     from jenkins_epo.extensions.jenkins import CancellerExtension, CommitStatus
