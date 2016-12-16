@@ -55,16 +55,6 @@ class BuilderExtension(JenkinsExtension):
 
     def run(self):
         for spec in self.current.job_specs.values():
-            if spec.config.get('periodic'):
-                continue
-
-            branches = spec.config.get('only', '*')
-            if isinstance(branches, str):
-                branches = [branches]
-            if not match(self.current.head.ref[len('refs/heads/'):], branches):
-                logger.info("Skipping job %s for this branch.", spec)
-                continue
-
             logger.debug("Processing job %s.", spec)
             job = self.current.jobs[spec.name]
             not_built = self.current.last_commit.filter_not_built_contexts(
@@ -372,4 +362,20 @@ class StagesExtension(JenkinsExtension):
 
         self.current.current_stage = stage
         # Filter job specs to the current stage ones.
-        self.current.job_specs = {j.name: j for j in stage.job_specs}
+        current_ref = self.current.head.ref
+        self.current.job_specs = {}
+        for job in stage.job_specs:
+            branches = list(job.config.get('branches', '*'))
+            if not match(current_ref, branches):
+                logger.debug("Ignore job %s on this branch.", job)
+                continue
+
+            if job.config.get('periodic'):
+                logger.debug("Ignore periodic job %s.", job)
+                continue
+
+            self.current.job_specs[job.name] = job
+
+        logger.debug(
+            "Jobs for this stage: %s.", ', '.join(self.current.job_specs)
+        )
