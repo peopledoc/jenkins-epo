@@ -53,9 +53,9 @@ def loop(wrapped):
 def bot():
     """Poll GitHub to find something to do"""
     yield from procedures.whoami()
-    bot = Bot(queue_empty=None)
 
     for head in procedures.iter_heads():
+        bot = Bot()
         try:
             head.repository.load_settings()
         except Exception:

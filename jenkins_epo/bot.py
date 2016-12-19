@@ -65,9 +65,7 @@ See `jenkins: help` for documentation.
     )
     ext_patterns = parse_patterns(SETTINGS.EXTENSIONS)
 
-    def __init__(self, queue_empty=True):
-        self.queue_empty = queue_empty
-
+    def __init__(self):
         self.extensions_map = {}
         for ep in pkg_resources.iter_entry_points(__name__ + '.extensions'):
             cls = ep.load()
