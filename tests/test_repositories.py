@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from unittest.mock import Mock, patch
 
@@ -44,11 +45,15 @@ def test_fetch_protected_branches(cached_request):
     assert Repository('owner', 'name').fetch_protected_branches()
 
 
-@patch('jenkins_epo.repository.cached_request')
-def test_fetch_commit(cached_request):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_fetch_commit(mocker):
+    cached_arequest = mocker.patch('jenkins_epo.repository.cached_arequest')
     from jenkins_epo.repository import Repository
 
-    assert Repository('owner', 'name').fetch_commit('cafedodo')
+    cached_arequest.return_value = []
+
+    yield from Repository('owner', 'name').fetch_commit('cafedodo')
 
 
 @patch('jenkins_epo.repository.cached_request')

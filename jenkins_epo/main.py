@@ -64,7 +64,7 @@ def bot():
 
         logger.info("Working on %s.", head)
         try:
-            bot.run(head)
+            yield from bot.run(head)
         except Exception:
             if SETTINGS.LOOP:
                 logger.exception("Failed to process %s:", head)
