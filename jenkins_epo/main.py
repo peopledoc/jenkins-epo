@@ -72,9 +72,9 @@ def process_head(head):
 def bot():
     """Poll GitHub to find something to do"""
     yield from procedures.whoami()
-
+    loop = asyncio.get_event_loop()
     tasks = [
-        asyncio.ensure_future(process_head(head))
+        loop.create_task(process_head(head))
         for head in procedures.iter_heads()
     ]
 
