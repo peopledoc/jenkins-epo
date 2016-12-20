@@ -48,28 +48,37 @@ def loop(wrapped):
         return wrapped
 
 
+@asyncio.coroutine
+def process_head(head):
+    bot = Bot()
+    try:
+        head.repository.load_settings()
+    except Exception:
+        logger.exception("Failed to load %s settings.", head.repository)
+        return
+
+    logger.info("Working on %s.", head)
+    try:
+        yield from bot.run(head)
+    except Exception:
+        if SETTINGS.LOOP:
+            logger.exception("Failed to process %s:", head)
+        else:
+            raise
+
+
 @loop
 @asyncio.coroutine
 def bot():
     """Poll GitHub to find something to do"""
     yield from procedures.whoami()
 
-    for head in procedures.iter_heads():
-        bot = Bot()
-        try:
-            head.repository.load_settings()
-        except Exception:
-            logger.exception("Failed to load %s settings.", head.repository)
-            continue
+    tasks = [
+        asyncio.ensure_future(process_head(head))
+        for head in procedures.iter_heads()
+    ]
 
-        logger.info("Working on %s.", head)
-        try:
-            yield from bot.run(head)
-        except Exception:
-            if SETTINGS.LOOP:
-                logger.exception("Failed to process %s:", head)
-            else:
-                raise
+    yield from asyncio.gather(*tasks)
 
     CACHE.purge()
     CACHE.save()
