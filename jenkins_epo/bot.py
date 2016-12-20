@@ -12,6 +12,7 @@
 # You should have received a copy of the GNU General Public License along with
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
+import asyncio
 import collections
 import copy
 import logging
@@ -65,9 +66,7 @@ See `jenkins: help` for documentation.
     )
     ext_patterns = parse_patterns(SETTINGS.EXTENSIONS)
 
-    def __init__(self, queue_empty=True):
-        self.queue_empty = queue_empty
-
+    def __init__(self):
         self.extensions_map = {}
         for ep in pkg_resources.iter_entry_points(__name__ + '.extensions'):
             cls = ep.load()
@@ -97,11 +96,12 @@ See `jenkins: help` for documentation.
             ext.current = self.current
         return self
 
+    @asyncio.coroutine
     def run(self, head):
         self.workon(head)
 
         sha = self.current.head.sha
-        payload = self.current.head.repository.fetch_commit(sha)
+        payload = yield from self.current.head.repository.fetch_commit(sha)
         self.current.last_commit = Commit(
             self.current.head.repository, sha, payload,
         )

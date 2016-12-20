@@ -1,4 +1,7 @@
+import asyncio
 from unittest.mock import Mock, patch
+
+import pytest
 
 
 def test_parse():
@@ -116,9 +119,12 @@ def test_parse_error():
     assert '@reporter' in error.body
 
 
-@patch('jenkins_epo.bot.pkg_resources')
-@patch('jenkins_epo.bot.Commit')
-def test_run_extension(Commit, pkg_resources):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_run_extension(mocker):
+    pkg_resources = mocker.patch('jenkins_epo.bot.pkg_resources')
+    mocker.patch('jenkins_epo.bot.Commit')
+
     from jenkins_epo.bot import Bot
 
     ep = Mock()
@@ -134,15 +140,20 @@ def test_run_extension(Commit, pkg_resources):
     pr = Mock()
     pr.list_comments.return_value = []
 
-    bot.run(pr)
+    pr.repository.fetch_commit.return_value = []
+
+    yield from bot.run(pr)
 
     assert ext.begin.mock_calls
     assert ext.run.mock_calls
 
 
-@patch('jenkins_epo.bot.pkg_resources')
-@patch('jenkins_epo.bot.Commit')
-def test_begin_skip_head(Commit, pkg_resources):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_begin_skip_head(mocker):
+    pkg_resources = mocker.patch('jenkins_epo.bot.pkg_resources')
+    mocker.patch('jenkins_epo.bot.Commit')
+
     from jenkins_epo.bot import Bot, SkipHead
 
     ep = Mock()
@@ -153,15 +164,22 @@ def test_begin_skip_head(Commit, pkg_resources):
     ext.SETTINGS = {}
     ext.begin.side_effect = SkipHead()
 
-    Bot().run(Mock())
+    pr = Mock()
+    pr.sha = 'cafed0d0'
+    pr.repository.fetch_commit.return_value = []
+
+    yield from Bot().run(pr)
 
     assert ext.begin.mock_calls
     assert not ext.run.mock_calls
 
 
-@patch('jenkins_epo.bot.pkg_resources')
-@patch('jenkins_epo.bot.Commit')
-def test_run_skip_head(Commit, pkg_resources):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_run_skip_head(mocker):
+    pkg_resources = mocker.patch('jenkins_epo.bot.pkg_resources')
+    mocker.patch('jenkins_epo.bot.Commit')
+
     from jenkins_epo.bot import Bot, SkipHead
 
     ep = Mock()
@@ -173,8 +191,11 @@ def test_run_skip_head(Commit, pkg_resources):
     ext.run.side_effect = SkipHead()
 
     pr = Mock()
+    pr.sha = 'cafed0d0'
+    pr.repository.fetch_commit.return_value = []
     pr.list_comments.return_value = []
-    Bot().run(pr)
+
+    yield from Bot().run(pr)
 
     assert ext.begin.mock_calls
     assert ext.run.mock_calls

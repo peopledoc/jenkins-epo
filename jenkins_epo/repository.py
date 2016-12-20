@@ -14,6 +14,7 @@
 
 from __future__ import absolute_import
 
+import asyncio
 from itertools import islice
 import logging
 from urllib.parse import quote as urlquote
@@ -22,7 +23,9 @@ import re
 from github import ApiError
 import yaml
 
-from .github import cached_request, GITHUB, ApiNotFoundError
+from .github import (
+    cached_arequest, cached_request, GITHUB, ApiNotFoundError
+)
 from .settings import SETTINGS
 from .utils import (
     Bunch, format_duration, match, parse_datetime, parse_patterns, retry,
@@ -146,8 +149,13 @@ class Repository(object):
     def url(self):
         return 'https://github.com/%s' % (self,)
 
+    @asyncio.coroutine
     def fetch_commit(self, sha):
-        return cached_request(GITHUB.repos(self).git.commits(sha))
+        logger.debug("Querying GitHub for commit %s.", sha[:7])
+        payload = yield from cached_arequest(
+            GITHUB.repos(self).git.commits(sha)
+        )
+        return payload
 
     def fetch_protected_branches(self):
         logger.debug("Querying GitHub for %s protected branches.", self)
