@@ -12,6 +12,7 @@
 # You should have received a copy of the GNU General Public License along with
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
+import asyncio
 import os
 import logging.config
 import pkg_resources
@@ -20,6 +21,20 @@ import sys
 
 
 logger = logging.getLogger(__name__)
+
+
+class AsyncLogRecord(logging.LogRecord):
+    def __init__(self, *a, **kw):
+        super(AsyncLogRecord, self).__init__(*a, **kw)
+        task = asyncio.Task.current_task()
+        if task:
+            id_ = '%x' % id(task)
+            self.task = id_[-4:]
+        else:
+            self.task = 'main'
+
+
+logging.setLogRecordFactory(AsyncLogRecord)
 
 
 class SystemdFormatter(logging.Formatter):
@@ -45,13 +60,15 @@ def entrypoint(argv=None):
         'version': 1,
         'formatters': {
             'debug': {
-                'format': '[%(name)-24s %(levelname)8s] %(message)s',
+                'format': (
+                    '=%(task)s= [%(name)-24s %(levelname)8s] %(message)s'),
             },
             'info': {
-                'format': '[%(levelname)-8s] %(message)s',
+                'format': '=%(task)s= [%(levelname)-8s] %(message)s',
             },
             'systemd': {
                 '()': __name__ + '.' + SystemdFormatter.__name__,
+                'format': '=%(task)s= %(message)s',
             }
         },
         'handlers': {'stderr': {
