@@ -125,7 +125,7 @@ See `jenkins: help` for documentation.
 
         for ext in self.extensions:
             try:
-                ext.run()
+                yield from ext.run()
             except SkipHead:
                 return
 
@@ -261,6 +261,7 @@ class Extension(object):
     def process_instruction(self, instruction):
         pass
 
+    @asyncio.coroutine
     def run(self):
         pass
 

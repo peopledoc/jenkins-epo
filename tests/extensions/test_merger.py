@@ -1,5 +1,8 @@
+import asyncio
 from datetime import datetime, timedelta
 from unittest.mock import Mock
+
+import pytest
 
 
 def test_detect_wip():
@@ -27,6 +30,27 @@ def test_skip_non_pr():
     ext.process_opm(Mock())
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_comment_deny():
+    from jenkins_epo.bot import Instruction
+    from jenkins_epo.extensions.core import MergerExtension
+
+    ext = MergerExtension('merger', Mock())
+    ext.current = Mock()
+    ext.current.SETTINGS.REVIEWERS = []
+    ext.current.last_commit.date = datetime.now()
+    ext.current.opm = {}
+    ext.current.opm_denied = [Instruction(
+        author='nonreviewer', name='opm',
+        date=ext.current.last_commit.date + timedelta(hours=1),
+    )]
+
+    yield from ext.run()
+
+    assert ext.current.head.comment.mock_calls
+
+
 def test_deny_non_reviewer():
     from jenkins_epo.bot import Instruction
     from jenkins_epo.extensions.core import MergerExtension
@@ -46,10 +70,6 @@ def test_deny_non_reviewer():
     assert not ext.current.opm
     assert ext.current.opm_denied
 
-    ext.run()
-
-    assert ext.current.head.comment.mock_calls
-
 
 def test_deny_outdated_opm():
     from jenkins_epo.bot import Instruction
@@ -68,8 +88,6 @@ def test_deny_outdated_opm():
     ))
 
     assert not ext.current.opm
-
-    ext.run()
 
 
 def test_deny_non_reviewer_processed():
@@ -114,6 +132,8 @@ def test_accept_lgtm():
     assert not ext.current.opm_denied
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_merge_wip():
     from jenkins_epo.extensions.core import MergerExtension
 
@@ -127,24 +147,39 @@ def test_merge_wip():
     ext.current.opm_processed = None
     ext.current.wip = True
 
-    ext.run()
+    yield from ext.run()
 
     assert ext.current.head.comment.mock_calls
     body = ext.current.head.comment.call_args[1]['body']
     assert '@reviewer' in body
     assert not ext.current.head.merge.mock_calls
 
-    ext.current.head.comment.reset_mock()
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_merge_wip_skip_outdated():
+    from jenkins_epo.extensions.core import MergerExtension
+
+    ext = MergerExtension('merger', Mock())
+    ext.current = Mock()
+    ext.current.SETTINGS.REVIEWERS = ['reviewer']
+    ext.current.last_commit.date = datetime.now()
+    ext.current.opm.author = 'reviewer'
+    ext.current.opm.date = datetime.now()
+    ext.current.opm_denied = []
+    ext.current.wip = True
     ext.current.opm_processed = Mock(
         date=ext.current.opm.date + timedelta(minutes=5)
     )
 
-    ext.run()
+    yield from ext.run()
 
     assert not ext.current.head.comment.mock_calls
     assert not ext.current.head.merge.mock_calls
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_not_green():
     from jenkins_epo.extensions.core import MergerExtension
 
@@ -157,11 +192,13 @@ def test_not_green():
     }
     ext.current.wip = None
 
-    ext.run()
+    yield from ext.run()
 
     assert not ext.current.head.comment.mock_calls
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_merge_fail():
     from jenkins_epo.extensions.core import MergerExtension, ApiError
 
@@ -180,13 +217,15 @@ def test_merge_fail():
         message="error",
     )))
 
-    ext.run()
+    yield from ext.run()
 
     assert ext.current.head.comment.mock_calls
     body = ext.current.head.comment.call_args[1]['body']
     assert '@reviewer' in body
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_merge_already_failed():
     from jenkins_epo.bot import Instruction
     from jenkins_epo.extensions.core import MergerExtension, ApiError
@@ -217,11 +256,13 @@ def test_merge_already_failed():
         message="error",
     )))
 
-    ext.run()
+    yield from ext.run()
 
     assert not ext.current.head.comment.mock_calls
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_merge_success():
     from jenkins_epo.extensions.core import MergerExtension
 
@@ -235,7 +276,7 @@ def test_merge_success():
     }
     ext.current.wip = None
 
-    ext.run()
+    yield from ext.run()
 
     assert ext.current.head.merge.mock_calls
     assert not ext.current.head.comment.mock_calls

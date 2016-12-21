@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import Mock
 from datetime import datetime
 
@@ -24,6 +25,8 @@ def test_compute_skip_unindented():
     assert ['toto'] == instruction.args
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_compute_help():
     from jenkins_epo.bot import Bot
 
@@ -46,41 +49,49 @@ def test_compute_help():
     assert 'asker1' in bot.current.help_mentions
     assert 'asker2' in bot.current.help_mentions
 
-    bot.extensions_map['help'].run()
+    yield from bot.extensions_map['help'].run()
 
     man = bot.current.head.comment.call_args[1]['body']
     assert '@asker1' in man
     assert '@asker2' in man
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_errors():
     from jenkins_epo.bot import Bot, Error
 
     bot = Bot().workon(Mock())
     bot.current.errors = [Error('message', Mock())]
 
-    bot.extensions_map['error'].run()
+    yield from bot.extensions_map['error'].run()
 
     assert bot.current.head.comment.mock_calls
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_errors_reset():
     from jenkins_epo.bot import Bot, Error
     from jenkins_epo.utils import parse_datetime
 
     bot = Bot().workon(Mock())
-    bot.current.errors = [
+    bot.current.errors.append(
         Error('message', parse_datetime('2016-08-03T15:58:47Z')),
-    ]
+    )
+    assert bot.current.error_reset is None
     bot.process_instructions([comment(
         body='''jenkins: reset-errors''', updated_at='2016-08-03T17:58:47Z',
     )])
+    assert bot.current.error_reset
 
-    bot.extensions_map['error'].run()
+    yield from bot.extensions_map['error'].run()
 
     assert not bot.current.head.comment.mock_calls
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_report():
     from jenkins_epo.extensions.core import ReportExtension, Branch
 
@@ -100,12 +111,15 @@ def test_report():
             'target_url': 'build_url',
         },
     }
-    ext.run()
+
+    yield from ext.run()
 
     assert ext.current.head.comment.mock_calls
     assert ext.current.head.repository.report_issue.mock_calls
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_autocancel():
     from jenkins_epo.extensions.core import AutoCancelExtension
 
@@ -144,7 +158,7 @@ def test_autocancel():
         },
     }
 
-    ext.run()
+    yield from ext.run()
 
     assert (old_commit, old_statuses['backed']) not in cancel_queue
     assert (old_commit, old_statuses['success']) not in cancel_queue
@@ -181,6 +195,8 @@ def test_skip_instruction():
     assert match('job', ext.current.jobs_match)
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_skip_run():
     from jenkins_epo.extensions.core import CommitStatus, SkipExtension
 
@@ -202,7 +218,7 @@ def test_skip_run():
     )
     statuses['done'] = CommitStatus(state='success')
 
-    ext.run()
+    yield from ext.run()
 
     assert 1 == len(ext.current.cancel_queue)
     pushed_contextes = [

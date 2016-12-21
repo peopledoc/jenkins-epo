@@ -1,9 +1,15 @@
+import asyncio
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
+import pytest
 
-@patch('jenkins_epo.extensions.core.GITHUB')
-def test_yml_notfound(GITHUB, SETTINGS):
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_yml_notfound(mocker, SETTINGS):
+    GITHUB = mocker.patch('jenkins_epo.extensions.core.GITHUB')
+
     from jenkins_epo.extensions.core import (
         ApiNotFoundError, YamlExtension
     )
@@ -19,14 +25,16 @@ def test_yml_notfound(GITHUB, SETTINGS):
     head.repository.url = 'https://github.com/owner/repo.git'
     head.repository.jobs = []
 
-    ext.run()
+    yield from ext.run()
 
     assert GITHUB.fetch_file_contents.mock_calls
     assert not ext.current.job_specs
 
 
-@patch('jenkins_epo.extensions.core.GITHUB')
-def test_yml_invalid(GITHUB, SETTINGS):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_yml_invalid(mocker, SETTINGS):
+    GITHUB = mocker.patch('jenkins_epo.extensions.core.GITHUB')
     from jenkins_epo.extensions.core import YamlExtension
 
     ext = YamlExtension('ext', Mock())
@@ -40,14 +48,16 @@ def test_yml_invalid(GITHUB, SETTINGS):
     head.repository.url = 'https://github.com/owner/repo.git'
     head.repository.jobs = []
 
-    ext.run()
+    yield from ext.run()
 
     assert GITHUB.fetch_file_contents.mock_calls
     assert ext.current.errors
 
 
-@patch('jenkins_epo.extensions.core.GITHUB')
-def test_yml_found(GITHUB, SETTINGS):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_yml_found(mocker, SETTINGS):
+    GITHUB = mocker.patch('jenkins_epo.extensions.core.GITHUB')
     from jenkins_epo.extensions.core import YamlExtension
 
     ext = YamlExtension('ext', Mock())
@@ -60,7 +70,7 @@ def test_yml_found(GITHUB, SETTINGS):
     head.repository.url = 'https://github.com/owner/repo.git'
     head.repository.jobs = {}
 
-    ext.run()
+    yield from ext.run()
 
     assert GITHUB.fetch_file_contents.mock_calls
     assert 'job' in ext.current.job_specs
@@ -100,8 +110,10 @@ def test_yml_comment_wrong():
     assert ext.current.errors
 
 
-@patch('jenkins_epo.extensions.core.GITHUB')
-def test_yml_override_unknown_job(GITHUB, SETTINGS):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_yml_override_unknown_job(mocker, SETTINGS):
+    GITHUB = mocker.patch('jenkins_epo.extensions.core.GITHUB')
     from jenkins_epo.extensions.core import YamlExtension
 
     GITHUB.fetch_file_contents.return_value = '{}'
@@ -112,7 +124,7 @@ def test_yml_override_unknown_job(GITHUB, SETTINGS):
     ext.current.head.repository.jobs = []
     ext.current.yaml = {'unknown_jobs': {}}
 
-    ext.run()
+    yield from ext.run()
 
     assert ext.current.errors
 
@@ -185,9 +197,13 @@ def test_job_update(JENKINS):
     assert action == JENKINS.update_job
 
 
-@patch('jenkins_epo.extensions.jenkins.CreateJobsExtension.process_job_specs')
-@patch('jenkins_epo.extensions.jenkins.JENKINS')
-def test_jenkins_create_success(JENKINS, process_job_specs):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_jenkins_create_success(mocker):
+    process_job_specs = mocker.patch(
+        'jenkins_epo.extensions.jenkins.CreateJobsExtension.process_job_specs'
+    )
+    JENKINS = mocker.patch('jenkins_epo.extensions.jenkins.JENKINS')
     from jenkins_yml.job import Job as JobSpec
     from jenkins_epo.extensions.jenkins import CreateJobsExtension, UnknownJob
 
@@ -200,16 +216,20 @@ def test_jenkins_create_success(JENKINS, process_job_specs):
     JENKINS.create_job.return_value.name = 'new'
     process_job_specs.return_value = [(JENKINS.create_job, Mock())]
 
-    ext.run()
+    yield from ext.run()
 
     assert not ext.current.errors.append.mock_calls
     assert JENKINS.create_job.mock_calls
     assert ext.current.jobs['new'] == JENKINS.create_job.return_value
 
 
-@patch('jenkins_epo.extensions.jenkins.CreateJobsExtension.process_job_specs')
-@patch('jenkins_epo.extensions.jenkins.JENKINS')
-def test_jenkins_fails_existing(JENKINS, process_job_specs):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_jenkins_fails_existing(mocker):
+    process_job_specs = mocker.patch(
+        'jenkins_epo.extensions.jenkins.CreateJobsExtension.process_job_specs'
+    )
+    JENKINS = mocker.patch('jenkins_epo.extensions.jenkins.JENKINS')
     from jenkins_yml.job import Job as JobSpec
     from jenkins_epo.extensions.jenkins import CreateJobsExtension
 
@@ -224,7 +244,7 @@ def test_jenkins_fails_existing(JENKINS, process_job_specs):
 
     process_job_specs.return_value = [(JENKINS.update_job, Mock())]
 
-    ext.run()
+    yield from ext.run()
 
     assert ext.current.errors
     assert JENKINS.update_job.mock_calls
