@@ -1,6 +1,11 @@
+import asyncio
 from unittest.mock import Mock
 
+import pytest
 
+
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_first_stage():
     from jenkins_epo.extensions.jenkins import StagesExtension
 
@@ -24,11 +29,13 @@ def test_first_stage():
 
     ext.current.statuses = {}
 
-    ext.run()
+    yield from ext.run()
 
     assert ext.current.current_stage.name == 'build'
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_second_stage():
     from jenkins_epo.extensions.jenkins import StagesExtension
 
@@ -48,11 +55,13 @@ def test_second_stage():
 
     ext.current.statuses = {}
 
-    ext.run()
+    yield from ext.run()
 
     assert ext.current.current_stage.name == 'test'
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_no_test_stage():
     from jenkins_epo.extensions.jenkins import StagesExtension
 
@@ -72,12 +81,14 @@ def test_no_test_stage():
 
     ext.current.statuses = {}
 
-    ext.run()
+    yield from ext.run()
 
     assert 'build' == ext.current.current_stage.name
     assert 'build' in ext.current.job_specs
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_periodic_ignored():
     from jenkins_epo.extensions.jenkins import StagesExtension
 
@@ -100,12 +111,14 @@ def test_periodic_ignored():
 
     ext.current.statuses = {}
 
-    ext.run()
+    yield from ext.run()
 
     assert ext.current.current_stage.name == 'test'
     assert 'periodic' not in ext.current.job_specs
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_periodic_required():
     from jenkins_epo.extensions.jenkins import StagesExtension
 
@@ -129,11 +142,13 @@ def test_periodic_required():
 
     ext.current.statuses = {}
 
-    ext.run()
+    yield from ext.run()
 
     assert ext.current.current_stage.name == 'deploy'
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_branches_limit():
     from jenkins_epo.extensions.jenkins import StagesExtension
 
@@ -151,12 +166,14 @@ def test_branches_limit():
 
     ext.current.statuses = {}
 
-    ext.run()
+    yield from ext.run()
 
     assert ext.current.current_stage.name == 'test'
     assert 'job' not in ext.current.job_specs
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_external_context():
     from jenkins_epo.extensions.jenkins import StagesExtension
 
@@ -171,17 +188,19 @@ def test_external_context():
     ext.current.jobs = {}
     ext.current.statuses = {}
 
-    ext.run()
+    yield from ext.run()
 
     assert 'deploy' == ext.current.current_stage.name
 
     ext.current.statuses = {'deploy/prod': {'state': 'success'}}
 
-    ext.run()
+    yield from ext.run()
 
     assert 'final' == ext.current.current_stage.name
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_complete():
     from jenkins_epo.extensions.jenkins import StagesExtension
 
@@ -193,6 +212,6 @@ def test_complete():
     ext.current.jobs = {}
     ext.current.statuses = {}
 
-    ext.run()
+    yield from ext.run()
 
     assert ext.current.current_stage.name == 'deploy'

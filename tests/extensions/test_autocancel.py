@@ -1,7 +1,12 @@
+import asyncio
 from unittest.mock import Mock
 from time import time
 
+import pytest
 
+
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_jenkins_skip_job_not_running():
     from jenkins_epo.extensions.jenkins import AutoCancelExtension
 
@@ -12,12 +17,14 @@ def test_jenkins_skip_job_not_running():
     ext.current.jobs['job'] = job = Mock()
     job.is_running.return_value = False
 
-    ext.run()
+    yield from ext.run()
 
     assert job.is_running.mock_calls
     assert 0 == len(ext.current.cancel_queue)
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_jenkins_skip_outdated():
     from jenkins_epo.extensions.jenkins import AutoCancelExtension
 
@@ -32,13 +39,15 @@ def test_jenkins_skip_outdated():
     build = job.get_build.return_value
     build._data = {'timestamp': (time() - 7 * 3600) * 1000}
 
-    ext.run()
+    yield from ext.run()
 
     assert job.is_running.mock_calls
     assert not build.is_running.mock_calls
     assert 0 == len(ext.current.cancel_queue)
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_jenkins_wrong_timezone():
     from jenkins_epo.extensions.jenkins import AutoCancelExtension
 
@@ -54,13 +63,15 @@ def test_jenkins_wrong_timezone():
     build._data = {'timestamp': (time() + 2 * 3600) * 1000}
     build.is_running.return_value = False
 
-    ext.run()
+    yield from ext.run()
 
     assert job.is_running.mock_calls
     assert build.is_running.mock_calls
     assert 0 == len(ext.current.cancel_queue)
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_jenkins_skip_build_not_running():
     from jenkins_epo.extensions.jenkins import AutoCancelExtension
 
@@ -75,12 +86,14 @@ def test_jenkins_skip_build_not_running():
     build._data = {'timestamp': (time() - 7 * 3600) * 1000}
     build.is_running.return_value = False
 
-    ext.run()
+    yield from ext.run()
 
     assert job.is_running.mock_calls
     assert 0 == len(ext.current.cancel_queue)
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_jenkins_skip_other_branch():
     from time import time
     from jenkins_epo.extensions.jenkins import AutoCancelExtension
@@ -99,7 +112,7 @@ def test_jenkins_skip_other_branch():
     build._data = {'timestamp': time() * 1000}
     build.get_revision_branch.return_value = [{'name': 'origin/other'}]
 
-    ext.run()
+    yield from ext.run()
 
     assert job.is_running.mock_calls
     assert build.is_running.mock_calls
@@ -107,6 +120,8 @@ def test_jenkins_skip_other_branch():
     assert 0 == len(ext.current.cancel_queue)
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_jenkins_skip_current_sha():
     from time import time
     from jenkins_epo.extensions.jenkins import AutoCancelExtension
@@ -126,12 +141,14 @@ def test_jenkins_skip_current_sha():
     build.get_revision_branch.return_value = [{'name': 'origin/branch'}]
     build.get_revision.return_value = 'bab1'
 
-    ext.run()
+    yield from ext.run()
 
     assert job.is_running.mock_calls
     assert 0 == len(ext.current.cancel_queue)
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_jenkins_cancel():
     from time import time
     from jenkins_epo.extensions.jenkins import AutoCancelExtension
@@ -153,7 +170,8 @@ def test_jenkins_cancel():
     }
     build.get_revision_branch.return_value = [{'name': 'origin/branch'}]
     build.get_revision.return_value = '01d'
-    ext.run()
+
+    yield from ext.run()
 
     assert job.is_running.mock_calls
     assert 1 == len(ext.current.cancel_queue)

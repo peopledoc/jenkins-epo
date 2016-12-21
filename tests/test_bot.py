@@ -133,6 +133,7 @@ def test_run_extension(mocker):
     ext = ep.load.return_value.return_value
     ext.DEFAULTS = {}
     ext.SETTINGS = {}
+    ext.run.return_value = []
 
     bot = Bot()
     assert 'ext' in bot.extensions_map

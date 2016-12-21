@@ -12,6 +12,7 @@
 # You should have received a copy of the GNU General Public License along with
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
+import asyncio
 from collections import OrderedDict
 from datetime import datetime, timedelta
 import logging
@@ -53,6 +54,7 @@ class BuilderExtension(JenkinsExtension):
 
         return JENKINS.is_queue_empty()
 
+    @asyncio.coroutine
     def run(self):
         for spec in self.current.job_specs.values():
             logger.debug("Processing job %s.", spec)
@@ -105,6 +107,7 @@ class BuilderExtension(JenkinsExtension):
 class AutoCancelExtension(JenkinsExtension):
     stage = '30'
 
+    @asyncio.coroutine
     def run(self):
         now = datetime.now()
         maxage = timedelta(hours=4)
@@ -164,6 +167,7 @@ class CancellerExtension(JenkinsExtension):
         for commit, status in poll_queue:
             yield commit, status, False
 
+    @asyncio.coroutine
     def run(self):
         aggregated_queue = self.aggregate_queues(
             self.current.cancel_queue, self.current.poll_queue
@@ -254,6 +258,7 @@ Failed to create or update Jenkins job `%(name)s`.
             if update:
                 yield JENKINS.update_job, spec
 
+    @asyncio.coroutine
     def run(self):
         for name in self.current.job_specs:
             if name in self.current.jobs:
@@ -338,6 +343,7 @@ class StagesExtension(JenkinsExtension):
         'STAGES': ['build', 'test', 'deploy'],
     }
 
+    @asyncio.coroutine
     def run(self):
         stages = [Stage.factory(i) for i in self.current.SETTINGS.STAGES]
         # First, group jobs by stages

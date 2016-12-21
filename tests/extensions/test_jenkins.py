@@ -1,4 +1,7 @@
-from unittest.mock import Mock, patch
+import asyncio
+from unittest.mock import Mock
+
+import pytest
 
 
 def test_compute_rebuild():
@@ -13,8 +16,10 @@ def test_compute_rebuild():
     assert ext.current.rebuild_failed
 
 
-@patch('jenkins_epo.extensions.jenkins.JENKINS')
-def test_build_queue_full(JENKINS):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_build_queue_full(mocker):
+    JENKINS = mocker.patch('jenkins_epo.extensions.jenkins.JENKINS')
     from jenkins_epo.extensions.jenkins import BuilderExtension
 
     ext = BuilderExtension('builder', Mock())
@@ -32,14 +37,16 @@ def test_build_queue_full(JENKINS):
 
     JENKINS.is_queue_empty.return_value = False
 
-    ext.run()
+    yield from ext.run()
 
     assert ext.current.last_commit.maybe_update_status.mock_calls
     assert not job.build.mock_calls
 
 
-@patch('jenkins_epo.extensions.jenkins.JENKINS')
-def test_build_queue_empty(JENKINS):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_build_queue_empty(mocker):
+    JENKINS = mocker.patch('jenkins_epo.extensions.jenkins.JENKINS')
     from jenkins_epo.extensions.jenkins import BuilderExtension
 
     ext = BuilderExtension('builder', Mock())
@@ -60,12 +67,14 @@ def test_build_queue_empty(JENKINS):
 
     JENKINS.is_queue_empty.return_value = True
 
-    ext.run()
+    yield from ext.run()
 
     assert ext.current.last_commit.maybe_update_status.mock_calls
     assert job.build.mock_calls
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_build_failed():
     from jenkins_epo.extensions.jenkins import BuilderExtension
 
@@ -85,14 +94,16 @@ def test_build_failed():
     ext.current.jobs = {'job': job}
     ext.current.statuses = {}
 
-    ext.run()
+    yield from ext.run()
 
     assert ext.current.last_commit.maybe_update_status.mock_calls
     assert job.build.mock_calls
 
 
-@patch('jenkins_epo.extensions.jenkins.JENKINS')
-def test_cancel_ignore_other(JENKINS):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_cancel_ignore_other(mocker):
+    JENKINS = mocker.patch('jenkins_epo.extensions.jenkins.JENKINS')
     from jenkins_epo.extensions.jenkins import CancellerExtension, CommitStatus
 
     JENKINS.baseurl = 'jenkins://'
@@ -106,14 +117,16 @@ def test_cancel_ignore_other(JENKINS):
         (commit, CommitStatus(context='ci/...', target_url='circleci://1')),
     ]
 
-    ext.run()
+    yield from ext.run()
 
     assert not JENKINS.get_build_from_url.mock_calls
     assert not commit.maybe_update_status.mock_calls
 
 
-@patch('jenkins_epo.extensions.jenkins.JENKINS')
-def test_cancel_build_running(JENKINS):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_cancel_build_running(mocker):
+    JENKINS = mocker.patch('jenkins_epo.extensions.jenkins.JENKINS')
     from jenkins_epo.extensions.jenkins import CancellerExtension, CommitStatus
 
     JENKINS.baseurl = 'jenkins://'
@@ -131,14 +144,16 @@ def test_cancel_build_running(JENKINS):
     build = JENKINS.get_build_from_url.return_value
     build.get_status.return_value = None
 
-    ext.run()
+    yield from ext.run()
 
     assert build.stop.mock_calls
     assert commit.maybe_update_status.mock_calls
 
 
-@patch('jenkins_epo.extensions.jenkins.JENKINS')
-def test_poll_build_running(JENKINS):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_poll_build_running(mocker):
+    JENKINS = mocker.patch('jenkins_epo.extensions.jenkins.JENKINS')
     from jenkins_epo.extensions.jenkins import CancellerExtension, CommitStatus
 
     JENKINS.baseurl = 'jenkins://'
@@ -155,14 +170,16 @@ def test_poll_build_running(JENKINS):
     build = JENKINS.get_build_from_url.return_value
     build.get_status.return_value = None
 
-    ext.run()
+    yield from ext.run()
 
     assert not build.stop.mock_calls
     assert commit.maybe_update_status.mock_calls
 
 
-@patch('jenkins_epo.extensions.jenkins.JENKINS')
-def test_poll_lost_build(JENKINS):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_poll_lost_build(mocker):
+    JENKINS = mocker.patch('jenkins_epo.extensions.jenkins.JENKINS')
     from jenkins_epo.extensions.jenkins import CancellerExtension, CommitStatus
 
     commit = Mock()
@@ -177,6 +194,6 @@ def test_poll_lost_build(JENKINS):
     JENKINS.baseurl = 'jenkins://'
     JENKINS.get_build_from_url.side_effect = Exception('POUET')
 
-    ext.run()
+    yield from ext.run()
 
     assert commit.maybe_update_status.mock_calls

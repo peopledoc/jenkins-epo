@@ -12,6 +12,7 @@
 # You should have received a copy of the GNU General Public License along with
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
+import asyncio
 from copy import deepcopy
 import datetime
 import inspect
@@ -35,6 +36,7 @@ logger = logging.getLogger(__name__)
 class AutoCancelExtension(Extension):
     stage = '30'
 
+    @asyncio.coroutine
     def run(self):
         payload = self.current.head.fetch_previous_commits()
         commits = self.current.repository.process_commits(payload)
@@ -119,6 +121,7 @@ Extensions: %(extensions)s
             version=self.DISTRIBUTION.version,
         )
 
+    @asyncio.coroutine
     def run(self):
         if self.current.help_mentions:
             self.current.head.comment(body=self.generate_comment())
@@ -145,6 +148,7 @@ jenkins: reset-errors
         if instruction == 'reset-errors':
             self.current.error_reset = instruction.date
 
+    @asyncio.coroutine
     def run(self):
         reset = self.current.error_reset
         for error in self.current.errors:
@@ -227,6 +231,7 @@ jenkins: {last-merge-error: %(message)r}
             logger.info("Refuse OPM from @%s.", opm.author)
             self.current.opm_denied.append(opm)
 
+    @asyncio.coroutine
     def run(self):
         denied = {i.author for i in self.current.opm_denied}
         if denied:
@@ -325,6 +330,7 @@ jenkins: report-done
         if instruction == 'report-done':
             self.current.report_done = True
 
+    @asyncio.coroutine
     def run(self):
         if self.current.report_done:
             return
@@ -383,6 +389,7 @@ class SkipExtension(Extension):
                 patterns = [patterns]
             self.current.jobs_match = patterns
 
+    @asyncio.coroutine
     def run(self):
         for name, spec in self.current.job_specs.items():
             job = self.current.jobs[name]
@@ -460,6 +467,7 @@ class YamlExtension(Extension):
 
         return jobs
 
+    @asyncio.coroutine
     def run(self):
         head = self.current.head
 
