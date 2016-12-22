@@ -133,6 +133,7 @@ def test_autocancel():
         last_commit, old_commit,
     ]
 
+    last_commit.fetch_statuses.return_value = []
     last_commit.process_statuses.return_value = last_statuses = {
         'backed': {
             'description': 'Backed',
@@ -145,6 +146,7 @@ def test_autocancel():
             'target_url': 'https://jenkins.lan/job/running/build/2/',
         },
     }
+    old_commit.fetch_statuses.return_value = []
     old_commit.process_statuses.return_value = old_statuses = {
         'backed': {'state': 'pending', 'description': 'Backed'},
         'success': {

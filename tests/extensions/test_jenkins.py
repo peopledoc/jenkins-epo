@@ -116,6 +116,7 @@ def test_cancel_ignore_other(mocker):
     ext.current.cancel_queue = [
         (commit, CommitStatus(context='ci/...', target_url='circleci://1')),
     ]
+    ext.current.last_commit.fetch_statuses.return_value = []
 
     yield from ext.run()
 
@@ -140,6 +141,7 @@ def test_cancel_build_running(mocker):
         (commit, CommitStatus(context='job', target_url='jenkins://job/1')),
     ]
     ext.current.SETTINGS.DRY_RUN = 0
+    ext.current.last_commit.fetch_statuses.return_value = []
 
     build = JENKINS.get_build_from_url.return_value
     build.get_status.return_value = None
@@ -166,6 +168,7 @@ def test_poll_build_running(mocker):
     ext.current.poll_queue = [
         (commit, CommitStatus(context='job', target_url='jenkins://job/1')),
     ]
+    ext.current.last_commit.fetch_statuses.return_value = []
 
     build = JENKINS.get_build_from_url.return_value
     build.get_status.return_value = None
@@ -190,6 +193,7 @@ def test_poll_lost_build(mocker):
     ext.current.cancel_queue = [
         (commit, CommitStatus(context='job', target_url='jenkins://job/1')),
     ]
+    ext.current.last_commit.fetch_statuses.return_value = []
 
     JENKINS.baseurl = 'jenkins://'
     JENKINS.get_build_from_url.side_effect = Exception('POUET')

@@ -106,7 +106,7 @@ See `jenkins: help` for documentation.
             self.current.head.repository, sha, payload,
         )
 
-        payload = self.current.last_commit.fetch_statuses()
+        payload = yield from self.current.last_commit.fetch_statuses()
         self.current.last_commit.process_statuses(payload)
         self.current.statuses = self.current.last_commit.statuses
 

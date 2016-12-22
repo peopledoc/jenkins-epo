@@ -253,6 +253,34 @@ def test_process_commits(cached_request):
     assert 1 == len(items)
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_fetch_status(mocker):
+    cached_arequest = mocker.patch('jenkins_epo.repository.cached_arequest')
+    cached_arequest.return_value = payload = dict(status=True)
+
+    from jenkins_epo.repository import Commit
+
+    commit = Commit(Mock(), 'd0d0cafe')
+    payload = yield from commit.fetch_statuses()
+    assert payload['status'] is True
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_fetch_status_ignore(SETTINGS, mocker):
+    SETTINGS.IGNORE_STATUSES = 1
+    cached_arequest = mocker.patch('jenkins_epo.repository.cached_arequest')
+
+    from jenkins_epo.repository import Commit
+
+    commit = Commit(Mock(), 'd0d0cafe')
+    payload = yield from commit.fetch_statuses()
+
+    assert not payload['statuses']
+    assert not cached_arequest.mock_calls
+
+
 @patch('jenkins_epo.repository.Commit.push_status')
 def test_process_status(push_status):
     from jenkins_epo.repository import Commit, CommitStatus
