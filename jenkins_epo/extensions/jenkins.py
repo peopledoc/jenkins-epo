@@ -134,10 +134,14 @@ class AutoCancelExtension(JenkinsExtension):
                 if not build.is_running():
                     continue
 
-                branch = (
-                    build.get_revision_branch()[0]['name']
-                    .replace('origin/', '')
-                )
+                try:
+                    branch = (
+                        build.get_revision_branch()[0]['name']
+                        .replace('origin/', '')
+                    )
+                except IndexError:
+                    continue
+
                 if branch != self.current.head.ref:
                     continue
 
