@@ -273,13 +273,14 @@ class Commit(object):
         self.payload = payload
         return payload
 
+    @asyncio.coroutine
     def fetch_statuses(self):
         if SETTINGS.IGNORE_STATUSES:
             logger.debug("Skip GitHub statuses for %s.", self.sha[:7])
             return {'statuses': []}
         else:
             logger.debug("Fetching statuses for %s.", self.sha[:7])
-            return cached_request(
+            return cached_arequest(
                 GITHUB.repos(self.repository).status(self.sha),
             )
 

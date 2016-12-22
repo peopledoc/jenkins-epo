@@ -122,6 +122,34 @@ def test_jenkins_skip_other_branch():
 
 @pytest.mark.asyncio
 @asyncio.coroutine
+def test_jenkins_skip_missing_revision():
+    from time import time
+    from jenkins_epo.extensions.jenkins import AutoCancelExtension
+
+    ext = AutoCancelExtension('test', Mock())
+    ext.current = ext.bot.current
+    ext.current.cancel_queue = []
+    ext.current.jobs = {}
+    ext.current.head.ref = 'branch'
+
+    ext.current.jobs['job'] = job = Mock()
+    job.is_running.return_value = True
+    job.get_build_ids.return_value = [1]
+    build = job.get_build.return_value
+    build.is_running.return_value = True
+    build._data = {'timestamp': time() * 1000}
+    build.get_revision_branch.side_effect = IndexError(0)
+
+    yield from ext.run()
+
+    assert job.is_running.mock_calls
+    assert build.is_running.mock_calls
+    assert build.get_revision_branch.mock_calls
+    assert 0 == len(ext.current.cancel_queue)
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_jenkins_skip_current_sha():
     from time import time
     from jenkins_epo.extensions.jenkins import AutoCancelExtension

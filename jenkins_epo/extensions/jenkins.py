@@ -134,10 +134,14 @@ class AutoCancelExtension(JenkinsExtension):
                 if not build.is_running():
                     continue
 
-                branch = (
-                    build.get_revision_branch()[0]['name']
-                    .replace('origin/', '')
-                )
+                try:
+                    branch = (
+                        build.get_revision_branch()[0]['name']
+                        .replace('origin/', '')
+                    )
+                except IndexError:
+                    continue
+
                 if branch != self.current.head.ref:
                     continue
 
@@ -205,7 +209,7 @@ class CancellerExtension(JenkinsExtension):
 
             commit.maybe_update_status(new_status)
 
-        payload = self.current.last_commit.fetch_statuses()
+        payload = yield from self.current.last_commit.fetch_statuses()
         self.current.statuses = (
             self.current.last_commit.process_statuses(payload)
         )
