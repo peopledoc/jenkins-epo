@@ -42,6 +42,7 @@ def test_match():
 def test_filter_exception_for_retry(wait_rate_limit_reset):
     from jenkins_epo.utils import (
         filter_exception_for_retry, ApiError, HTTPError,
+        aiohttp,
     )
 
     assert not filter_exception_for_retry(Exception())
@@ -68,6 +69,10 @@ def test_filter_exception_for_retry(wait_rate_limit_reset):
     assert filter_exception_for_retry(e)
     assert wait_rate_limit_reset.mock_calls
     wait_rate_limit_reset.reset_mock()
+
+    e = Exception()
+    e.__cause__ = aiohttp.errors.ServerDisconnectedError()
+    assert filter_exception_for_retry(e)
 
 
 def test_deepupdate():

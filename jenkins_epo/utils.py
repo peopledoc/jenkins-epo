@@ -14,6 +14,7 @@
 
 from __future__ import absolute_import
 
+import aiohttp.errors
 import collections
 import datetime
 import fnmatch
@@ -51,6 +52,9 @@ def filter_exception_for_retry(exception):
             return True
         # If not a rate limit error, don't retry.
         return False
+
+    if isinstance(exception.__cause__, aiohttp.errors.ServerDisconnectedError):
+        return True
 
     if not isinstance(exception, (IOError, HTTPException, HTTPError)):
         return False
