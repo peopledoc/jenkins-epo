@@ -19,7 +19,7 @@ import json
 import re
 
 from jenkinsapi.build import Build
-from jenkinsapi.jenkins import Jenkins
+from jenkinsapi.jenkins import Jenkins, Requester
 from jenkins_yml import Job as JobSpec
 import requests
 import yaml
@@ -29,6 +29,12 @@ from .utils import match, parse_patterns, retry
 
 
 logger = logging.getLogger(__name__)
+
+
+class VerboseRequester(Requester):
+    def get_url(self, url, *a, **kw):
+        logger.debug("GET %s", url)
+        return super(VerboseRequester, self).get_url(url, *a, **kw)
 
 
 class LazyJenkins(object):
@@ -63,7 +69,10 @@ class LazyJenkins(object):
     def load(self):
         if not self._instance:
             logger.info("Connecting to Jenkins %s", SETTINGS.JENKINS_URL)
-            self._instance = Jenkins(SETTINGS.JENKINS_URL)
+            self._instance = Jenkins(
+                baseurl=SETTINGS.JENKINS_URL,
+                requester=VerboseRequester(baseurl=SETTINGS.JENKINS_URL),
+            )
 
     @retry
     def is_queue_empty(self):
