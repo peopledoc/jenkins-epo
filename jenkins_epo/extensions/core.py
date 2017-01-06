@@ -363,6 +363,28 @@ jenkins: report-done
         ))
 
 
+class SecurityExtension(Extension):
+    stage = '00'
+
+    def begin(self):
+        author = getattr(self.current.head, 'author', None)
+
+        if not author:
+            # In case the extension is running on a branch
+            return
+
+        collaborators = self.current.SETTINGS.REVIEWERS
+        secure = False
+        for collaborator in collaborators:
+            if collaborator == author:
+                secure = True
+                break
+
+        if not secure:
+            logger.info("Skipping insecure PR")
+            raise SkipHead()
+
+
 class SkipExtension(Extension):
     """
     jenkins: skip  # Skip all jobs
@@ -421,7 +443,7 @@ class YamlExtension(Extension):
         job1:
           PARAM: value
     """
-    stage = '00'
+    stage = '02'
 
     DEFAULTS = {
         'yaml': {},
