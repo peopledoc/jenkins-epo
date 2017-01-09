@@ -121,7 +121,7 @@ def test_load_settings_jenkins_yml(cached_request, GITHUB):
     from jenkins_epo.repository import Repository
 
     GITHUB.fetch_file_contents.side_effect = [
-        repr(dict(settings=dict(branches=['master'], reviewers=['octo']))),
+        repr(dict(settings=dict(branches=['master'], collaborators=['octo']))),
     ]
 
     repo = Repository('owner', 'repo1')
@@ -134,7 +134,7 @@ def test_load_settings_already_loaded():
     from jenkins_epo.repository import Repository
 
     repo = Repository('owner', 'repo1')
-    repo.SETTINGS.update({'REVIEWERS': ['bdfl']})
+    repo.SETTINGS.update({'COLLABORATORS': ['bdfl']})
     repo.load_settings()
 
 
@@ -143,12 +143,24 @@ def test_process_jenkins_yml_settings():
 
     repo = Repository('owner', 'repo1')
     repo.process_settings(
-        jenkins_yml=repr(dict(settings=dict(reviewers=['bdfl', 'hacker']))),
+        jenkins_yml=repr(dict(
+            settings=dict(collaborators=['bdfl', 'hacker']))
+        ),
     )
-    assert ['bdfl', 'hacker'] == repo.SETTINGS.REVIEWERS
+    assert ['bdfl', 'hacker'] == repo.SETTINGS.COLLABORATORS
 
 
-def test_reviewers():
+def test_process_jenkins_yml_settings_reviewers_compat():
+    from jenkins_epo.repository import Repository
+
+    repo = Repository('owner', 'repo1')
+    repo.process_settings(
+        jenkins_yml=repr(dict(settings=dict(reviewers=['bdfl']))),
+    )
+    assert ['bdfl'] == repo.SETTINGS.COLLABORATORS
+
+
+def test_collaborators():
     from jenkins_epo.repository import Repository
 
     repo = Repository('owner', 'repository')
@@ -171,12 +183,12 @@ def test_reviewers():
         },
     ])
 
-    reviewers = repo.SETTINGS.REVIEWERS
+    collaborators = repo.SETTINGS.COLLABORATORS
 
-    assert 'siteadmin' in reviewers
-    assert 'contributor' not in reviewers
-    assert 'pusher' in reviewers
-    assert 'owner' in reviewers
+    assert 'siteadmin' in collaborators
+    assert 'contributor' not in collaborators
+    assert 'pusher' in collaborators
+    assert 'owner' in collaborators
 
 
 @patch('jenkins_epo.repository.GITHUB')
