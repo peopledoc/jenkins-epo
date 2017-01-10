@@ -181,6 +181,24 @@ def test_outdated():
         ext.begin()
 
 
+def test_security():
+    from jenkins_epo.extensions.core import SecurityExtension, SkipHead
+
+    ext = SecurityExtension('security', Mock())
+    ext.current = Mock()
+    ext.current.head.author = 'bar'
+    ext.current.SETTINGS.REVIEWERS = ['foo']
+
+    with pytest.raises(SkipHead):
+        ext.begin()
+
+    ext.current.head.author = 'foo'
+    ext.begin()
+
+    ext.current.head = None
+    ext.begin()
+
+
 def test_skip_instruction():
     from jenkins_epo.bot import Instruction
     from jenkins_epo.extensions.core import SkipExtension, match

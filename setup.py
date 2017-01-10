@@ -36,6 +36,7 @@ setup(
     entry_points={
         'console_scripts': ['jenkins-epo=jenkins_epo.script:entrypoint'],
         'jenkins_epo.bot.extensions': [
+            'security = jenkins_epo.extensions.core:SecurityExtension',
             'error = jenkins_epo.extensions.core:ErrorExtension',
             'help = jenkins_epo.extensions.core:HelpExtension',
             'autocancel = jenkins_epo.extensions.core:AutoCancelExtension',
