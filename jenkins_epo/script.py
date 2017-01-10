@@ -89,12 +89,16 @@ def entrypoint(argv=None):
         },
     }
 
+    adebug = os.environ.get("PYTHONASYNCIODEBUG") == '1'
+    if adebug:
+        logging_config['loggers']['asyncio']['level'] = 'DEBUG'
+        logging_config['handlers']['stderr']['formatter'] = 'debug'
+
     names = {p + k for p in ['', 'GHP_', 'EPO_'] for k in ['VERBOSE', 'DEBUG']}
-    debug = [os.environ.get(n) for n in names]
+    debug = [os.environ.get(n) for n in names] + [adebug]
     debug = bool([v for v in debug if v not in ('0', '', None)])
 
     if debug:
-        logging_config['loggers']['asyncio']['level'] = 'DEBUG'
         logging_config['loggers']['jenkins_epo']['level'] = 'DEBUG'
         logging_config['handlers']['stderr']['formatter'] = 'debug'
 
