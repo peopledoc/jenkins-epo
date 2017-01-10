@@ -26,12 +26,12 @@ logger = logging.getLogger(__name__)
 class AsyncLogRecord(logging.LogRecord):
     def __init__(self, *a, **kw):
         super(AsyncLogRecord, self).__init__(*a, **kw)
-        task = asyncio.Task.current_task()
-        if task:
-            id_ = '%x' % id(task)
-            self.task = id_[-4:]
-        else:
-            self.task = 'main'
+        self.task = 'main'
+        if asyncio.get_event_loop_policy()._local._loop:
+            task = asyncio.Task.current_task()
+            if task:
+                id_ = '%x' % id(task)
+                self.task = id_[-4:]
 
 
 logging.setLogRecordFactory(AsyncLogRecord)
@@ -79,9 +79,14 @@ def entrypoint(argv=None):
             'level': 'WARNING',
             'handlers': ['stderr'],
         },
-        'loggers': {'jenkins_epo': {
-            'level': 'INFO',
-        }},
+        'loggers': {
+            'jenkins_epo': {
+                'level': 'INFO',
+            },
+            'asyncio': {
+                'level': 'INFO',
+            },
+        },
     }
 
     names = {p + k for p in ['', 'GHP_', 'EPO_'] for k in ['VERBOSE', 'DEBUG']}
@@ -89,6 +94,7 @@ def entrypoint(argv=None):
     debug = bool([v for v in debug if v not in ('0', '', None)])
 
     if debug:
+        logging_config['loggers']['asyncio']['level'] = 'DEBUG'
         logging_config['loggers']['jenkins_epo']['level'] = 'DEBUG'
         logging_config['handlers']['stderr']['formatter'] = 'debug'
 

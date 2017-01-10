@@ -148,6 +148,7 @@ def main(argv=None):
     if asyncio.iscoroutinefunction(command_func):
         def run_async():
             loop = asyncio.get_event_loop()
+            loop.set_debug(bool(SETTINGS.DEBUG))
             task = loop.create_task(command_func())
             try:
                 loop.run_until_complete(task)
