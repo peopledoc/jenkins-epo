@@ -51,6 +51,8 @@ def loop(wrapped):
 
 @asyncio.coroutine
 def process_head(head):
+    task = asyncio.Task.current_task()
+    task.epo_head = head
     bot = Bot()
     try:
         head.repository.load_settings()
