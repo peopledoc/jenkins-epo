@@ -38,11 +38,11 @@ def test_comment_deny():
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.REVIEWERS = []
+    ext.current.SETTINGS.COLLABORATORS = []
     ext.current.last_commit.date = datetime.now()
     ext.current.opm = {}
     ext.current.opm_denied = [Instruction(
-        author='nonreviewer', name='opm',
+        author='noncollaborator', name='opm',
         date=ext.current.last_commit.date + timedelta(hours=1),
     )]
 
@@ -51,19 +51,19 @@ def test_comment_deny():
     assert ext.current.head.comment.mock_calls
 
 
-def test_deny_non_reviewer():
+def test_deny_non_collaborator():
     from jenkins_epo.bot import Instruction
     from jenkins_epo.extensions.core import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.REVIEWERS = []
+    ext.current.SETTINGS.COLLABORATORS = []
     ext.current.last_commit.date = datetime.now()
     ext.current.opm = {}
     ext.current.opm_denied = []
 
     ext.process_instruction(Instruction(
-        author='nonreviewer', name='opm',
+        author='noncollaborator', name='opm',
         date=ext.current.last_commit.date + timedelta(hours=1),
     ))
 
@@ -77,30 +77,30 @@ def test_deny_outdated_opm():
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.REVIEWERS = ['reviewer']
+    ext.current.SETTINGS.COLLABORATORS = ['collaborator']
     ext.current.last_commit.date = datetime.now()
     ext.current.opm = {}
     ext.current.opm_denied = []
 
     ext.process_instruction(Instruction(
-        author='reviewer', name='opm',
+        author='collaborator', name='opm',
         date=ext.current.last_commit.date - timedelta(hours=1),
     ))
 
     assert not ext.current.opm
 
 
-def test_deny_non_reviewer_processed():
+def test_deny_non_collaborator_processed():
     from jenkins_epo.bot import Instruction
     from jenkins_epo.extensions.core import MergerExtension
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.REVIEWERS = []
+    ext.current.SETTINGS.COLLABORATORS = []
     ext.current.last_commit.date = datetime.now()
     ext.current.opm = None
     ext.current.opm_denied = [Instruction(
-        author='nonreviewer', name='opm',
+        author='noncollaborator', name='opm',
     )]
 
     ext.process_instruction(Instruction(
@@ -118,17 +118,17 @@ def test_accept_lgtm():
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.REVIEWERS = ['reviewer']
+    ext.current.SETTINGS.COLLABORATORS = ['collaborator']
     ext.current.last_commit.date = commit_date = datetime.now()
     ext.current.opm = None
     ext.current.opm_denied = []
 
     ext.process_instruction(Instruction(
-        author='reviewer', name='opm',
+        author='collaborator', name='opm',
         date=commit_date + timedelta(hours=1),
     ))
 
-    assert 'reviewer' == ext.current.opm.author
+    assert 'collaborator' == ext.current.opm.author
     assert not ext.current.opm_denied
 
 
@@ -139,9 +139,9 @@ def test_merge_wip():
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.REVIEWERS = ['reviewer']
+    ext.current.SETTINGS.COLLABORATORS = ['collaborator']
     ext.current.last_commit.date = datetime.now()
-    ext.current.opm.author = 'reviewer'
+    ext.current.opm.author = 'collaborator'
     ext.current.opm.date = datetime.now()
     ext.current.opm_denied = []
     ext.current.opm_processed = None
@@ -151,7 +151,7 @@ def test_merge_wip():
 
     assert ext.current.head.comment.mock_calls
     body = ext.current.head.comment.call_args[1]['body']
-    assert '@reviewer' in body
+    assert '@collaborator' in body
     assert not ext.current.head.merge.mock_calls
 
 
@@ -162,9 +162,9 @@ def test_merge_wip_skip_outdated():
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.REVIEWERS = ['reviewer']
+    ext.current.SETTINGS.COLLABORATORS = ['collaborator']
     ext.current.last_commit.date = datetime.now()
-    ext.current.opm.author = 'reviewer'
+    ext.current.opm.author = 'collaborator'
     ext.current.opm.date = datetime.now()
     ext.current.opm_denied = []
     ext.current.wip = True
@@ -204,9 +204,9 @@ def test_merge_fail():
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.REVIEWERS = ['reviewer']
+    ext.current.SETTINGS.COLLABORATORS = ['collaborator']
     ext.current.last_commit.date = datetime.now()
-    ext.current.opm.author = 'reviewer'
+    ext.current.opm.author = 'collaborator'
     ext.current.opm_denied = []
     ext.current.wip = None
 
@@ -221,7 +221,7 @@ def test_merge_fail():
 
     assert ext.current.head.comment.mock_calls
     body = ext.current.head.comment.call_args[1]['body']
-    assert '@reviewer' in body
+    assert '@collaborator' in body
 
 
 @pytest.mark.asyncio
@@ -232,7 +232,7 @@ def test_merge_already_failed():
 
     ext = MergerExtension('merger', Mock())
     ext.current = Mock()
-    ext.current.SETTINGS.REVIEWERS = ['reviewer']
+    ext.current.SETTINGS.COLLABORATORS = ['collaborator']
     ext.current.last_commit.date = datetime.now()
     ext.current.opm_denied = []
     ext.current.wip = None
@@ -241,7 +241,7 @@ def test_merge_already_failed():
     date_failed = ext.current.last_commit.date + timedelta(hours=1)
 
     ext.process_instruction(Instruction(
-        author='reviewer', name='opm', date=date_opm
+        author='collaborator', name='opm', date=date_opm
     ))
     ext.process_instruction(Instruction(
         author='bot', name='last-merge-error', args='error', date=date_failed

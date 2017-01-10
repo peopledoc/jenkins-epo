@@ -192,8 +192,8 @@ class Repository(object):
         except ApiNotFoundError:
             jenkins_yml = '{}'
 
-        if 'reviewers' in jenkins_yml:
-            logger.debug("Reviewers defined manually.")
+        if 'collaborators' in jenkins_yml or 'reviewers' in jenkins_yml:
+            logger.debug("Collaborators defined manually.")
             collaborators = []
         else:
             collaborators = cached_request(GITHUB.repos(self).collaborators)
@@ -203,7 +203,7 @@ class Repository(object):
             jenkins_yml=jenkins_yml,
         )
 
-    def process_reviewers(self, collaborators):
+    def process_collaborators(self, collaborators):
         return [c['login'] for c in collaborators or [] if (
             c['site_admin'] or
             c['permissions']['admin'] or
@@ -212,13 +212,15 @@ class Repository(object):
 
     def process_settings(self, collaborators=None, jenkins_yml=None):  # noqa
         default_settings = dict(
-            REVIEWERS=self.process_reviewers(collaborators),
+            COLLABORATORS=self.process_collaborators(collaborators),
         )
 
         jenkins_yml = yaml.load(jenkins_yml or '{}')
         assert hasattr(jenkins_yml, 'items'), "Not yml dict/hash"
         settings = jenkins_yml.get('settings', {})
         assert hasattr(settings, 'items'), "Not yml dict/hash"
+        if 'collaborators' not in settings and 'reviewers' in settings:
+            settings['collaborators'] = settings['reviewers']
         local_settings = {
             k.upper(): v
             for k, v in settings.items()

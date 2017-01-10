@@ -187,7 +187,7 @@ def test_security():
     ext = SecurityExtension('security', Mock())
     ext.current = Mock()
     ext.current.head.author = 'bar'
-    ext.current.SETTINGS.REVIEWERS = ['foo']
+    ext.current.SETTINGS.COLLABORATORS = ['foo']
 
     with pytest.raises(SkipHead):
         ext.begin()

@@ -224,7 +224,7 @@ jenkins: {last-merge-error: %(message)r}
         if opm.date < self.current.last_commit.date:
             return logger.debug("Skip outdated OPM.")
 
-        if opm.author in self.current.SETTINGS.REVIEWERS:
+        if opm.author in self.current.SETTINGS.COLLABORATORS:
             logger.info("Accept @%s as reviewer.", opm.author)
             self.current.opm = opm
         else:
@@ -373,7 +373,7 @@ class SecurityExtension(Extension):
             # In case the extension is running on a branch
             return
 
-        collaborators = self.current.SETTINGS.REVIEWERS
+        collaborators = self.current.SETTINGS.COLLABORATORS
         secure = False
         for collaborator in collaborators:
             if collaborator == author:
