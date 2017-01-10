@@ -83,7 +83,8 @@ def bot():
         for head in procedures.iter_heads()
     ]
 
-    yield from asyncio.gather(*tasks)
+    res = yield from asyncio.gather(*tasks, return_exceptions=True)
+    failures = [r for r in res if isinstance(r, Exception)]
 
     CACHE.purge()
     CACHE.save()
@@ -91,6 +92,12 @@ def bot():
         "GitHub poll done. %s remaining API calls.",
         GITHUB.x_ratelimit_remaining,
     )
+
+    if failures:
+        for f in failures:
+            logger.error("Failure while processing head: %r", f)
+        if not SETTINGS.LOOP:
+            raise Exception("Some heads failed to process.")
 
 
 def list_extensions():

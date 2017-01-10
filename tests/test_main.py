@@ -38,7 +38,7 @@ def test_bot_run_raises(mocker):
     bot_instance = Bot.return_value
     bot_instance.run.side_effect = ValueError('POUET')
 
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         yield from bot()
 
 
