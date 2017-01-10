@@ -15,6 +15,7 @@
 import argparse
 import asyncio
 import bdb
+from concurrent.futures import CancelledError
 import functools
 import inspect
 import logging
@@ -38,7 +39,7 @@ def loop(wrapped):
             while True:
                 res = wrapped(*args, **kwargs)
                 if asyncio.iscoroutine(res):
-                    yield from asyncio.wait_for(res, timeout=300)
+                    yield from res
 
                 logger.info("Looping in %s seconds", SETTINGS.LOOP)
                 yield from asyncio.sleep(SETTINGS.LOOP)
@@ -60,6 +61,8 @@ def process_head(head):
     logger.info("Working on %s.", head)
     try:
         yield from bot.run(head)
+    except CancelledError:
+        logger.warn("Cancelled processing %s:", head)
     except Exception:
         if SETTINGS.LOOP:
             logger.exception("Failed to process %s:", head)
@@ -145,6 +148,7 @@ def main(argv=None):
     if asyncio.iscoroutinefunction(command_func):
         def run_async():
             loop = asyncio.get_event_loop()
+            loop.set_debug(bool(SETTINGS.DEBUG))
             task = loop.create_task(command_func())
             try:
                 loop.run_until_complete(task)
