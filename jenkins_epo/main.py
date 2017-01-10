@@ -15,6 +15,7 @@
 import argparse
 import asyncio
 import bdb
+from concurrent.futures import CancelledError
 import functools
 import inspect
 import logging
@@ -60,6 +61,8 @@ def process_head(head):
     logger.info("Working on %s.", head)
     try:
         yield from bot.run(head)
+    except CancelledError:
+        logger.warn("Cancelled processing %s:", head)
     except Exception:
         if SETTINGS.LOOP:
             logger.exception("Failed to process %s:", head)
