@@ -39,7 +39,7 @@ def loop(wrapped):
             while True:
                 res = wrapped(*args, **kwargs)
                 if asyncio.iscoroutine(res):
-                    yield from asyncio.wait_for(res, timeout=300)
+                    yield from res
 
                 logger.info("Looping in %s seconds", SETTINGS.LOOP)
                 yield from asyncio.sleep(SETTINGS.LOOP)
