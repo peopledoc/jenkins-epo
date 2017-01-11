@@ -101,6 +101,7 @@ def _cached_request_middleware(query, **kw):
 def cached_request(query, **kw):
     generator = _cached_request_middleware(query, **kw)
     headers = next(generator)
+    kw = dict(per_page=b'100', **kw)
     try:
         response = query.get(headers=headers, **kw)
     except Exception as e:
@@ -119,6 +120,7 @@ def cached_request(query, **kw):
 def cached_arequest(query, **kw):
     generator = _cached_request_middleware(query, **kw)
     headers = next(generator)
+    kw = dict(per_page=b'100', **kw)
     try:
         response = yield from query.aget(headers=headers, **kw)
     except Exception as e:
