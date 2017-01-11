@@ -1,0 +1,5 @@
+#!/bin/bash -eux
+
+git tag $1
+tox -e pysrc-upload,py35-upload
+git push --tags
