@@ -18,6 +18,7 @@
 
 import os
 from setuptools import find_packages, setup
+import subprocess
 import sys
 
 setup_kwargs = dict()
@@ -30,9 +31,14 @@ if 'install' not in sys.argv or 0 != os.getuid():
         ],
     ))
 
+VERSION = (
+    subprocess.check_output(["git", "describe", "--tags"])
+    .strip().decode()
+)
+
 setup(
     name='jenkins-epo',
-    version='1.89',
+    version=VERSION,
     entry_points={
         'console_scripts': ['jenkins-epo=jenkins_epo.script:entrypoint'],
         'jenkins_epo.bot.extensions': [
