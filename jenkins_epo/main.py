@@ -26,6 +26,7 @@ from .bot import Bot
 from .cache import CACHE
 from .github import GITHUB
 from .settings import SETTINGS
+from .utils import grouper
 from . import procedures
 
 
@@ -78,13 +79,16 @@ def bot():
     """Poll GitHub to find something to do"""
     yield from procedures.whoami()
     loop = asyncio.get_event_loop()
-    tasks = [
-        loop.create_task(process_head(head))
-        for head in procedures.iter_heads()
-    ]
 
-    res = yield from asyncio.gather(*tasks, return_exceptions=True)
-    failures = [r for r in res if isinstance(r, Exception)]
+    failures = []
+    for chunk in grouper(procedures.iter_heads(), 4):
+        tasks = [
+            loop.create_task(process_head(head))
+            for head in chunk if head
+        ]
+
+        res = yield from asyncio.gather(*tasks, return_exceptions=True)
+        failures.extend([r for r in res if isinstance(r, Exception)])
 
     CACHE.purge()
     CACHE.save()
