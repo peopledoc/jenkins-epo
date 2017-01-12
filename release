@@ -1,0 +1,5 @@
+#!/bin/bash -eux
+
+git tag $1
+python3.5 setup.py sdist bdist_wheel upload -r pypi
+git push --tags
