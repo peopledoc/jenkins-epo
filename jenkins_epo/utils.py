@@ -54,6 +54,7 @@ def filter_exception_for_retry(exception):
         return False
 
     if isinstance(exception.__cause__, aiohttp.errors.ServerDisconnectedError):
+        logger.debug("Retrying on server disconnect.")
         return True
 
     if not isinstance(exception, (IOError, HTTPException, HTTPError)):
