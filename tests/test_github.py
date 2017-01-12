@@ -35,7 +35,7 @@ def test_aget(mocker):
     from jenkins_epo.github import CustomGitHub
 
     aiohttp = mocker.patch('jenkins_epo.github.aiohttp')
-    session = aiohttp.ClientSession.return_value.__enter__.return_value
+    session = aiohttp.ClientSession.return_value
     response = Mock(spec=['headers', 'json'])
     session.get = CoroutineMock(return_value=response)
     response.headers = {}
