@@ -71,6 +71,7 @@ def process_head(head):
             logger.exception("Failed to process %s:", head)
         else:
             raise
+    logger.info("%s processed.", head)
 
 
 @loop
