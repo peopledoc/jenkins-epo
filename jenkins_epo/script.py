@@ -59,10 +59,13 @@ def entrypoint(argv=None):
     logging_config = {
         'version': 1,
         'formatters': {
-            'debug': {
-                'format': (
-                    '=%(task)s= [%(name)-32s %(levelname)8s] %(message)s'),
-            },
+            'adebug': {'format': (
+                '%(asctime)s =%(task)s= '
+                '[%(name)-32s %(levelname)8s] %(message)s'
+            )},
+            'debug': {'format': (
+                '=%(task)s= [%(name)-32s %(levelname)8s] %(message)s'
+            )},
             'info': {
                 'format': '=%(task)s= [%(levelname)-8s] %(message)s',
             },
@@ -90,17 +93,18 @@ def entrypoint(argv=None):
     }
 
     adebug = os.environ.get("PYTHONASYNCIODEBUG") == '1'
-    if adebug:
-        logging_config['loggers']['asyncio']['level'] = 'DEBUG'
-        logging_config['handlers']['stderr']['formatter'] = 'debug'
 
     names = {p + k for p in ['', 'GHP_', 'EPO_'] for k in ['VERBOSE', 'DEBUG']}
-    debug = [os.environ.get(n) for n in names] + [adebug]
+    debug = [os.environ.get(n) for n in names]
     debug = bool([v for v in debug if v not in ('0', '', None)])
 
-    if debug:
+    if debug or adebug:
         logging_config['loggers']['jenkins_epo']['level'] = 'DEBUG'
         logging_config['handlers']['stderr']['formatter'] = 'debug'
+
+    if adebug:
+        logging_config['loggers']['asyncio']['level'] = 'DEBUG'
+        logging_config['handlers']['stderr']['formatter'] = 'adebug'
 
     if os.environ.get('SYSTEMD'):
         logging_config['handlers']['stderr']['formatter'] = 'systemd'
