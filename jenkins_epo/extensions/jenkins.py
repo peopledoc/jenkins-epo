@@ -113,7 +113,8 @@ class AutoCancelExtension(JenkinsExtension):
         maxage = timedelta(hours=4)
         current_sha = self.current.last_commit.sha
         for name, job in self.current.jobs.items():
-            if not job.is_running():
+            is_running = yield from job.is_running_async()
+            if not is_running:
                 continue
 
             for id_ in job.get_build_ids():

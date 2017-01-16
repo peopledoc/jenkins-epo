@@ -1,4 +1,49 @@
-from unittest.mock import Mock, patch
+import asyncio
+from asynctest import patch, CoroutineMock, Mock
+
+import pytest
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_rest_client(mocker):
+    ClientSession = mocker.patch('jenkins_epo.jenkins.aiohttp.ClientSession')
+    from jenkins_epo.jenkins import RESTClient
+
+    client = RESTClient()
+    client = client('http://jenkins/path').subpath
+
+    session = ClientSession.return_value
+
+    response = Mock()
+    session.get = CoroutineMock(return_value=response)
+    response.json = CoroutineMock(return_value=dict(unittest=True))
+
+    payload = yield from client.aget()
+
+    assert payload['unittest']
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_job_is_running(mocker):
+    RESTClient = mocker.patch('jenkins_epo.jenkins.RESTClient')
+    from jenkins_epo.jenkins import Job
+
+    api_instance = Mock(_data=dict())
+    xml = api_instance._get_config_element_tree.return_value
+    xml.findall.return_value = []
+    xml.find.return_value = None
+    job = Job(api_instance)
+
+    client = RESTClient.return_value
+    client.aget = CoroutineMock(side_effect=[
+        dict(lastBuild=dict(url='jenkins://job/2')),
+        dict(building=True),
+    ])
+    running = yield from job.is_running_async()
+
+    assert running is True
 
 
 def test_freestyle_build(SETTINGS):

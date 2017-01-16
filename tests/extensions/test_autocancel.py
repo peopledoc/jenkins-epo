@@ -2,6 +2,7 @@ import asyncio
 from unittest.mock import Mock
 from time import time
 
+from asynctest import CoroutineMock
 import pytest
 
 
@@ -15,11 +16,11 @@ def test_jenkins_skip_job_not_running():
     ext.current.cancel_queue = []
     ext.current.jobs = {}
     ext.current.jobs['job'] = job = Mock()
-    job.is_running.return_value = False
+    job.is_running_async = CoroutineMock(return_value=False)
 
     yield from ext.run()
 
-    assert job.is_running.mock_calls
+    assert job.is_running_async.mock_calls
     assert 0 == len(ext.current.cancel_queue)
 
 
@@ -34,14 +35,14 @@ def test_jenkins_skip_outdated():
     ext.current.jobs = {}
 
     ext.current.jobs['job'] = job = Mock()
-    job.is_running.return_value = True
+    job.is_running_async = CoroutineMock(return_value=True)
     job.get_build_ids.return_value = [1]
     build = job.get_build.return_value
     build._data = {'timestamp': (time() - 7 * 3600) * 1000}
 
     yield from ext.run()
 
-    assert job.is_running.mock_calls
+    assert job.is_running_async.mock_calls
     assert not build.is_running.mock_calls
     assert 0 == len(ext.current.cancel_queue)
 
@@ -57,7 +58,7 @@ def test_jenkins_wrong_timezone():
     ext.current.jobs = {}
 
     ext.current.jobs['job'] = job = Mock()
-    job.is_running.return_value = True
+    job.is_running_async = CoroutineMock(return_value=True)
     job.get_build_ids.return_value = [1]
     build = job.get_build.return_value
     build._data = {'timestamp': (time() + 2 * 3600) * 1000}
@@ -65,7 +66,7 @@ def test_jenkins_wrong_timezone():
 
     yield from ext.run()
 
-    assert job.is_running.mock_calls
+    assert job.is_running_async.mock_calls
     assert build.is_running.mock_calls
     assert 0 == len(ext.current.cancel_queue)
 
@@ -80,7 +81,7 @@ def test_jenkins_skip_build_not_running():
     ext.current.cancel_queue = []
     ext.current.jobs = {}
     ext.current.jobs['job'] = job = Mock()
-    job.is_running.return_value = True
+    job.is_running_async = CoroutineMock(return_value=True)
     job.get_build_ids.return_value = [1]
     build = job.get_build.return_value
     build._data = {'timestamp': (time() - 7 * 3600) * 1000}
@@ -88,7 +89,7 @@ def test_jenkins_skip_build_not_running():
 
     yield from ext.run()
 
-    assert job.is_running.mock_calls
+    assert job.is_running_async.mock_calls
     assert 0 == len(ext.current.cancel_queue)
 
 
@@ -105,7 +106,7 @@ def test_jenkins_skip_other_branch():
     ext.current.head.ref = 'branch'
 
     ext.current.jobs['job'] = job = Mock()
-    job.is_running.return_value = True
+    job.is_running_async = CoroutineMock(return_value=True)
     job.get_build_ids.return_value = [1]
     build = job.get_build.return_value
     build.is_running.return_value = True
@@ -114,7 +115,7 @@ def test_jenkins_skip_other_branch():
 
     yield from ext.run()
 
-    assert job.is_running.mock_calls
+    assert job.is_running_async.mock_calls
     assert build.is_running.mock_calls
     assert build.get_revision_branch.mock_calls
     assert 0 == len(ext.current.cancel_queue)
@@ -133,7 +134,7 @@ def test_jenkins_skip_missing_revision():
     ext.current.head.ref = 'branch'
 
     ext.current.jobs['job'] = job = Mock()
-    job.is_running.return_value = True
+    job.is_running_async = CoroutineMock(return_value=True)
     job.get_build_ids.return_value = [1]
     build = job.get_build.return_value
     build.is_running.return_value = True
@@ -142,7 +143,7 @@ def test_jenkins_skip_missing_revision():
 
     yield from ext.run()
 
-    assert job.is_running.mock_calls
+    assert job.is_running_async.mock_calls
     assert build.is_running.mock_calls
     assert build.get_revision_branch.mock_calls
     assert 0 == len(ext.current.cancel_queue)
@@ -161,7 +162,7 @@ def test_jenkins_skip_current_sha():
     ext.current.head.ref = 'branch'
     ext.current.last_commit.sha = 'bab1'
     ext.current.jobs['job'] = job = Mock()
-    job.is_running.return_value = True
+    job.is_running_async = CoroutineMock(return_value=True)
     job.get_build_ids.return_value = [1]
     build = job.get_build.return_value
     build.is_running.return_value = True
@@ -171,7 +172,7 @@ def test_jenkins_skip_current_sha():
 
     yield from ext.run()
 
-    assert job.is_running.mock_calls
+    assert job.is_running_async.mock_calls
     assert 0 == len(ext.current.cancel_queue)
 
 
@@ -188,7 +189,7 @@ def test_jenkins_cancel():
     ext.current.head.ref = 'branch'
     ext.current.last_commit.sha = 'bab1'
     ext.current.jobs['job'] = job = Mock()
-    job.is_running.return_value = True
+    job.is_running_async = CoroutineMock(return_value=True)
     job.get_build_ids.return_value = [1]
     build = job.get_build.return_value
     build.is_running.return_value = True
@@ -201,5 +202,5 @@ def test_jenkins_cancel():
 
     yield from ext.run()
 
-    assert job.is_running.mock_calls
+    assert job.is_running_async.mock_calls
     assert 1 == len(ext.current.cancel_queue)
