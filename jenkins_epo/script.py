@@ -29,9 +29,7 @@ class AsyncLogRecord(logging.LogRecord):
         self.task = 'main'
         if asyncio.get_event_loop_policy()._local._loop:
             task = asyncio.Task.current_task()
-            if task:
-                id_ = '%x' % id(task)
-                self.task = id_[-4:]
+            self.task = getattr(task, 'logging_id', 'unknown')
 
 
 logging.setLogRecordFactory(AsyncLogRecord)
