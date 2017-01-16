@@ -49,7 +49,7 @@ DEFAULTS = {
     'ALWAYS_QUEUE': False,
     'CACHE_PATH': '.epo-cache',
     'CACHE_LIFE': 30,
-    'CONCURRENCY': 2,
+    'CONCURRENCY': 4,
     # Drop into Pdb on unhandled exception
     'DEBUG': False,
     # Do not trigger jobs nor touch GitHub statuses.
