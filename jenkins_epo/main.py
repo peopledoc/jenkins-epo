@@ -121,7 +121,7 @@ def command_exitcode(command_func):
     except bdb.BdbQuit:
         logger.debug('Graceful exit from debugger')
         return 0
-    except Exception:
+    except (Exception, KeyboardInterrupt):
         logger.exception('Unhandled error')
 
         if not SETTINGS.DEBUG:
