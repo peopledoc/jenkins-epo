@@ -59,19 +59,15 @@ def process_head(head):
         head.repository.load_settings()
     except Exception:
         logger.exception("Failed to load %s settings.", head.repository)
-        return
+        raise
 
     logger.info("Working on %s.", head)
     try:
         yield from bot.run(head)
     except CancelledError:
         logger.warn("Cancelled processing %s:", head)
-    except Exception:
-        if SETTINGS.LOOP:
-            logger.exception("Failed to process %s:", head)
-        else:
-            raise
-    logger.info("%s processed.", head)
+    else:
+        logger.info("%s processed.", head)
 
 
 @loop
@@ -82,7 +78,7 @@ def bot():
     loop = asyncio.get_event_loop()
 
     failures = []
-    for chunk in grouper(procedures.iter_heads(), 4):
+    for chunk in grouper(procedures.iter_heads(), SETTINGS.CONCURRENCY):
         tasks = [
             loop.create_task(process_head(head))
             for head in chunk if head
