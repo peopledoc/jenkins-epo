@@ -61,13 +61,11 @@ def test_jenkins_wrong_timezone():
     job.is_running_async = CoroutineMock(return_value=True)
     job.get_build_ids.return_value = [1]
     build = job.get_build.return_value
-    build._data = {'timestamp': (time() + 2 * 3600) * 1000}
-    build.is_running.return_value = False
+    build._data = {'timestamp': (time() + 2 * 3600) * 1000, 'building': False}
 
     yield from ext.run()
 
     assert job.is_running_async.mock_calls
-    assert build.is_running.mock_calls
     assert 0 == len(ext.current.cancel_queue)
 
 
@@ -84,8 +82,7 @@ def test_jenkins_skip_build_not_running():
     job.is_running_async = CoroutineMock(return_value=True)
     job.get_build_ids.return_value = [1]
     build = job.get_build.return_value
-    build._data = {'timestamp': (time() - 7 * 3600) * 1000}
-    build.is_running.return_value = False
+    build._data = {'timestamp': (time() - 7 * 3600) * 1000, 'building': False}
 
     yield from ext.run()
 
@@ -109,14 +106,12 @@ def test_jenkins_skip_other_branch():
     job.is_running_async = CoroutineMock(return_value=True)
     job.get_build_ids.return_value = [1]
     build = job.get_build.return_value
-    build.is_running.return_value = True
-    build._data = {'timestamp': time() * 1000}
+    build._data = {'timestamp': time() * 1000, 'building': True}
     build.get_revision_branch.return_value = [{'name': 'origin/other'}]
 
     yield from ext.run()
 
     assert job.is_running_async.mock_calls
-    assert build.is_running.mock_calls
     assert build.get_revision_branch.mock_calls
     assert 0 == len(ext.current.cancel_queue)
 
@@ -137,14 +132,12 @@ def test_jenkins_skip_missing_revision():
     job.is_running_async = CoroutineMock(return_value=True)
     job.get_build_ids.return_value = [1]
     build = job.get_build.return_value
-    build.is_running.return_value = True
-    build._data = {'timestamp': time() * 1000}
+    build._data = {'timestamp': time() * 1000, 'building': True}
     build.get_revision_branch.side_effect = IndexError(0)
 
     yield from ext.run()
 
     assert job.is_running_async.mock_calls
-    assert build.is_running.mock_calls
     assert build.get_revision_branch.mock_calls
     assert 0 == len(ext.current.cancel_queue)
 
@@ -165,8 +158,7 @@ def test_jenkins_skip_current_sha():
     job.is_running_async = CoroutineMock(return_value=True)
     job.get_build_ids.return_value = [1]
     build = job.get_build.return_value
-    build.is_running.return_value = True
-    build._data = {'timestamp': time() * 1000}
+    build._data = {'timestamp': time() * 1000, 'building': True}
     build.get_revision_branch.return_value = [{'name': 'origin/branch'}]
     build.get_revision.return_value = 'bab1'
 
@@ -192,10 +184,10 @@ def test_jenkins_cancel():
     job.is_running_async = CoroutineMock(return_value=True)
     job.get_build_ids.return_value = [1]
     build = job.get_build.return_value
-    build.is_running.return_value = True
     build._data = {
         'url': 'jenkins://running/1',
         'timestamp': time() * 1000,
+        'building': True,
     }
     build.get_revision_branch.return_value = [{'name': 'origin/branch'}]
     build.get_revision.return_value = '01d'

@@ -132,7 +132,7 @@ class AutoCancelExtension(JenkinsExtension):
                     logger.debug("Stopping build iteration for older builds.")
                     break
 
-                if not build.is_running():
+                if not build._data['building']:
                     continue
 
                 try:
