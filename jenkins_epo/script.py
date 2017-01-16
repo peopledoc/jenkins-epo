@@ -58,7 +58,7 @@ def entrypoint(argv=None):
         'version': 1,
         'formatters': {
             'adebug': {'format': (
-                '%(asctime)s =%(task)s= '
+                '%(asctime)s =%(task)-10s= '
                 '[%(name)-32s %(levelname)8s] %(message)s'
             )},
             'debug': {'format': (
