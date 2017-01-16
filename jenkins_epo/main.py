@@ -19,6 +19,7 @@ from concurrent.futures import CancelledError
 import functools
 import inspect
 import logging
+from random import randint
 import sys
 
 
@@ -54,6 +55,7 @@ def loop(wrapped):
 def process_head(head):
     task = asyncio.Task.current_task()
     task.epo_head = head
+    task.logging_id = 'head-%04x' % randint(0x1, 0xffff)
     bot = Bot()
     try:
         head.repository.load_settings()
@@ -74,6 +76,8 @@ def process_head(head):
 @asyncio.coroutine
 def bot():
     """Poll GitHub to find something to do"""
+    task = asyncio.Task.current_task()
+    task.logging_id = 'bot'
     yield from procedures.whoami()
     loop = asyncio.get_event_loop()
 
