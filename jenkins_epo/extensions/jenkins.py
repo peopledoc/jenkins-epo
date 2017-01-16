@@ -120,6 +120,7 @@ class AutoCancelExtension(JenkinsExtension):
             for id_ in job.get_build_ids():
                 logger.debug("GET build %s #%s.", job, id_)
                 build = job.get_build(id_)
+                build.poll()
 
                 seconds = build._data['timestamp'] / 1000.
                 build_date = datetime.fromtimestamp(seconds)
@@ -185,6 +186,7 @@ class CancellerExtension(JenkinsExtension):
             logger.debug("Query Jenkins %s status for %s.", status, commit)
             try:
                 build = JENKINS.get_build_from_url(status['target_url'])
+                build.poll()
             except Exception as e:
                 logger.debug(
                     "Failed to get pending build status for contexts: %s: %s",

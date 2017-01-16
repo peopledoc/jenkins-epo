@@ -21,6 +21,7 @@ import json
 import re
 
 import aiohttp
+from jenkinsapi.jenkinsbase import JenkinsBase
 from jenkinsapi.build import Build
 from jenkinsapi.jenkins import Jenkins, Requester
 from jenkins_yml import Job as JobSpec
@@ -60,6 +61,10 @@ class VerboseRequester(Requester):
     def get_url(self, url, *a, **kw):
         logger.debug("GET %s", url)
         return super(VerboseRequester, self).get_url(url, *a, **kw)
+
+
+# Monkey patch poll=True to avoid I/O in __init__
+JenkinsBase.__init__.__defaults__ = (False,)
 
 
 class LazyJenkins(object):
@@ -103,7 +108,9 @@ class LazyJenkins(object):
     @retry
     def is_queue_empty(self):
         logging.debug("GET %s queue.", SETTINGS.JENKINS_URL)
-        data = self.get_queue()._data
+        queue = self.get_queue()
+        queue.poll()
+        data = queue._data
         items = [
             i for i in data['items']
             if not i['stuck'] and match(i['task']['name'], self.queue_patterns)
@@ -113,7 +120,9 @@ class LazyJenkins(object):
     @retry
     def get_job(self, name):
         self.load()
-        return Job.factory(self._instance.get_job(name))
+        instance = self._instance.get_job(name)
+        instance.poll()
+        return Job.factory(instance)
 
     DESCRIPTION_TMPL = """\
 %(description)s
