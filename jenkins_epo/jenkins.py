@@ -280,6 +280,10 @@ class Job(object):
         payload = yield from client.aget()
         return payload['building']
 
+    def get_builds(self):
+        for number, url in self.get_build_dict().items():
+            yield Build(url, number, self._instance)
+
 
 class FreestyleJob(Job):
     def list_contexts(self, spec):

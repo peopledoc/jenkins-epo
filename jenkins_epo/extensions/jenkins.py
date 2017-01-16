@@ -117,9 +117,7 @@ class AutoCancelExtension(JenkinsExtension):
             if not is_running:
                 continue
 
-            for id_ in job.get_build_ids():
-                logger.debug("GET build %s #%s.", job, id_)
-                build = job.get_build(id_)
+            for build in job.get_builds():
                 build.poll()
 
                 seconds = build._data['timestamp'] / 1000.
