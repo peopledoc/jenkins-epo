@@ -180,9 +180,13 @@ class CustomGitHub(GitHub):
             for k, v in headers.items()
         }
 
-        with aiohttp.ClientSession() as session:
+        session = aiohttp.ClientSession()
+        try:
             response = yield from session.get(url, headers=headers)
             payload = yield from response.json()
+        finally:
+            logger.debug("Closing HTTP session.")
+            yield from session.close()
         self._process_resp(response.headers)
         post_rate_limit = self.x_ratelimit_remaining
         if pre_rate_limit > 0 and pre_rate_limit < post_rate_limit:

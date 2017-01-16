@@ -26,6 +26,7 @@ from .bot import Bot
 from .cache import CACHE
 from .github import GITHUB
 from .settings import SETTINGS
+from .utils import grouper
 from . import procedures
 
 
@@ -51,23 +52,22 @@ def loop(wrapped):
 
 @asyncio.coroutine
 def process_head(head):
+    task = asyncio.Task.current_task()
+    task.epo_head = head
     bot = Bot()
     try:
         head.repository.load_settings()
     except Exception:
         logger.exception("Failed to load %s settings.", head.repository)
-        return
+        raise
 
     logger.info("Working on %s.", head)
     try:
         yield from bot.run(head)
     except CancelledError:
         logger.warn("Cancelled processing %s:", head)
-    except Exception:
-        if SETTINGS.LOOP:
-            logger.exception("Failed to process %s:", head)
-        else:
-            raise
+    else:
+        logger.info("%s processed.", head)
 
 
 @loop
@@ -76,12 +76,16 @@ def bot():
     """Poll GitHub to find something to do"""
     yield from procedures.whoami()
     loop = asyncio.get_event_loop()
-    tasks = [
-        loop.create_task(process_head(head))
-        for head in procedures.iter_heads()
-    ]
 
-    yield from asyncio.gather(*tasks)
+    failures = []
+    for chunk in grouper(procedures.iter_heads(), SETTINGS.CONCURRENCY):
+        tasks = [
+            loop.create_task(process_head(head))
+            for head in chunk if head
+        ]
+
+        res = yield from asyncio.gather(*tasks, return_exceptions=True)
+        failures.extend([r for r in res if isinstance(r, Exception)])
 
     CACHE.purge()
     CACHE.save()
@@ -89,6 +93,12 @@ def bot():
         "GitHub poll done. %s remaining API calls.",
         GITHUB.x_ratelimit_remaining,
     )
+
+    if failures:
+        for f in failures:
+            logger.error("Failure while processing head: %r", f)
+        if not SETTINGS.LOOP:
+            raise Exception("Some heads failed to process.")
 
 
 def list_extensions():
@@ -148,7 +158,6 @@ def main(argv=None):
     if asyncio.iscoroutinefunction(command_func):
         def run_async():
             loop = asyncio.get_event_loop()
-            loop.set_debug(bool(SETTINGS.DEBUG))
             task = loop.create_task(command_func())
             try:
                 loop.run_until_complete(task)

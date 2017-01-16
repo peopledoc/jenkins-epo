@@ -15,19 +15,18 @@ def test_bot_settings_fail(mocker):
     head.repository.load_settings.side_effect = ValueError()
     procedures.iter_heads.return_value = [head]
 
-    yield from bot()
+    with pytest.raises(Exception):
+        yield from bot()
 
     bot = Bot.return_value
     assert not bot.run.mock_calls
 
 
 @pytest.mark.asyncio
-def test_bot_run_raises(mocker):
+def test_bot_run_raises(mocker, SETTINGS):
     Bot = mocker.patch('jenkins_epo.main.Bot')
     mocker.patch('jenkins_epo.main.CACHE')
     procedures = mocker.patch('jenkins_epo.main.procedures')
-    SETTINGS = mocker.patch('jenkins_epo.main.SETTINGS')
-    SETTINGS.LOOP = 0
 
     from jenkins_epo.main import bot
 
@@ -38,16 +37,15 @@ def test_bot_run_raises(mocker):
     bot_instance = Bot.return_value
     bot_instance.run.side_effect = ValueError('POUET')
 
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         yield from bot()
 
 
 @pytest.mark.asyncio
-def test_bot_run_log_exception(mocker):
+def test_bot_run_log_exception(mocker, SETTINGS):
     Bot = mocker.patch('jenkins_epo.main.Bot')
     mocker.patch('jenkins_epo.main.CACHE')
     procedures = mocker.patch('jenkins_epo.main.procedures')
-    SETTINGS = mocker.patch('jenkins_epo.main.SETTINGS')
     SETTINGS.LOOP = 1
 
     from jenkins_epo.main import bot

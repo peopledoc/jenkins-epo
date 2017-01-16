@@ -18,6 +18,7 @@ import aiohttp.errors
 import collections
 import datetime
 import fnmatch
+from itertools import zip_longest
 import logging
 
 from github import ApiError
@@ -54,6 +55,7 @@ def filter_exception_for_retry(exception):
         return False
 
     if isinstance(exception.__cause__, aiohttp.errors.ServerDisconnectedError):
+        logger.debug("Retrying on server disconnect.")
         return True
 
     if not isinstance(exception, (IOError, HTTPException, HTTPError)):
@@ -130,3 +132,10 @@ def deepupdate(self, other):
         else:
             self[k] = other[k]
     return self
+
+
+def grouper(iterable, n, fillvalue=None):
+    "Collect data into fixed-length chunks or blocks"
+    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return zip_longest(*args, fillvalue=fillvalue)
