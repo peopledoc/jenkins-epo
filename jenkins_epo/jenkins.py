@@ -12,12 +12,16 @@
 # You should have received a copy of the GNU General Public License along with
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
+
+import asyncio
 from datetime import datetime
 from itertools import product
 import logging
 import json
 import re
 
+import aiohttp
+from jenkinsapi.jenkinsbase import JenkinsBase
 from jenkinsapi.build import Build
 from jenkinsapi.jenkins import Jenkins, Requester
 from jenkins_yml import Job as JobSpec
@@ -31,10 +35,36 @@ from .utils import match, parse_patterns, retry
 logger = logging.getLogger(__name__)
 
 
+class RESTClient(object):
+    def __init__(self, path=''):
+        self.path = path
+
+    def __call__(self, arg):
+        return self.__class__(self.path + '/' + str(arg))
+
+    def __getattr__(self, name):
+        return self(name)
+
+    def aget(self):
+        session = aiohttp.ClientSession()
+        url = '%s/api/json' % (self.path)
+        logger.debug("GET %s", url)
+        try:
+            response = yield from session.get(url)
+            payload = yield from response.json()
+        finally:
+            yield from session.close()
+        return payload
+
+
 class VerboseRequester(Requester):
     def get_url(self, url, *a, **kw):
         logger.debug("GET %s", url)
         return super(VerboseRequester, self).get_url(url, *a, **kw)
+
+
+# Monkey patch poll=True to avoid I/O in __init__
+JenkinsBase.__init__.__defaults__ = (False,)
 
 
 class LazyJenkins(object):
@@ -78,7 +108,9 @@ class LazyJenkins(object):
     @retry
     def is_queue_empty(self):
         logging.debug("GET %s queue.", SETTINGS.JENKINS_URL)
-        data = self.get_queue()._data
+        queue = self.get_queue()
+        queue.poll()
+        data = queue._data
         items = [
             i for i in data['items']
             if not i['stuck'] and match(i['task']['name'], self.queue_patterns)
@@ -88,7 +120,9 @@ class LazyJenkins(object):
     @retry
     def get_job(self, name):
         self.load()
-        return Job.factory(self._instance.get_job(name))
+        instance = self._instance.get_job(name)
+        instance.poll()
+        return Job.factory(instance)
 
     DESCRIPTION_TMPL = """\
 %(description)s
@@ -232,6 +266,23 @@ class Job(object):
                 )
                 break
         return self._node_param
+
+    @asyncio.coroutine
+    def update_data_async(self):
+        client = RESTClient(self._instance.baseurl)
+        self._instance._data = yield from client.aget()
+
+    @asyncio.coroutine
+    def is_running_async(self):
+        yield from self.update_data_async()
+        url = self._instance._data['lastBuild']['url']
+        client = RESTClient(url)
+        payload = yield from client.aget()
+        return payload['building']
+
+    def get_builds(self):
+        for number, url in self.get_build_dict().items():
+            yield Build(url, number, self._instance)
 
 
 class FreestyleJob(Job):

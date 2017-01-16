@@ -113,12 +113,12 @@ class AutoCancelExtension(JenkinsExtension):
         maxage = timedelta(hours=4)
         current_sha = self.current.last_commit.sha
         for name, job in self.current.jobs.items():
-            if not job.is_running():
+            is_running = yield from job.is_running_async()
+            if not is_running:
                 continue
 
-            for id_ in job.get_build_ids():
-                logger.debug("GET build %s #%s.", job, id_)
-                build = job.get_build(id_)
+            for build in job.get_builds():
+                build.poll()
 
                 seconds = build._data['timestamp'] / 1000.
                 build_date = datetime.fromtimestamp(seconds)
@@ -131,7 +131,7 @@ class AutoCancelExtension(JenkinsExtension):
                     logger.debug("Stopping build iteration for older builds.")
                     break
 
-                if not build.is_running():
+                if not build._data['building']:
                     continue
 
                 try:
@@ -184,6 +184,7 @@ class CancellerExtension(JenkinsExtension):
             logger.debug("Query Jenkins %s status for %s.", status, commit)
             try:
                 build = JENKINS.get_build_from_url(status['target_url'])
+                build.poll()
             except Exception as e:
                 logger.debug(
                     "Failed to get pending build status for contexts: %s: %s",
