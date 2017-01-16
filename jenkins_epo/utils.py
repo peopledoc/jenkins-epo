@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 def retry(callable_):
     defaults = dict(
         retry=tenacity.retry_if_exception(filter_exception_for_retry),
-        wait=tenacity.wait_exponential(multiplier=500, max=15000),
+        wait=tenacity.wait_exponential(),
     )
     return tenacity.retry(**defaults)(callable_)
 
