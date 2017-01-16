@@ -72,6 +72,7 @@ class LazyJenkins(object):
             self._instance = Jenkins(
                 baseurl=SETTINGS.JENKINS_URL,
                 requester=VerboseRequester(baseurl=SETTINGS.JENKINS_URL),
+                lazy=True,
             )
 
     @retry
