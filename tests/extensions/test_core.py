@@ -1,6 +1,6 @@
 import asyncio
 from unittest.mock import Mock
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -127,10 +127,18 @@ def test_autocancel():
     ext.current = Mock()
     ext.current.cancel_queue = cancel_queue = []
     ext.current.poll_queue = []
-    last_commit = Mock()
-    old_commit = Mock()
+    last_commit = Mock(
+        name='last', date=datetime.utcnow() - timedelta(seconds=30)
+    )
+    ext.current.last_commit = last_commit
+    old_commit = Mock(
+        name='old', date=datetime.utcnow() - timedelta(seconds=300)
+    )
+    outdated_commit = Mock(
+        name='outdated', date=datetime.utcnow() - timedelta(seconds=4000)
+    )
     ext.current.repository.process_commits.return_value = [
-        last_commit, old_commit,
+        last_commit, old_commit, outdated_commit,
     ]
 
     last_commit.fetch_statuses.return_value = []
@@ -167,6 +175,23 @@ def test_autocancel():
     assert (old_commit, old_statuses['running']) in cancel_queue
     assert (last_commit, last_statuses['backed']) not in cancel_queue
     assert (last_commit, last_statuses['running']) not in cancel_queue
+    assert not outdated_commit.fetch_statuses.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_autocancel_outdated():
+    from jenkins_epo.extensions.core import AutoCancelExtension
+
+    ext = AutoCancelExtension('merger', Mock())
+    ext.current = Mock()
+    ext.current.cancel_queue = cancel_queue = []
+    ext.current.poll_queue = []
+    ext.current.last_commit.date = datetime.utcnow() - timedelta(seconds=4000)
+
+    yield from ext.run()
+
+    assert not cancel_queue
 
 
 def test_outdated():

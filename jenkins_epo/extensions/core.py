@@ -38,10 +38,19 @@ class AutoCancelExtension(Extension):
 
     @asyncio.coroutine
     def run(self):
+        now = datetime.datetime.utcnow()
+        max_age = datetime.timedelta(seconds=3600)
+        age = now - self.current.last_commit.date
+        if age > max_age:
+            return
         payload = self.current.head.fetch_previous_commits()
         commits = self.current.repository.process_commits(payload)
         head = True
         for i, commit in enumerate(commits):
+            age = now - commit.date
+            if age > max_age:
+                continue
+
             commit_payload = yield from commit.fetch_statuses()
             statuses = commit.process_statuses(commit_payload)
             for status in statuses.values():
