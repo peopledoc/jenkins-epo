@@ -178,6 +178,22 @@ def test_autocancel():
     assert not outdated_commit.fetch_statuses.mock_calls
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_autocancel_outdated():
+    from jenkins_epo.extensions.core import AutoCancelExtension
+
+    ext = AutoCancelExtension('merger', Mock())
+    ext.current = Mock()
+    ext.current.cancel_queue = cancel_queue = []
+    ext.current.poll_queue = []
+    ext.current.last_commit.date = datetime.utcnow() - timedelta(seconds=4000)
+
+    yield from ext.run()
+
+    assert not cancel_queue
+
+
 def test_outdated():
     from jenkins_epo.extensions.core import OutdatedExtension, SkipHead
 
