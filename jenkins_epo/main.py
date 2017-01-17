@@ -68,11 +68,11 @@ def process_head(head):
         yield from bot.run(head)
     except CancelledError:
         logger.warn("Cancelled processing %s:", head)
-    except Exception:
+    except Exception as e:
         if SETTINGS.DEBUG:
-            logger.exception("Failed to process %s:", head)
-        else:
             logger.error("Failed to process %s", head)
+        else:
+            logger.exception("Failed to process %s: %r", head, e)
         raise
     else:
         logger.info("%s processed.", head)
