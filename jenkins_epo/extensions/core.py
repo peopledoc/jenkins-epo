@@ -40,9 +40,6 @@ class AutoCancelExtension(Extension):
     def run(self):
         now = datetime.datetime.utcnow()
         max_age = datetime.timedelta(seconds=3600)
-        age = now - self.current.last_commit.date
-        if age > max_age:
-            return
         payload = self.current.head.fetch_previous_commits()
         commits = self.current.repository.process_commits(payload)
         head = True
