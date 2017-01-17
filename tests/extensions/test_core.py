@@ -128,7 +128,7 @@ def test_autocancel():
     ext.current.cancel_queue = cancel_queue = []
     ext.current.poll_queue = []
     last_commit = Mock(
-        name='last', date=datetime.utcnow() - timedelta(seconds=30)
+        name='last', date=datetime.utcnow() - timedelta(seconds=50000)
     )
     ext.current.last_commit = last_commit
     old_commit = Mock(

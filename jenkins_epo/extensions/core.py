@@ -45,7 +45,7 @@ class AutoCancelExtension(Extension):
         head = True
         for i, commit in enumerate(commits):
             age = now - commit.date
-            if age > max_age:
+            if i > 0 and age > max_age:
                 continue
 
             commit_payload = yield from commit.fetch_statuses()
