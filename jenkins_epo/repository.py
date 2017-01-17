@@ -265,7 +265,8 @@ class Commit(object):
 
     @property
     def date(self):
-        return parse_datetime(self.payload['author']['date'])
+        payload = self.payload.get('commit', self.payload)
+        return parse_datetime(payload['author']['date'])
 
     def fetch_payload(self):
         logger.debug("Fetching commit %s.", self.sha[:7])

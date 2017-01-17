@@ -71,6 +71,8 @@ def process_head(head):
     except Exception as e:
         if SETTINGS.DEBUG:
             logger.error("Failed to process %s", head)
+            if not SETTINGS.LOOP:
+                raise
         else:
             logger.exception("Failed to process %s: %r", head, e)
         raise
@@ -88,13 +90,16 @@ def bot():
     loop = asyncio.get_event_loop()
 
     failures = []
+    return_exceptions = SETTINGS.LOOP or not SETTINGS.DEBUG
     for chunk in grouper(procedures.iter_heads(), SETTINGS.CONCURRENCY):
         tasks = [
             loop.create_task(process_head(head))
             for head in chunk if head
         ]
 
-        res = yield from asyncio.gather(*tasks, return_exceptions=True)
+        res = yield from asyncio.gather(
+            *tasks, return_exceptions=return_exceptions
+        )
         failures.extend([r for r in res if isinstance(r, Exception)])
 
     CACHE.purge()

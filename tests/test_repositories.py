@@ -455,3 +455,7 @@ def test_commit_date(cached_request):
     commit.fetch_payload()
 
     assert 2016 == commit.date.year
+
+    commit.payload = dict(commit=commit.payload)
+
+    assert 2016 == commit.date.year
