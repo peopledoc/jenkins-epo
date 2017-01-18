@@ -1,6 +1,10 @@
+import asyncio
+from datetime import datetime, timezone
+import time
 from unittest.mock import Mock, patch
 
 from aiohttp.test_utils import make_mocked_coro
+from asynctest import CoroutineMock
 import pytest
 
 
@@ -104,3 +108,48 @@ def test_iter_heads_close_next(list_repositories):
     next(iterator)
     next(iterator)
     iterator.close()
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_throttle_sleep(mocker, SETTINGS):
+    GITHUB = mocker.patch('jenkins_epo.procedures.GITHUB')
+    sleep = mocker.patch(
+        'jenkins_epo.procedures.asyncio.sleep', CoroutineMock(name='sleep'),
+    )
+
+    from jenkins_epo.procedures import throttle_github
+
+    GITHUB.rate_limit.aget = CoroutineMock(return_value=dict(
+        rate=dict(limit=5000, remaining=4000, reset=int(time.time() + 3500))
+    ))
+
+    yield from throttle_github()
+
+    assert sleep.mock_calls
+
+
+def test_throttling_compute(SETTINGS):
+    SETTINGS.RATE_LIMIT_THRESHOLD = 0
+    from jenkins_epo.procedures import compute_throttling
+
+    # Consumed 1/5 calls at 2/3 of the time.
+    seconds = compute_throttling(
+        now=datetime(2017, 1, 18, 14, 40),
+        rate_limit=dict(rate=dict(
+            limit=5000, remaining=4000,
+            reset=datetime(2017, 1, 18, 15, tzinfo=timezone.utc).timestamp(),
+        )),
+    )
+    assert 0 == seconds  # Fine !
+
+    # Consumed 4/5 calls at 1/3 of the time.
+    seconds = compute_throttling(
+        now=datetime(2017, 1, 18, 14, 20),
+        rate_limit=dict(rate=dict(
+            limit=5000, remaining=1000,
+            reset=datetime(2017, 1, 18, 15, tzinfo=timezone.utc).timestamp(),
+        )),
+    )
+
+    assert seconds > 0  # Chill !

@@ -13,12 +13,14 @@
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
+from datetime import datetime, timedelta
 import itertools
 import logging
 
 from .github import GITHUB, cached_arequest
 from .repository import Repository
 from .settings import SETTINGS
+from .utils import retry
 
 
 logger = logging.getLogger(__name__)
@@ -87,8 +89,48 @@ def list_repositories(with_settings=False):
 @asyncio.coroutine
 def whoami():
     user = yield from cached_arequest(GITHUB.user)
-    logger.info(
-        "I'm @%s on GitHub. %s remaining API calls.",
-        user['login'], GITHUB.x_ratelimit_remaining,
-    )
+    logger.info("I'm @%s on GitHub.", user['login'])
     return user['login']
+
+
+def compute_throttling(now, rate_limit):
+    now = now.replace(microsecond=0)
+    # https://developer.github.com/v3/#rate-limiting
+    time_limit = 3600
+    reset = datetime.utcfromtimestamp(rate_limit['rate']['reset'])
+    time_remaining = (reset - now).seconds
+
+    calls_limit = rate_limit['rate']['limit'] - SETTINGS.RATE_LIMIT_THRESHOLD
+    calls_remaining = (
+        rate_limit['rate']['remaining'] - SETTINGS.RATE_LIMIT_THRESHOLD
+    )
+
+    time_consumed = time_limit - time_remaining
+    calls_consumed = calls_limit - calls_remaining
+    countdown = calls_limit / calls_consumed * time_consumed - time_consumed
+    estimated_end = now + timedelta(seconds=int(countdown))
+
+    logger.info(
+        "%d remaining API calls estimated to end by %s UTC.",
+        calls_remaining, estimated_end,
+    )
+    logger.info("GitHub API rate limit reset at %s UTC.", reset)
+
+    if countdown > time_remaining:
+        return 0
+    else:
+        # Split processing time by slot of 30s. Sleep between them.
+        slots_count = countdown / 30
+        estimated_sleep = time_remaining - countdown
+        return estimated_sleep / slots_count
+
+
+@retry
+@asyncio.coroutine
+def throttle_github():
+    now = datetime.utcnow()
+    payload = yield from GITHUB.rate_limit.aget()
+    seconds_to_wait = compute_throttling(now, payload)
+    if seconds_to_wait:
+        logger.warn("Throttling GitHub API calls by %ds.", seconds_to_wait)
+        yield from asyncio.sleep(seconds_to_wait)

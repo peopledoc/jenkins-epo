@@ -92,6 +92,7 @@ def bot():
     failures = []
     return_exceptions = SETTINGS.LOOP or not SETTINGS.DEBUG
     for chunk in grouper(procedures.iter_heads(), SETTINGS.CONCURRENCY):
+        yield from procedures.throttle_github()
         tasks = [
             loop.create_task(process_head(head))
             for head in chunk if head
