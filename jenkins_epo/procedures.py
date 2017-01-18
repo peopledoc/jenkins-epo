@@ -89,10 +89,7 @@ def list_repositories(with_settings=False):
 @asyncio.coroutine
 def whoami():
     user = yield from cached_arequest(GITHUB.user)
-    logger.info(
-        "I'm @%s on GitHub. %s remaining API calls.",
-        user['login'], GITHUB.x_ratelimit_remaining,
-    )
+    logger.info("I'm @%s on GitHub.", user['login'])
     return user['login']
 
 
