@@ -180,6 +180,23 @@ def test_merge_wip_skip_outdated():
 
 @pytest.mark.asyncio
 @asyncio.coroutine
+def test_no_statuses():
+    from jenkins_epo.extensions.core import MergerExtension
+
+    ext = MergerExtension('merger', Mock())
+    ext.current = Mock()
+    ext.current.opm = Mock()
+    ext.current.opm_denied = []
+    ext.current.statuses = {}
+    ext.current.wip = None
+
+    yield from ext.run()
+
+    assert not ext.current.head.comment.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_not_green():
     from jenkins_epo.extensions.core import MergerExtension
 
