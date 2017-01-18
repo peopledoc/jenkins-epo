@@ -1,5 +1,6 @@
 from unittest.mock import Mock, patch
 
+from asynctest import CoroutineMock
 import pytest
 
 
@@ -58,6 +59,20 @@ def test_bot_run_raises(mocker, SETTINGS):
 
     with pytest.raises(Exception):
         yield from bot()
+
+
+@pytest.mark.asyncio
+def test_process_head_log_exception(mocker, SETTINGS):
+    Bot = mocker.patch('jenkins_epo.main.Bot')
+
+    from jenkins_epo.main import process_head
+
+    bot = Bot.return_value
+    bot.run = CoroutineMock(side_effect=ValueError('POUET'))
+
+    yield from process_head(Mock(sha='cafed0d0'))
+
+    assert bot.run.mock_calls
 
 
 @patch('jenkins_epo.main.sys.exit')

@@ -71,13 +71,9 @@ def process_head(head):
     except CancelledError:
         logger.warn("Cancelled processing %s:", head)
     except Exception as e:
+        logger.error("Failed to process %s: %r", head, e)
         if SETTINGS.DEBUG:
-            logger.error("Failed to process %s", head)
-            if not SETTINGS.LOOP:
-                raise
-        else:
-            logger.exception("Failed to process %s: %r", head, e)
-        raise
+            raise
 
     logger.info("Processed %s.", head)
     del task.logging_id
