@@ -29,7 +29,7 @@ class AsyncLogRecord(logging.LogRecord):
         self.task = 'main'
         if asyncio.get_event_loop_policy()._local._loop:
             task = asyncio.Task.current_task()
-            self.task = getattr(task, 'logging_id', 'unknown')
+            self.task = getattr(task, 'logging_id', 'othr')
 
 
 logging.setLogRecordFactory(AsyncLogRecord)
@@ -58,18 +58,18 @@ def entrypoint(argv=None):
         'version': 1,
         'formatters': {
             'adebug': {'format': (
-                '%(asctime)s =%(task)-10s= '
+                '%(asctime)s =%(task)-4s= '
                 '[%(name)-32s %(levelname)8s] %(message)s'
             )},
             'debug': {'format': (
-                '=%(task)s= [%(name)-32s %(levelname)8s] %(message)s'
+                '=%(task)-4s= [%(name)-32s %(levelname)8s] %(message)s'
             )},
             'info': {
-                'format': '=%(task)s= [%(levelname)-8s] %(message)s',
+                'format': '=%(task)-4s= [%(levelname)-8s] %(message)s',
             },
             'systemd': {
                 '()': __name__ + '.' + SystemdFormatter.__name__,
-                'format': '=%(task)s= %(message)s',
+                'format': '=%(task)-4s= %(message)s',
             }
         },
         'handlers': {'stderr': {

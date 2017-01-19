@@ -117,7 +117,26 @@ def test_load_settings_no_yml(cached_request, GITHUB):
 
 @patch('jenkins_epo.repository.GITHUB')
 @patch('jenkins_epo.repository.cached_request')
-def test_load_settings_jenkins_yml(cached_request, GITHUB):
+def test_load_settings_collaborators_denied(cached_request, GITHUB):
+    from jenkins_epo.repository import (
+        Repository, ApiNotFoundError, UnauthorizedRepository,
+    )
+
+    GITHUB.fetch_file_contents.side_effect = [
+        repr(dict(settings=dict(branches=['master']))),
+    ]
+    cached_request.side_effect = ApiNotFoundError('u', Mock(), Mock())
+
+    repo = Repository('owner', 'repo1')
+    with pytest.raises(UnauthorizedRepository):
+        repo.load_settings()
+
+    assert cached_request.mock_calls
+
+
+@patch('jenkins_epo.repository.GITHUB')
+@patch('jenkins_epo.repository.cached_request')
+def test_load_settings_collaborators_override(cached_request, GITHUB):
     from jenkins_epo.repository import Repository
 
     GITHUB.fetch_file_contents.side_effect = [

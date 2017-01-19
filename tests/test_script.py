@@ -6,7 +6,7 @@ def test_logging_sync():
     from jenkins_epo.script import AsyncLogRecord
 
     record = AsyncLogRecord('name', 0, '/pathname', 1, 'message', (), None)
-    assert record.task in {'main', 'unknown'}
+    assert record.task in {'main', 'othr'}
 
 
 @pytest.mark.asyncio
@@ -15,7 +15,7 @@ def test_logging_async_unknown():
     from jenkins_epo.script import AsyncLogRecord
 
     record = AsyncLogRecord('name', 0, '/pathname', 1, 'message', (), None)
-    assert record.task is 'unknown'
+    assert record.task is 'othr'
 
 
 @pytest.mark.asyncio

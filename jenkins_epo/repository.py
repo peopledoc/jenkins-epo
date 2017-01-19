@@ -35,6 +35,10 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
+class UnauthorizedRepository(Exception):
+    pass
+
+
 class CommitStatus(dict):
     def __eq__(self, other):
         if isinstance(other, str):
@@ -196,7 +200,12 @@ class Repository(object):
             logger.debug("Collaborators defined manually.")
             collaborators = []
         else:
-            collaborators = cached_request(GITHUB.repos(self).collaborators)
+            try:
+                collaborators = cached_request(
+                    GITHUB.repos(self).collaborators
+                )
+            except ApiNotFoundError as e:
+                raise UnauthorizedRepository(self) from e
 
         self.process_settings(
             collaborators=collaborators,
@@ -421,7 +430,6 @@ class Branch(Head):
         )
 
     def list_comments(self):
-        logger.debug("Queyring comments for instructions")
         return cached_request(
             GITHUB.repos(self.repository).commits(self.sha).comments
         )
@@ -496,7 +504,6 @@ class PullRequest(Head):
         GITHUB.repos(self.repository).git.refs.heads(self.ref).delete()
 
     def list_comments(self):
-        logger.debug("Queyring comments for instructions")
         issue = GITHUB.repos(self.repository).issues(self.payload['number'])
         return [self.payload] + cached_request(issue.comments)
 
@@ -509,7 +516,7 @@ class PullRequest(Head):
         if GITHUB.dry:
             return logger.info("Would merge %s", body['sha'])
 
-        logger.debug("Trying merge!")
+        logger.warn("Merging %s!", self)
         (
             GITHUB.repos(self.repository).pulls(self.payload['number']).merge
             .put(body=body)

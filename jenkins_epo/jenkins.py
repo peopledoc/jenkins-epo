@@ -98,7 +98,7 @@ class LazyJenkins(object):
     @retry
     def load(self):
         if not self._instance:
-            logger.info("Connecting to Jenkins %s", SETTINGS.JENKINS_URL)
+            logger.debug("Connecting to Jenkins %s", SETTINGS.JENKINS_URL)
             self._instance = Jenkins(
                 baseurl=SETTINGS.JENKINS_URL,
                 requester=VerboseRequester(baseurl=SETTINGS.JENKINS_URL),

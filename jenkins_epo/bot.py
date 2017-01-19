@@ -106,6 +106,7 @@ See `jenkins: help` for documentation.
             self.current.head.repository, sha, payload,
         )
 
+        logger.info("Fetching latest job status on GitHub.")
         payload = yield from self.current.last_commit.fetch_statuses()
         self.current.last_commit.process_statuses(payload)
         self.current.statuses = self.current.last_commit.statuses
@@ -116,6 +117,7 @@ See `jenkins: help` for documentation.
             except SkipHead:
                 return
 
+        logger.info("Queyring comments for instructions.")
         self.process_instructions(self.current.head.list_comments())
 
         repr_ = reprlib.Repr()

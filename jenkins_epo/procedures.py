@@ -30,6 +30,7 @@ def iter_heads():
     queues = []
 
     for repository in list_repositories():
+        logger.info("Fetching %s heads.", repository)
         branches = repository.fetch_protected_branches()
         pulls = repository.fetch_pull_requests()
         heads = reversed(sorted(itertools.chain(
