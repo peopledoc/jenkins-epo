@@ -19,14 +19,16 @@ def test_match():
         '_*',
         '-*skip*',
         '+butthis',
-        'andthis',
+        'notskip',
+        None,
+        '',
     ]
 
     assert match('_my_job', patterns)
     assert not match('other_job', patterns)
     assert not match('_skip', patterns)
     assert match('butthis', patterns)
-    assert match('andthis', patterns)
+    assert match('notskip', patterns)
 
     patterns = [
         '*',
