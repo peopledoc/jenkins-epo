@@ -270,6 +270,9 @@ jenkins: {last-merge-error: %(message)r}
             ))
             return
 
+        if not self.current.statuses:
+            return logger.info("Not jobs reported yet. Postpone merge.")
+
         status = self.current.last_commit.fetch_combined_status()
         if status['state'] != 'success':
             return logger.info("PR not green. Postpone merge.")

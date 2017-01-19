@@ -24,6 +24,16 @@ def test_rest_client(mocker):
     assert payload['unittest']
 
 
+def test_lazy_load(mocker):
+    Jenkins = mocker.patch('jenkins_epo.jenkins.Jenkins')
+    from jenkins_epo.jenkins import JENKINS
+
+    JENKINS.load()
+
+    assert Jenkins.mock_calls
+    assert JENKINS._instance
+
+
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_job_is_running(mocker):

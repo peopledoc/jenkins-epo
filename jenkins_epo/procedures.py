@@ -13,12 +13,14 @@
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
-from datetime import datetime, timedelta
+from concurrent.futures import CancelledError
+from datetime import datetime, timedelta, timezone
 import itertools
 import logging
 
+from .bot import Bot
 from .github import GITHUB, cached_arequest
-from .repository import Repository
+from .repository import Repository, UnauthorizedRepository
 from .settings import SETTINGS
 from .utils import retry
 
@@ -88,6 +90,34 @@ def list_repositories(with_settings=False):
 
 
 @asyncio.coroutine
+def process_head(head):
+    task = asyncio.Task.current_task()
+    task.logging_id = head.sha[:4]
+    bot = Bot()
+    try:
+        head.repository.load_settings()
+    except UnauthorizedRepository:
+        logger.error("Write access denied to %s.", head.repository)
+        raise
+    except Exception:
+        logger.exception("Failed to load %s settings.", head.repository)
+        raise
+
+    logger.info("Working on %s.", head)
+    try:
+        yield from bot.run(head)
+    except CancelledError:
+        logger.warn("Cancelled processing %s:", head)
+    except Exception as e:
+        logger.error("Failed to process %s: %r", head, e)
+        if SETTINGS.DEBUG:
+            raise
+
+    logger.info("Processed %s.", head)
+    del task.logging_id
+
+
+@asyncio.coroutine
 def whoami():
     user = yield from cached_arequest(GITHUB.user)
     logger.info("I'm @%s on GitHub.", user['login'])
@@ -95,27 +125,34 @@ def whoami():
 
 
 def compute_throttling(now, rate_limit):
+    data = rate_limit['rate']
     now = now.replace(microsecond=0)
-    # https://developer.github.com/v3/#rate-limiting
-    time_limit = 3600
-    reset = datetime.utcfromtimestamp(rate_limit['rate']['reset'])
-    time_remaining = (reset - now).seconds
-
-    calls_limit = rate_limit['rate']['limit'] - SETTINGS.RATE_LIMIT_THRESHOLD
-    calls_remaining = (
-        rate_limit['rate']['remaining'] - SETTINGS.RATE_LIMIT_THRESHOLD
+    reset = (
+        datetime
+        .utcfromtimestamp(rate_limit['rate']['reset'])
+        .replace(tzinfo=timezone.utc)
     )
 
+    # https://developer.github.com/v3/#rate-limiting
+    time_limit = 3600
+    time_remaining = (reset - now).seconds
     time_consumed = time_limit - time_remaining
+
+    calls_limit = data['limit'] - SETTINGS.RATE_LIMIT_THRESHOLD
+    calls_remaining = data['remaining'] - SETTINGS.RATE_LIMIT_THRESHOLD
     calls_consumed = calls_limit - calls_remaining
+
     countdown = calls_limit / calls_consumed * time_consumed - time_consumed
     estimated_end = now + timedelta(seconds=int(countdown))
 
     logger.info(
-        "%d remaining API calls estimated to end by %s UTC.",
-        calls_remaining, estimated_end,
+        "%d remaining API calls estimated to end by %s.",
+        calls_remaining, estimated_end.replace(tzinfo=timezone.utc),
     )
-    logger.info("GitHub API rate limit reset at %s UTC.", reset)
+    logger.info(
+        "GitHub API rate limit reset at %s.",
+        reset.replace(tzinfo=timezone.utc)
+    )
 
     if countdown > time_remaining:
         return 0
@@ -123,13 +160,13 @@ def compute_throttling(now, rate_limit):
         # Split processing time by slot of 30s. Sleep between them.
         slots_count = countdown / 30
         estimated_sleep = time_remaining - countdown
-        return estimated_sleep / slots_count
+        return int(estimated_sleep / slots_count)
 
 
 @retry
 @asyncio.coroutine
 def throttle_github():
-    now = datetime.utcnow()
+    now = datetime.utcnow().replace(tzinfo=timezone.utc)
     payload = yield from GITHUB.rate_limit.aget()
     seconds_to_wait = compute_throttling(now, payload)
     if seconds_to_wait:

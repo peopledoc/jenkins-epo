@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from asynctest import patch, CoroutineMock, Mock
 import pytest
 
@@ -113,3 +115,23 @@ def test_cached_arequest_error(CACHE, GITHUB, SETTINGS):
     ))
     with pytest.raises(ApiError):
         yield from cached_arequest(query)
+
+
+def test_wait_rate_limit(mocker, SETTINGS):
+    sleep = mocker.patch('jenkins_epo.github.time.sleep')
+    GITHUB = mocker.patch('jenkins_epo.github.GITHUB')
+    from jenkins_epo.github import wait_rate_limit_reset
+
+    GITHUB.x_ratelimit_reset = (
+        (datetime.utcnow() + timedelta(seconds=500))
+        .timestamp()
+    )
+    GITHUB.x_ratelimit_remaining = 0
+    GITHUB.rate_limit.get.side_effect = (
+        lambda *a: setattr(GITHUB, 'x_ratelimit_remaining', 5000)
+    )
+
+    wait_rate_limit_reset()
+
+    assert GITHUB.rate_limit.get.mock_calls
+    assert sleep.mock_calls

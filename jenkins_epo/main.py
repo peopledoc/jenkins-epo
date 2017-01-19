@@ -15,7 +15,6 @@
 import argparse
 import asyncio
 import bdb
-from concurrent.futures import CancelledError
 import functools
 import inspect
 import logging
@@ -25,7 +24,6 @@ import sys
 from .bot import Bot
 from .cache import CACHE
 from .github import GITHUB
-from .repository import UnauthorizedRepository
 from .settings import SETTINGS
 from .utils import grouper
 from . import procedures
@@ -51,38 +49,6 @@ def loop(wrapped):
         return wrapped
 
 
-@asyncio.coroutine
-def process_head(head):
-    task = asyncio.Task.current_task()
-    task.logging_id = head.sha[:4]
-    bot = Bot()
-    try:
-        head.repository.load_settings()
-    except UnauthorizedRepository:
-        logger.error("Write access denied to %s.", head.repository)
-        raise
-    except Exception:
-        logger.exception("Failed to load %s settings.", head.repository)
-        raise
-
-    logger.info("Working on %s.", head)
-    try:
-        yield from bot.run(head)
-    except CancelledError:
-        logger.warn("Cancelled processing %s:", head)
-    except Exception as e:
-        if SETTINGS.DEBUG:
-            logger.error("Failed to process %s", head)
-            if not SETTINGS.LOOP:
-                raise
-        else:
-            logger.exception("Failed to process %s: %r", head, e)
-        raise
-
-    logger.info("Processed %s.", head)
-    del task.logging_id
-
-
 @loop
 @asyncio.coroutine
 def bot():
@@ -97,7 +63,7 @@ def bot():
     for chunk in grouper(procedures.iter_heads(), SETTINGS.CONCURRENCY):
         yield from procedures.throttle_github()
         tasks = [
-            loop.create_task(process_head(head))
+            loop.create_task(procedures.process_head(head))
             for head in chunk if head
         ]
 

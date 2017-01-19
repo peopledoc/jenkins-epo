@@ -230,6 +230,7 @@ class Repository(object):
         assert hasattr(settings, 'items'), "Not yml dict/hash"
         if 'collaborators' not in settings and 'reviewers' in settings:
             settings['collaborators'] = settings['reviewers']
+            del settings['reviewers']
         local_settings = {
             k.upper(): v
             for k, v in settings.items()
