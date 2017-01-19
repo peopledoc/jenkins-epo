@@ -1,16 +1,38 @@
 import asyncio
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from asynctest import CoroutineMock
 import pytest
 
 
-@patch('jenkins_epo.main.sys.exit')
-@patch('jenkins_epo.main.asyncio')
-def test_main(asyncio, exit_):
+def test_main():
     from jenkins_epo.main import main
 
-    main(argv=['--help'])
+    with pytest.raises(SystemExit):
+        main(argv=['--help'])
+
+
+def test_main_sync(mocker):
+    command = mocker.patch('jenkins_epo.main.bot')
+    command.__name__ = 'bot'
+    command._is_coroutine = None
+    from jenkins_epo.main import main
+
+    assert not asyncio.iscoroutinefunction(command)
+
+    main(argv=['bot'])
+
+    assert command.mock_calls
+
+
+def test_main_async(mocker, event_loop):
+    command = mocker.patch('jenkins_epo.main.bot', CoroutineMock())
+    command.__name__ = 'bot'
+    from jenkins_epo.main import main
+
+    main(argv=['bot'], loop=event_loop)
+
+    assert command.mock_calls
 
 
 @pytest.mark.asyncio
