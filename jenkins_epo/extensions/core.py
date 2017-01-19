@@ -40,6 +40,7 @@ class AutoCancelExtension(Extension):
     def run(self):
         now = datetime.datetime.utcnow()
         max_age = datetime.timedelta(seconds=3600)
+        logger.info("Listing previous commits from GitHub.")
         payload = self.current.head.fetch_previous_commits()
         commits = self.current.repository.process_commits(payload)
         head = True
@@ -271,7 +272,7 @@ jenkins: {last-merge-error: %(message)r}
 
         status = self.current.last_commit.fetch_combined_status()
         if status['state'] != 'success':
-            return logger.debug("PR not green. Postpone merge.")
+            return logger.info("PR not green. Postpone merge.")
 
         try:
             self.current.head.merge()
@@ -282,13 +283,12 @@ jenkins: {last-merge-error: %(message)r}
                 if error == last_error:
                     return logger.debug("Merge still failing: %s", error)
 
-            logger.warn("Failed to merge: %s", error)
+            logger.error("Failed to merge: %s", error)
             self.current.head.comment(body=self.MERGE_ERROR_COMMENT % dict(
                 emoji=random.choice((':confused:', ':disappointed:')),
                 mention='@' + self.current.opm.author, message=error,
             ))
         else:
-            logger.warn("Merged %s!", self.current.head)
             self.current.head.delete_branch()
 
 
@@ -304,9 +304,9 @@ class OutdatedExtension(Extension):
         maxage = datetime.timedelta(weeks=weeks)
         age = datetime.datetime.utcnow() - self.current.last_commit.date
         if age > maxage:
-            logger.debug(
-                'Skipping %s because older than %s weeks.',
-                self.current.head, self.current.SETTINGS.COMMIT_MAX_WEEKS,
+            logger.warn(
+                'Skipping head older than %s weeks.',
+                self.current.SETTINGS.COMMIT_MAX_WEEKS,
             )
             raise SkipHead()
 
@@ -387,7 +387,7 @@ class SecurityExtension(Extension):
                 break
 
         if not secure:
-            logger.info("Skipping insecure PR")
+            logger.warn("Skipping insecure PR")
             raise SkipHead()
 
 
@@ -503,7 +503,7 @@ class YamlExtension(Extension):
             jenkins_yml = GITHUB.fetch_file_contents(
                 head.repository, 'jenkins.yml', ref=head.ref,
             )
-            logger.debug("Loading jenkins.yml.")
+            logger.info("Loading jenkins.yml.")
         except ApiNotFoundError:
             jenkins_yml = None
 

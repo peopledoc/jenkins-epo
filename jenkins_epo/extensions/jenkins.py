@@ -57,7 +57,7 @@ class BuilderExtension(JenkinsExtension):
     @asyncio.coroutine
     def run(self):
         for spec in self.current.job_specs.values():
-            logger.debug("Processing job %s.", spec)
+            logger.debug("Processing %s.", spec)
             job = self.current.jobs[spec.name]
             not_built = self.current.last_commit.filter_not_built_contexts(
                 job.list_contexts(spec),
@@ -112,6 +112,7 @@ class AutoCancelExtension(JenkinsExtension):
         now = datetime.now()
         maxage = timedelta(hours=4)
         current_sha = self.current.last_commit.sha
+        logger.info("Polling running builds on Jenkins.")
         for name, job in self.current.jobs.items():
             is_running = yield from job.is_running_async()
             if not is_running:
@@ -177,6 +178,7 @@ class CancellerExtension(JenkinsExtension):
             self.current.cancel_queue, self.current.poll_queue
         )
 
+        logger.info("Polling job statuses on Jenkins.")
         for commit, status, cancel in aggregated_queue:
             if not str(status['target_url']).startswith(JENKINS.baseurl):
                 continue
@@ -265,6 +267,7 @@ Failed to create or update Jenkins job `%(name)s`.
 
     @asyncio.coroutine
     def run(self):
+        logger.info("Fetching jobs from Jenkins.")
         for name in self.current.job_specs:
             if name in self.current.jobs:
                 continue
@@ -365,11 +368,11 @@ class StagesExtension(JenkinsExtension):
 
         # Search current stage to build.
         for stage in stages.values():
-            if not stage.is_complete(self.current.jobs, self.current.statuses):
-                logger.info("Current stage is %s.", stage)
+            complete = stage.is_complete(
+                self.current.jobs, self.current.statuses
+            )
+            if not complete:
                 break
-        else:
-            logger.info("All stages completed.")
 
         self.current.current_stage = stage
         # Filter job specs to the current stage ones.
@@ -387,6 +390,7 @@ class StagesExtension(JenkinsExtension):
 
             self.current.job_specs[job.name] = job
 
-        logger.debug(
-            "Jobs for this stage: %s.", ', '.join(self.current.job_specs)
+        logger.info(
+            "Current stage is %s. Completed=%s. Jobs: %s.",
+            stage, complete, ', '.join(self.current.job_specs) or 'None',
         )
