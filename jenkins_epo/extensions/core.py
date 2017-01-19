@@ -147,6 +147,14 @@ jenkins: reset-errors
 -->
 """  # noqa
 
+    DENY_COMMENT = """
+%(mentions)s, sorry, I'm not allowed to obey you! %(emoji)s
+
+<!--
+jenkins: reset-denied
+-->
+"""  # noqa
+
     DEFAULTS = {
         'error_reset': None,
     }
@@ -154,6 +162,8 @@ jenkins: reset-errors
     def process_instruction(self, instruction):
         if instruction == 'reset-errors':
             self.current.error_reset = instruction.date
+        elif instruction == 'reset-denied':
+            self.current.denied_instructions[:] = []
 
     @asyncio.coroutine
     def run(self):
@@ -164,9 +174,20 @@ jenkins: reset-errors
 
             self.current.head.comment(body=self.ERROR_COMMENT % dict(
                 emoji=random.choice((
-                    ':see_no_evil:', ':bangbang:', ':confused:',
+                    ':bangbang:', ':confused:', ':grimacing:',
+                    ':see_no_evil:', ':sob:',
                 )),
                 error=error.body,
+            ))
+
+        denied = {i.author for i in self.current.denied_instructions}
+        if denied:
+            self.current.head.comment(body=self.DENY_COMMENT % dict(
+                mentions='@' + ', @'.join(sorted(denied)),
+                emoji=random.choice((
+                    ':confused:', ':cop:', ':hear_no_evil:', ':innocent:',
+                    ':neutral_face:', ':scream_cat:', ':see_no_evil:',
+                )),
             ))
 
 

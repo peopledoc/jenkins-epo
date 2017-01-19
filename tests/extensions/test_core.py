@@ -28,30 +28,29 @@ def test_compute_skip_unindented():
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_compute_help():
-    from jenkins_epo.bot import Bot
+    from jenkins_epo.bot import Bot, Instruction
+    from jenkins_epo.extensions.core import HelpExtension
 
-    bot = Bot().workon(Mock())
-    bot.process_instructions([
-        comment(login='asker', body='jenkins: help')
-    ])
-    assert 'asker' in bot.current.help_mentions
+    ext = HelpExtension('help', Mock())
+    ext.current = ext.bot.current
+    ext.current.help_mentions = set()
+    ext.process_instruction(Instruction(name='help', author='asker'))
+    assert 'asker' in ext.current.help_mentions
 
-    bot.process_instructions([
-        comment(login='asker1', body='jenkins: help'),
-        comment(login='bot', body='jenkins: help-reset'),
-    ])
-    assert not bot.current.help_mentions
+    ext.process_instruction(Instruction(name='help-reset', author='bot'))
+    assert not ext.current.help_mentions
 
-    bot.process_instructions([
-        comment(login='asker1', body='jenkins: help'),
-        comment(login='asker2', body='jenkins: man'),
-    ])
-    assert 'asker1' in bot.current.help_mentions
-    assert 'asker2' in bot.current.help_mentions
+    ext.process_instruction(Instruction(name='help', author='asker1'))
+    ext.process_instruction(Instruction(name='help', author='asker2'))
+    assert 'asker1' in ext.current.help_mentions
+    assert 'asker2' in ext.current.help_mentions
 
-    yield from bot.extensions_map['help'].run()
+    bot = Bot()
+    ext.bot.extensions = bot.extensions
+    ext.bot.extensions_map = bot.extensions_map
+    yield from ext.run()
 
-    man = bot.current.head.comment.call_args[1]['body']
+    man = ext.current.head.comment.call_args[1]['body']
     assert '@asker1' in man
     assert '@asker2' in man
 
@@ -72,22 +71,54 @@ def test_errors():
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_errors_reset():
-    from jenkins_epo.bot import Bot, Error
+    from jenkins_epo.bot import Error, Instruction
     from jenkins_epo.utils import parse_datetime
+    from jenkins_epo.extensions.core import ErrorExtension
 
-    bot = Bot().workon(Mock())
-    bot.current.errors.append(
+    ext = ErrorExtension('error', Mock())
+    ext.current = ext.bot.current
+    ext.current.denied_instructions = []
+    ext.current.errors = [
         Error('message', parse_datetime('2016-08-03T15:58:47Z')),
+    ]
+    ext.current.error_reset = None
+    ext.process_instruction(
+        Instruction(name='reset-errors', author='bot', date=datetime.utcnow())
     )
-    assert bot.current.error_reset is None
-    bot.process_instructions([comment(
-        body='''jenkins: reset-errors''', updated_at='2016-08-03T17:58:47Z',
-    )])
-    assert bot.current.error_reset
+    assert ext.current.error_reset
 
-    yield from bot.extensions_map['error'].run()
+    yield from ext.run()
 
-    assert not bot.current.head.comment.mock_calls
+    assert not ext.current.head.comment.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_error_denied():
+    from jenkins_epo.bot import Instruction
+    from jenkins_epo.extensions.core import ErrorExtension
+
+    ext = ErrorExtension('error', Mock())
+    ext.current = ext.bot.current
+    ext.current.denied_instructions = [Mock()]
+    ext.current.errors = []
+    ext.current.error_reset = None
+
+    ext.process_instruction(
+        Instruction(name='reset-denied', author='bot')
+    )
+
+    assert not ext.current.denied_instructions
+
+    yield from ext.run()
+
+    assert not ext.current.head.comment.mock_calls
+
+    ext.current.denied_instructions = [Mock(author='toto')]
+
+    yield from ext.run()
+
+    assert ext.current.head.comment.mock_calls
 
 
 @pytest.mark.asyncio
