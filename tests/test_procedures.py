@@ -232,19 +232,21 @@ def test_throttling_compute(SETTINGS):
     SETTINGS.RATE_LIMIT_THRESHOLD = 0
     from jenkins_epo.procedures import compute_throttling
 
-    # Consumed 1/5 calls at 2/3 of the time.
+    now = datetime(2017, 1, 18, 14, 40, tzinfo=timezone.utc)
+    reset = datetime(2017, 1, 18, 15, tzinfo=timezone.utc)
+    remaining = 4000
     seconds = compute_throttling(
-        now=datetime(2017, 1, 18, 14, 40),
+        now=now,
         rate_limit=dict(rate=dict(
-            limit=5000, remaining=4000,
-            reset=datetime(2017, 1, 18, 15, tzinfo=timezone.utc).timestamp(),
+            limit=5000, remaining=remaining,
+            reset=reset.timestamp(),
         )),
     )
     assert 0 == seconds  # Fine !
 
     # Consumed 4/5 calls at 1/3 of the time.
     seconds = compute_throttling(
-        now=datetime(2017, 1, 18, 14, 20),
+        now=datetime(2017, 1, 18, 14, 20, tzinfo=timezone.utc),
         rate_limit=dict(rate=dict(
             limit=5000, remaining=1000,
             reset=datetime(2017, 1, 18, 15, tzinfo=timezone.utc).timestamp(),
