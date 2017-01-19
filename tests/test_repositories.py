@@ -61,10 +61,17 @@ def test_process_protected_branches(cached_request):
     from jenkins_epo.repository import Repository
 
     repo = Repository('owner', 'name')
-    branches = list(repo.process_protected_branches([{
-        'name': 'master',
-        'commit': {'sha': 'd0d0cafec0041edeadbeef'},
-    }]))
+    repo.heads_filter = ['*', '-*/skip']
+    branches = list(repo.process_protected_branches([
+        {
+            'name': 'master',
+            'commit': {'sha': 'd0d0cafec0041edeadbeef'},
+        },
+        {
+            'name': 'skip',
+            'commit': {'sha': 'pouetpouet'},
+        },
+    ]))
 
     assert 1 == len(branches)
     assert 'refs/heads/master' == branches[0].ref
@@ -81,18 +88,24 @@ def test_process_pulls():
     from jenkins_epo.repository import Repository
 
     repo = Repository('owner', 'name')
-    repo.pr_filter = ['*2']
+    repo.heads_filter = ['*2']
 
     heads = list(repo.process_pull_requests([
         dict(
             html_url='https://github.com/owner/repo/pull/2',
             number=2,
-            head=dict(ref='feature', sha='d0d0'),
+            head=dict(
+                repo=dict(html_url='https://.../owner/repo'),
+                ref='feature', sha='d0d0',
+            ),
         ),
         dict(
             html_url='https://github.com/owner/repo/pull/3',
             number=3,
-            head=dict(ref='hotfix', sha='cafe'),
+            head=dict(
+                repo=dict(html_url='https://.../owner/repo'),
+                ref='hotfix', sha='cafe',
+            ),
         ),
     ]))
 

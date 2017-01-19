@@ -16,6 +16,7 @@ from __future__ import absolute_import
 
 import asyncio
 from itertools import islice
+from functools import partial
 import logging
 from urllib.parse import quote as urlquote
 import re
@@ -112,7 +113,7 @@ class CommitStatus(dict):
 
 
 class Repository(object):
-    pr_filter = parse_patterns(SETTINGS.PR)
+    heads_filter = parse_patterns(SETTINGS.HEADS)
 
     remote_re = re.compile(
         r'.*github.com[:/](?P<owner>[\w-]+)/(?P<name>[\w-]+).*'
@@ -171,13 +172,23 @@ class Repository(object):
 
     def process_protected_branches(self, branches):
         for branch in branches:
-            yield Branch(self, branch)
+            url = '%s/tree/%s' % (self.url, branch['name'])
+            if not match(url, self.heads_filter):
+                logger.debug("Skipping %s.", url)
+            else:
+                yield Branch(self, branch)
 
     def process_pull_requests(self, pulls):
         for data in pulls:
-            if not match(data['html_url'], self.pr_filter):
+            heads_match = partial(match, patterns=self.heads_filter)
+            pr_url = data['html_url']
+            branch_url = '%s/tree/%s' % (
+                data['head']['repo']['html_url'],
+                data['head']['ref'],
+            )
+            if not heads_match(pr_url) and not heads_match(branch_url):
                 logger.debug(
-                    "Skipping %s (%s).", data['html_url'], data['head']['ref'],
+                    "Skipping %s (%s).", pr_url, data['head']['ref'],
                 )
             else:
                 yield PullRequest(self, data)
