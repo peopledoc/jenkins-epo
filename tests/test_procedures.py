@@ -9,6 +9,105 @@ import pytest
 
 
 @pytest.mark.asyncio
+@asyncio.coroutine
+def test_process_head(mocker, SETTINGS):
+    Bot = mocker.patch('jenkins_epo.procedures.Bot')
+
+    from jenkins_epo.procedures import process_head
+
+    bot = Bot.return_value
+    bot.run = CoroutineMock()
+
+    yield from process_head(Mock(sha='cafed0d0'))
+
+    assert bot.run.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_process_head_repo_denied(mocker, SETTINGS):
+    Bot = mocker.patch('jenkins_epo.procedures.Bot')
+
+    from jenkins_epo.procedures import process_head, UnauthorizedRepository
+
+    bot = Bot.return_value
+    head = Mock(sha='cafed0d0')
+    head.repository.load_settings.side_effect = UnauthorizedRepository()
+
+    with pytest.raises(UnauthorizedRepository):
+        yield from process_head(head)
+
+    assert head.repository.load_settings.mock_calls
+    assert not bot.run.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_process_head_repo_failed(mocker, SETTINGS):
+    Bot = mocker.patch('jenkins_epo.procedures.Bot')
+
+    from jenkins_epo.procedures import process_head
+
+    bot = Bot.return_value
+    head = Mock(sha='cafed0d0')
+    head.repository.load_settings.side_effect = ValueError()
+
+    with pytest.raises(ValueError):
+        yield from process_head(head)
+
+    assert head.repository.load_settings.mock_calls
+    assert not bot.run.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_process_head_cancelled(mocker, SETTINGS):
+    Bot = mocker.patch('jenkins_epo.procedures.Bot')
+
+    from jenkins_epo.procedures import process_head, CancelledError
+
+    bot = Bot.return_value
+    bot.run = CoroutineMock(side_effect=CancelledError())
+
+    yield from process_head(Mock(sha='cafed0d0'))
+
+    assert bot.run.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_process_head_log_exception(mocker, SETTINGS):
+    Bot = mocker.patch('jenkins_epo.procedures.Bot')
+
+    from jenkins_epo.procedures import process_head
+
+    bot = Bot.return_value
+    bot.run = CoroutineMock(side_effect=ValueError('POUET'))
+
+    yield from process_head(Mock(sha='cafed0d0'))
+
+    assert bot.run.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_process_head_raise_exception(mocker, SETTINGS):
+    Bot = mocker.patch('jenkins_epo.procedures.Bot')
+    SETTINGS.DEBUG = 1
+
+    from jenkins_epo.procedures import process_head
+
+    bot = Bot.return_value
+    bot.run = CoroutineMock(side_effect=ValueError('POUET'))
+
+    with pytest.raises(ValueError):
+        yield from process_head(Mock(sha='cafed0d0'))
+
+    assert bot.run.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_whoami(mocker):
     mocker.patch(
         'jenkins_epo.procedures.cached_arequest',

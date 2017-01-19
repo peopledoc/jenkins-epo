@@ -13,12 +13,14 @@
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
+from concurrent.futures import CancelledError
 from datetime import datetime, timedelta
 import itertools
 import logging
 
+from .bot import Bot
 from .github import GITHUB, cached_arequest
-from .repository import Repository
+from .repository import Repository, UnauthorizedRepository
 from .settings import SETTINGS
 from .utils import retry
 
@@ -85,6 +87,34 @@ def list_repositories(with_settings=False):
         repositories.add(repository)
         logger.debug("Managing %s.", repository)
         yield repository
+
+
+@asyncio.coroutine
+def process_head(head):
+    task = asyncio.Task.current_task()
+    task.logging_id = head.sha[:4]
+    bot = Bot()
+    try:
+        head.repository.load_settings()
+    except UnauthorizedRepository:
+        logger.error("Write access denied to %s.", head.repository)
+        raise
+    except Exception:
+        logger.exception("Failed to load %s settings.", head.repository)
+        raise
+
+    logger.info("Working on %s.", head)
+    try:
+        yield from bot.run(head)
+    except CancelledError:
+        logger.warn("Cancelled processing %s:", head)
+    except Exception as e:
+        logger.error("Failed to process %s: %r", head, e)
+        if SETTINGS.DEBUG:
+            raise
+
+    logger.info("Processed %s.", head)
+    del task.logging_id
 
 
 @asyncio.coroutine
