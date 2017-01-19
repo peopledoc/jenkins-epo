@@ -11,10 +11,12 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
+#
+# This file provides all jenkins-epo CLI interaction : commands, arguments,
+# etc. and manage asyncio loop.
 
 import argparse
 import asyncio
-import bdb
 import functools
 import inspect
 import logging
@@ -73,7 +75,7 @@ def bot():
         failures.extend([r for r in res if isinstance(r, Exception)])
 
     CACHE.purge()
-    CACHE.save()
+
     logger.info(
         "GitHub poll done. %s remaining API calls.",
         GITHUB.x_ratelimit_remaining,
@@ -85,6 +87,7 @@ def bot():
 
 
 def list_extensions():
+    """Show bot pipeline of extensions"""
     bot = Bot()
     for extension in bot.extensions:
         print(extension.stage, extension.name)
@@ -98,30 +101,29 @@ def list_heads():
         print(head)
 
 
-def command_exitcode(command_func):
+@asyncio.coroutine
+def run_async(command_func):
+    me = asyncio.Task.current_task()
     try:
-        command_func()
-    except bdb.BdbQuit:
-        logger.debug('Graceful exit from debugger')
-        return 0
-    except (Exception, KeyboardInterrupt):
-        logger.exception('Unhandled error')
+        yield from command_func()
+    except BaseException:
+        # Hide ^C in terminal
+        sys.stderr.write('\r')
+        for task in asyncio.Task.all_tasks():
+            if task is me:
+                continue
 
-        if not SETTINGS.DEBUG:
-            return 1
-
-        try:
-            import ipdb as pdb
-        except ImportError:
-            import pdb
-
-        pdb.post_mortem(sys.exc_info()[2])
-        logger.debug('Graceful exit from debugger')
-
-        return 1
+            if task.done():
+                # Consume any exception
+                task.exception()
+            else:
+                logger.debug("Cancelling %s", task)
+                task.cancel()
+        CACHE.save()
+        raise
 
 
-def main(argv=None):
+def main(argv=None, *, loop=None):
     argv = argv or sys.argv
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='command', metavar='COMMAND')
@@ -139,19 +141,8 @@ def main(argv=None):
         command_func = parser.print_usage
 
     if asyncio.iscoroutinefunction(command_func):
-        def run_async():
-            loop = asyncio.get_event_loop()
-            task = loop.create_task(command_func())
-            try:
-                loop.run_until_complete(task)
-            except BaseException:
-                if task.done():
-                    task.exception()  # Consume task exception
-                else:
-                    task.cancel()
-                loop.close()
-                raise
-
-        sys.exit(command_exitcode(run_async))
+        loop = loop or asyncio.get_event_loop()
+        loop.run_until_complete(run_async(command_func))
+        loop.close()
     else:
-        sys.exit(command_exitcode(command_func))
+        command_func()
