@@ -89,7 +89,13 @@ See `jenkins: help` for documentation.
         self.current = Bunch(copy.deepcopy(self.DEFAULTS))
         self.current.head = head
         self.current.repository = head.repository
-        self.current.SETTINGS = head.repository.SETTINGS
+        if isinstance(head.repository.SETTINGS, dict):
+            # Allow to pass a Mock() as SETTINGS
+            self.current.SETTINGS = Bunch(
+                copy.deepcopy(head.repository.SETTINGS)
+            )
+        else:
+            self.current.SETTINGS = head.repository.SETTINGS
 
         for ext in self.extensions:
             self.current.update(copy.deepcopy(ext.DEFAULTS))
