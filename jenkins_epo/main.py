@@ -74,8 +74,9 @@ def process_head(head):
         else:
             logger.exception("Failed to process %s: %r", head, e)
         raise
-    else:
-        logger.info("%s processed.", head)
+
+    logger.info("Processed %s.", head)
+    del task.logging_id
 
 
 @loop
