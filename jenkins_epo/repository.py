@@ -35,6 +35,10 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
+class UnauthorizedRepository(Exception):
+    pass
+
+
 class CommitStatus(dict):
     def __eq__(self, other):
         if isinstance(other, str):
@@ -196,7 +200,12 @@ class Repository(object):
             logger.debug("Collaborators defined manually.")
             collaborators = []
         else:
-            collaborators = cached_request(GITHUB.repos(self).collaborators)
+            try:
+                collaborators = cached_request(
+                    GITHUB.repos(self).collaborators
+                )
+            except ApiNotFoundError as e:
+                raise UnauthorizedRepository(self) from e
 
         self.process_settings(
             collaborators=collaborators,

@@ -25,6 +25,7 @@ import sys
 from .bot import Bot
 from .cache import CACHE
 from .github import GITHUB
+from .repository import UnauthorizedRepository
 from .settings import SETTINGS
 from .utils import grouper
 from . import procedures
@@ -57,6 +58,9 @@ def process_head(head):
     bot = Bot()
     try:
         head.repository.load_settings()
+    except UnauthorizedRepository:
+        logger.error("Write access denied to %s.", head.repository)
+        raise
     except Exception:
         logger.exception("Failed to load %s settings.", head.repository)
         raise

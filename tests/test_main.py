@@ -23,6 +23,25 @@ def test_bot_settings_fail(mocker):
 
 
 @pytest.mark.asyncio
+def test_bot_settings_denied(mocker):
+    procedures = mocker.patch('jenkins_epo.main.procedures')
+    mocker.patch('jenkins_epo.main.CACHE')
+    Bot = mocker.patch('jenkins_epo.main.Bot')
+
+    from jenkins_epo.main import bot, UnauthorizedRepository
+
+    head = Mock()
+    head.repository.load_settings.side_effect = UnauthorizedRepository()
+    procedures.iter_heads.return_value = [head]
+
+    with pytest.raises(Exception):
+        yield from bot()
+
+    bot = Bot.return_value
+    assert not bot.run.mock_calls
+
+
+@pytest.mark.asyncio
 def test_bot_run_raises(mocker, SETTINGS):
     Bot = mocker.patch('jenkins_epo.main.Bot')
     mocker.patch('jenkins_epo.main.CACHE')
