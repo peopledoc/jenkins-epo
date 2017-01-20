@@ -3,7 +3,7 @@ dependencies:
     - export
     - sudo apt-get update -y
     - sudo apt-get install -y python3-dev python-all-dev libyaml-dev
-    - pip install codecov tox tox-pyenv
+    - pip install --upgrade codecov tox tox-pyenv
     - pyenv local 3.4.4 3.5.2
     - tox -vv --notest
   cache_directories:
