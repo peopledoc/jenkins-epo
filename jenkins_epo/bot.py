@@ -38,6 +38,7 @@ class Bot(object):
         'errors': [],
         'poll_queue': [],
         'cancel_queue': [],
+        'denied_instructions': [],
     }
 
     PARSE_ERROR_COMMENT = """\
@@ -66,7 +67,8 @@ See `jenkins: help` for documentation.
     )
     ext_patterns = parse_patterns(SETTINGS.EXTENSIONS)
 
-    def __init__(self):
+    def __init__(self, me=None):
+        self.me = me
         self.extensions_map = {}
         for ep in pkg_resources.iter_entry_points(__name__ + '.extensions'):
             cls = ep.resolve()
@@ -89,7 +91,15 @@ See `jenkins: help` for documentation.
         self.current = Bunch(copy.deepcopy(self.DEFAULTS))
         self.current.head = head
         self.current.repository = head.repository
-        self.current.SETTINGS = head.repository.SETTINGS
+        if isinstance(head.repository.SETTINGS, dict):
+            # Allow to pass a Mock() as SETTINGS
+            self.current.SETTINGS = Bunch(
+                copy.deepcopy(head.repository.SETTINGS)
+            )
+        else:
+            self.current.SETTINGS = head.repository.SETTINGS
+
+        self.current.SETTINGS.COLLABORATORS.append(self.me)
 
         for ext in self.extensions:
             self.current.update(copy.deepcopy(ext.DEFAULTS))
@@ -204,7 +214,16 @@ See `jenkins: help` for documentation.
                         yield instruction
 
     def process_instructions(self, comments):
+        allowed_authors = self.current.SETTINGS.COLLABORATORS
         for instruction in self.parse_instructions(comments):
+            if instruction.author not in allowed_authors:
+                logger.debug(
+                    "Denying instruction %s by %s.",
+                    instruction, instruction.author,
+                )
+                self.current.denied_instructions.append(instruction)
+                continue
+
             logger.debug(
                 "Processing instruction %s from %s at %s.",
                 instruction, instruction.author, instruction.date,

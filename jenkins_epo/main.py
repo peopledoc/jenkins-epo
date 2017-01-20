@@ -57,7 +57,7 @@ def bot():
     """Poll GitHub to find something to do"""
     task = asyncio.Task.current_task()
     task.logging_id = 'bot'
-    yield from procedures.whoami()
+    me = yield from procedures.whoami()
     loop = asyncio.get_event_loop()
 
     failures = []
@@ -65,7 +65,7 @@ def bot():
     for chunk in grouper(procedures.iter_heads(), SETTINGS.CONCURRENCY):
         yield from procedures.throttle_github()
         tasks = [
-            loop.create_task(procedures.process_head(head))
+            loop.create_task(procedures.process_head(head, me=me))
             for head in chunk if head
         ]
 

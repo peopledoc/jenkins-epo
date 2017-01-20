@@ -222,3 +222,34 @@ def test_filter_extension(iter_entry_points):
 
     assert 'loaded' in bot.extensions_map
     assert 'skipped' not in bot.extensions_map
+
+
+def test_process_instructions():
+    from jenkins_epo.bot import Bot
+
+    bot = Bot()
+    bot.current = Mock()
+    bot.current.SETTINGS.COLLABORATORS = ['collaborator']
+    bot.current.denied_instructions = []
+    ext = Mock()
+    bot.extensions = [ext]
+
+    bot.process_instructions(comments=[
+        dict(
+            user=dict(login='ghost'),
+            body=None,
+        ),
+        dict(
+            user=dict(login='collaborator'),
+            updated_at='2017-01-19T15:03:11Z',
+            body='jenkins: help',
+        ),
+        dict(
+            user=dict(login='hacker'),
+            updated_at='2017-01-19T15:07:11Z',
+            body='jenkins: attack',
+        ),
+    ])
+
+    assert 1 == len(ext.process_instruction.mock_calls)
+    assert 1 == len(bot.current.denied_instructions)

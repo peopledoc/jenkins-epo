@@ -90,10 +90,10 @@ def list_repositories(with_settings=False):
 
 
 @asyncio.coroutine
-def process_head(head):
+def process_head(head, me=None):
     task = asyncio.Task.current_task()
     task.logging_id = head.sha[:4]
-    bot = Bot()
+    bot = Bot(me=me)
     try:
         head.repository.load_settings()
     except UnauthorizedRepository:

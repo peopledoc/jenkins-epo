@@ -90,7 +90,7 @@ def format_duration(duration):
 
 def match(item, patterns):
     matched = not patterns
-    for pattern in patterns:
+    for pattern in filter(None, patterns):
         negate = False
         if pattern.startswith('-') or pattern.startswith('!'):
             negate = True
