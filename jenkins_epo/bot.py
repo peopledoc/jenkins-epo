@@ -205,6 +205,10 @@ See `jenkins: help` for documentation.
 
     def process_instructions(self, comments):
         for instruction in self.parse_instructions(comments):
+            logger.debug(
+                "Processing instruction %s from %s at %s.",
+                instruction, instruction.author, instruction.date,
+            )
             for ext in self.extensions:
                 ext.process_instruction(instruction)
 
