@@ -47,7 +47,7 @@ def wait_rate_limit_reset(now):
     delta = reset - now
     wait = int(delta.seconds * .9)
     waited = 0
-    logger.info("Waiting rate limit reset in %s seconds.", wait)
+    logger.warning("Waiting rate limit reset in %s seconds.", wait)
     time.sleep(wait)
     waited += wait
     GITHUB.rate_limit.get()
