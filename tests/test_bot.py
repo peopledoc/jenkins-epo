@@ -130,7 +130,7 @@ def test_run_extension(mocker):
     ep = Mock()
     ep.name = 'ext'
     pkg_resources.iter_entry_points.return_value = [ep]
-    ext = ep.load.return_value.return_value
+    ext = ep.resolve.return_value.return_value
     ext.DEFAULTS = {}
     ext.SETTINGS = {}
     ext.run.return_value = []
@@ -160,7 +160,7 @@ def test_begin_skip_head(mocker):
     ep = Mock()
     ep.name = 'ext'
     pkg_resources.iter_entry_points.return_value = [ep]
-    ext = ep.load.return_value.return_value
+    ext = ep.resolve.return_value.return_value
     ext.DEFAULTS = {}
     ext.SETTINGS = {}
     ext.begin.side_effect = SkipHead()
@@ -186,7 +186,7 @@ def test_run_skip_head(mocker):
     ep = Mock()
     ep.name = 'ext'
     pkg_resources.iter_entry_points.return_value = [ep]
-    ext = ep.load.return_value.return_value
+    ext = ep.resolve.return_value.return_value
     ext.DEFAULTS = {}
     ext.SETTINGS = {}
     ext.run.side_effect = SkipHead()
@@ -207,7 +207,7 @@ def test_run_skip_head(mocker):
 def test_filter_extension(iter_entry_points):
     loaded = Mock()
     loaded.name = 'loaded'
-    ext = loaded.load.return_value.return_value
+    ext = loaded.resolve.return_value.return_value
     ext.SETTINGS = {}
     skipped = Mock()
     skipped.name = 'skipped'

@@ -69,7 +69,7 @@ See `jenkins: help` for documentation.
     def __init__(self):
         self.extensions_map = {}
         for ep in pkg_resources.iter_entry_points(__name__ + '.extensions'):
-            cls = ep.load()
+            cls = ep.resolve()
             if not match(ep.name, self.ext_patterns):
                 logger.debug("Filtered extension %s.", ep.name)
                 continue
