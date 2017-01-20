@@ -16,7 +16,7 @@ from __future__ import absolute_import
 
 import aiohttp.errors
 import collections
-import datetime
+from datetime import datetime, timedelta, timezone
 import fnmatch
 from itertools import zip_longest
 import logging
@@ -28,6 +28,10 @@ from requests import HTTPError
 
 
 logger = logging.getLogger(__name__)
+
+
+def utcnow():
+    return datetime.utcnow().replace(tzinfo=timezone.utc)
 
 
 def retry(callable_):
@@ -49,7 +53,7 @@ def filter_exception_for_retry(exception):
             # update must be managed by code.
             return False
         if 'API rate limit exceeded for' in message:
-            wait_rate_limit_reset()
+            wait_rate_limit_reset(utcnow())
             return True
         # If not a rate limit error, don't retry.
         return False
@@ -73,7 +77,7 @@ def filter_exception_for_retry(exception):
 
 
 def format_duration(duration):
-    duration = datetime.timedelta(seconds=duration / 1000.)
+    duration = timedelta(seconds=duration / 1000.)
     h, m, s = str(duration).split(':')
     h, m, s = int(h), int(m), float(s)
     duration = '%.1f sec' % s
@@ -104,9 +108,7 @@ def match(item, patterns):
 
 
 def parse_datetime(formatted):
-    return datetime.datetime.strptime(
-        formatted, '%Y-%m-%dT%H:%M:%SZ'
-    )
+    return datetime.strptime(formatted, '%Y-%m-%dT%H:%M:%SZ')
 
 
 def parse_patterns(raw):
