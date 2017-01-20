@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from asynctest import patch, CoroutineMock, Mock
 import pytest
@@ -122,16 +122,15 @@ def test_wait_rate_limit(mocker, SETTINGS):
     GITHUB = mocker.patch('jenkins_epo.github.GITHUB')
     from jenkins_epo.github import wait_rate_limit_reset
 
-    GITHUB.x_ratelimit_reset = (
-        (datetime.utcnow() + timedelta(seconds=500))
-        .timestamp()
-    )
+    now = datetime.utcnow().replace(tzinfo=timezone.utc)
+    GITHUB.x_ratelimit_reset = (now + timedelta(seconds=500)).timestamp()
     GITHUB.x_ratelimit_remaining = 0
     GITHUB.rate_limit.get.side_effect = (
         lambda *a: setattr(GITHUB, 'x_ratelimit_remaining', 5000)
     )
 
-    wait_rate_limit_reset()
+    waited_seconds = wait_rate_limit_reset(now)
 
     assert GITHUB.rate_limit.get.mock_calls
     assert sleep.mock_calls
+    assert 0 < waited_seconds and waited_seconds < 500

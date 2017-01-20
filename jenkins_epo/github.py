@@ -16,7 +16,7 @@ from __future__ import absolute_import
 
 import asyncio
 import base64
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import os.path
 import sys
@@ -39,17 +39,19 @@ logger = logging.getLogger(__name__)
 
 
 @retry
-def wait_rate_limit_reset():
-    now = datetime.utcnow()
-    reset = datetime.utcfromtimestamp(GITHUB.x_ratelimit_reset)
+def wait_rate_limit_reset(now):
+    reset = (
+        datetime.utcfromtimestamp(GITHUB.x_ratelimit_reset)
+        .replace(tzinfo=timezone.utc)
+    )
     delta = reset - now
     wait = int(delta.seconds * .9)
-    while GITHUB.x_ratelimit_remaining < SETTINGS.RATE_LIMIT_THRESHOLD:
-        logger.info("Waiting rate limit reset in %s seconds.", wait)
-        time.sleep(wait)
-        GITHUB.rate_limit.get()
-
-    GITHUB._instance.x_ratelimit_remaining = -1
+    waited = 0
+    logger.warning("Waiting rate limit reset in %s seconds.", wait)
+    time.sleep(wait)
+    waited += wait
+    GITHUB.rate_limit.get()
+    return waited
 
 
 def check_rate_limit_threshold():
