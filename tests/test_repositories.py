@@ -289,6 +289,20 @@ def test_pr_fetch_previous_commits(cached_request):
 
 
 @patch('jenkins_epo.repository.cached_request')
+def test_pr_list_comments(cached_request):
+    from jenkins_epo.repository import PullRequest
+
+    cached_request.return_value = []
+    pr = PullRequest(Mock(), dict(
+        created_at='2017-01-20 11:08:43Z',
+        number=204,
+        head=dict(ref='pr', sha='d0d0cafe', label='owner:pr'),
+    ))
+    comments = pr.list_comments()
+    assert 1 == len(comments)
+
+
+@patch('jenkins_epo.repository.cached_request')
 def test_process_commits(cached_request):
     from jenkins_epo.repository import Repository
 
