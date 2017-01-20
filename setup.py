@@ -71,8 +71,8 @@ setup(
     extras_require={
         'release': ['wheel'],
         'test': [
-            'asynctest', 'libfaketime', 'pytest', 'pytest-asyncio', 'pytest-cov',
-            'pytest-logging', 'pytest-mock',
+            'asynctest', 'libfaketime', 'pytest', 'pytest-asyncio',
+            'pytest-cov', 'pytest-logging', 'pytest-mock',
         ],
     },
     install_requires=[
@@ -82,6 +82,7 @@ setup(
         'jenkins-yml[renderer]',
         'pyyaml',
         'tenacity',
+        'setuptools>11.3',
     ],
     packages=find_packages(exclude=('tests',)),
     description='Jenkins EPO',

@@ -125,12 +125,8 @@ def test_wait_rate_limit(mocker, SETTINGS):
     now = datetime.utcnow().replace(tzinfo=timezone.utc)
     GITHUB.x_ratelimit_reset = (now + timedelta(seconds=500)).timestamp()
     GITHUB.x_ratelimit_remaining = 0
-    GITHUB.rate_limit.get.side_effect = (
-        lambda *a: setattr(GITHUB, 'x_ratelimit_remaining', 5000)
-    )
 
     waited_seconds = wait_rate_limit_reset(now)
 
-    assert GITHUB.rate_limit.get.mock_calls
     assert sleep.mock_calls
     assert 0 < waited_seconds and waited_seconds < 500
