@@ -1,9 +1,14 @@
+machine:
+  environment:
+    TOX_PIP_INSTALL: venv-update venv= {envdir} install=
+
 dependencies:
   pre:
     - export
     - sudo apt-get update -y
     - sudo apt-get install -y python3-dev python-all-dev libyaml-dev
-    - pip install --upgrade codecov tox tox-pyenv
+    - pip install --upgrade venv-update
+    - pip-faster install --upgrade codecov tox tox-pyenv venv-update
     - pyenv local 3.4.4 3.5.2
     - tox -vv --notest
   cache_directories:
