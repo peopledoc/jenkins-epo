@@ -516,8 +516,11 @@ class PullRequest(Head):
         GITHUB.repos(self.repository).git.refs.heads(self.ref).delete()
 
     def list_comments(self):
+        # PR updated_at match the latest change of PR, not the date of edition
+        # of the description. So, fall back to creation date.
+        description = dict(self.payload, updated_at=self.payload['created_at'])
         issue = GITHUB.repos(self.repository).issues(self.payload['number'])
-        return [self.payload] + cached_request(issue.comments)
+        return [description] + cached_request(issue.comments)
 
     @retry
     def merge(self, message=None):
