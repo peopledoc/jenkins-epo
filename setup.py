@@ -71,8 +71,8 @@ setup(
     extras_require={
         'release': ['wheel'],
         'test': [
-            'asynctest', 'libfaketime', 'pytest', 'pytest-asyncio', 'pytest-cov',
-            'pytest-logging', 'pytest-mock',
+            'asynctest', 'libfaketime', 'pytest', 'pytest-asyncio',
+            'pytest-cov', 'pytest-logging', 'pytest-mock',
         ],
     },
     install_requires=[
