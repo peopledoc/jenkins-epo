@@ -50,7 +50,7 @@ def wait_rate_limit_reset(now):
     logger.warning("Waiting rate limit reset in %s seconds.", wait)
     time.sleep(wait)
     waited += wait
-    GITHUB.rate_limit.get()
+    GITHUB._instance.x_ratelimit_remaining = -1
     return waited
 
 
