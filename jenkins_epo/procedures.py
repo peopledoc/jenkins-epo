@@ -162,7 +162,8 @@ def compute_throttling(now, rate_limit):
         # Split processing time by slot of 30s. Sleep between them.
         slots_count = countdown / 30
         estimated_sleep = time_remaining - countdown
-        return int(estimated_sleep / slots_count)
+        # Wait max 30m. We may still have a bug just above. :(
+        return min(1800, int(estimated_sleep / slots_count))
 
 
 @retry
