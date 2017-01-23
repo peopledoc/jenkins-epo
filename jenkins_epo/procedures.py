@@ -142,7 +142,9 @@ def compute_throttling(now, rate_limit):
     calls_remaining = data['remaining'] - SETTINGS.RATE_LIMIT_THRESHOLD
     calls_consumed = calls_limit - calls_remaining
 
-    countdown = calls_limit / calls_consumed * time_consumed - time_consumed
+    countdown = (
+        calls_limit / max(1, calls_consumed) * time_consumed - time_consumed
+    )
     estimated_end = now + timedelta(seconds=int(countdown))
 
     logger.info(
