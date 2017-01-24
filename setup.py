@@ -83,7 +83,6 @@ if __name__ == '__main__':
             'jenkins-yml[renderer]',
             'pyyaml',
             'tenacity',
-            'setuptools>11.3',
         ],
         packages=find_packages(exclude=('tests',)),
         description='Jenkins EPO',
