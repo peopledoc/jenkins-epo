@@ -195,6 +195,10 @@ class CustomGitHub(GitHub):
         finally:
             logger.debug("Closing HTTP session.")
             yield from session.close()
+        if isinstance(payload, list):
+            payload = GHList(payload)
+        else:
+            payload = JsonObject(payload)
         self._process_resp(response.headers)
         post_rate_limit = self.x_ratelimit_remaining
         if pre_rate_limit > 0 and pre_rate_limit < post_rate_limit:
@@ -202,8 +206,7 @@ class CustomGitHub(GitHub):
                 "GitHub rate limit reset. %d calls remained.",
                 pre_rate_limit,
             )
-
-        payload['_headers'] = dict(response.headers.items())
+        payload.__dict__['_headers'] = dict(response.headers.items())
         return payload
 
     def _http(self, _method, _path, headers={}, **kw):

@@ -33,21 +33,39 @@ def test_log_reset(build_opener, _process_resp):
 
 
 @pytest.mark.asyncio
-def test_aget(mocker):
+def test_aget_dict(mocker):
     from jenkins_epo.github import CustomGitHub
 
     aiohttp = mocker.patch('jenkins_epo.github.aiohttp')
     session = aiohttp.ClientSession.return_value
     response = Mock(spec=['headers', 'json'])
     session.get = CoroutineMock(return_value=response)
-    response.headers = {}
+    response.headers = {'ETag': 'cafed0d0'}
     response.json = CoroutineMock(return_value={'data': 1})
 
     GITHUB = CustomGitHub(access_token='cafed0d0')
     res = yield from GITHUB.user.aget()
 
-    assert '_headers' in res
+    assert res._headers
     assert 'data' in res
+
+
+@pytest.mark.asyncio
+def test_aget_list(mocker):
+    from jenkins_epo.github import CustomGitHub
+
+    aiohttp = mocker.patch('jenkins_epo.github.aiohttp')
+    session = aiohttp.ClientSession.return_value
+    response = Mock(spec=['headers', 'json'])
+    session.get = CoroutineMock(return_value=response)
+    response.headers = {'ETag': 'cafed0d0'}
+    response.json = CoroutineMock(return_value=[{'data': 1}])
+
+    GITHUB = CustomGitHub(access_token='cafed0d0')
+    res = yield from GITHUB.user.aget()
+
+    assert res._headers
+    assert 'data' in res[0]
 
 
 @patch('jenkins_epo.github.CACHE')
