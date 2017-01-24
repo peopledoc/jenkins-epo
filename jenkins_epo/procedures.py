@@ -142,7 +142,9 @@ def compute_throttling(now, rate_limit):
     calls_remaining = data['remaining'] - SETTINGS.RATE_LIMIT_THRESHOLD
     calls_consumed = calls_limit - calls_remaining
 
-    countdown = calls_limit / calls_consumed * time_consumed - time_consumed
+    countdown = (
+        calls_limit / max(1, calls_consumed) * time_consumed - time_consumed
+    )
     estimated_end = now + timedelta(seconds=int(countdown))
 
     logger.info(
@@ -160,7 +162,8 @@ def compute_throttling(now, rate_limit):
         # Split processing time by slot of 30s. Sleep between them.
         slots_count = countdown / 30
         estimated_sleep = time_remaining - countdown
-        return int(estimated_sleep / slots_count)
+        # Wait max 30m. We may still have a bug just above. :(
+        return min(1800, int(estimated_sleep / slots_count))
 
 
 @retry
