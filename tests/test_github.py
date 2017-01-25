@@ -129,4 +129,19 @@ def test_wait_rate_limit(mocker, SETTINGS):
     waited_seconds = wait_rate_limit_reset(now)
 
     assert sleep.mock_calls
-    assert 0 < waited_seconds and waited_seconds < 500
+    assert waited_seconds > 500.
+
+
+def test_wait_rate_limit_reenter(mocker, SETTINGS):
+    sleep = mocker.patch('jenkins_epo.github.time.sleep')
+    GITHUB = mocker.patch('jenkins_epo.github.GITHUB')
+    from jenkins_epo.github import wait_rate_limit_reset
+
+    now = datetime.utcnow().replace(tzinfo=timezone.utc)
+    GITHUB.x_ratelimit_reset = (now - timedelta(seconds=1)).timestamp()
+    GITHUB.x_ratelimit_remaining = 0
+
+    waited_seconds = wait_rate_limit_reset(now)
+
+    assert not sleep.mock_calls
+    assert 0 == waited_seconds

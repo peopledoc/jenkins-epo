@@ -135,7 +135,7 @@ def compute_throttling(now, rate_limit):
 
     # https://developer.github.com/v3/#rate-limiting
     time_limit = 3600
-    time_remaining = (reset - now).seconds
+    time_remaining = (reset - now).total_seconds()
     time_consumed = time_limit - time_remaining
 
     calls_limit = data['limit'] - SETTINGS.RATE_LIMIT_THRESHOLD

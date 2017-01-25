@@ -45,13 +45,15 @@ def wait_rate_limit_reset(now):
         .replace(tzinfo=timezone.utc)
     )
     delta = reset - now
-    wait = int(delta.seconds * .9)
-    waited = 0
+    wait = delta.total_seconds() + .5
+    if wait < 1:
+        # Our data is outdated. Just go on.
+        return 0
+
     logger.warning("Waiting rate limit reset in %s seconds.", wait)
     time.sleep(wait)
-    waited += wait
     GITHUB._instance.x_ratelimit_remaining = -1
-    return waited
+    return wait
 
 
 def check_rate_limit_threshold():
