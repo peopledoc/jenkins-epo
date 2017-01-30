@@ -524,7 +524,7 @@ class YamlExtension(Extension):
         head = self.current.head
 
         try:
-            jenkins_yml = GITHUB.fetch_file_contents(
+            jenkins_yml = yield from GITHUB.fetch_file_contents(
                 head.repository, 'jenkins.yml', ref=head.ref,
             )
             logger.info("Loading jenkins.yml.")

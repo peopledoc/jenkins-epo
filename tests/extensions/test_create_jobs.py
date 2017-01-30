@@ -22,8 +22,9 @@ def test_yml_notfound(mocker, SETTINGS):
     ext.current.yaml = {}
     ext.current.errors = []
 
-    GITHUB.fetch_file_contents.side_effect = ApiNotFoundError(
+    GITHUB.fetch_file_contents = CoroutineMock(side_effect=ApiNotFoundError(
         'url', Mock(), Mock())
+    )
 
     head = ext.current.head
     head.repository.url = 'https://github.com/owner/repo.git'
@@ -47,7 +48,7 @@ def test_yml_invalid(mocker, SETTINGS):
     ext.current.yaml = {}
     ext.current.errors = []
 
-    GITHUB.fetch_file_contents.return_value = "{INVALID YAML"
+    GITHUB.fetch_file_contents = CoroutineMock(return_value="{INVALID")
 
     head = ext.current.head
     head.repository.url = 'https://github.com/owner/repo.git'
@@ -71,7 +72,7 @@ def test_yml_found(mocker, SETTINGS):
     ext.current = ext.bot.current
     ext.current.yaml = {'job': dict()}
 
-    GITHUB.fetch_file_contents.return_value = "job: command"
+    GITHUB.fetch_file_contents = CoroutineMock(return_value="job: command")
 
     head = ext.current.head
     head.repository.url = 'https://github.com/owner/repo.git'
@@ -123,7 +124,7 @@ def test_yml_override_unknown_job(mocker, SETTINGS):
     GITHUB = mocker.patch('jenkins_epo.extensions.core.GITHUB')
     from jenkins_epo.extensions.core import YamlExtension
 
-    GITHUB.fetch_file_contents.return_value = '{}'
+    GITHUB.fetch_file_contents = CoroutineMock(return_value='{}')
 
     ext = YamlExtension('ext', Mock())
     ext.current = ext.bot.current
