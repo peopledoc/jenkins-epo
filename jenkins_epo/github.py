@@ -208,9 +208,16 @@ class CustomGitHub(GitHub):
                 pre_rate_limit,
             )
 
-        if response.status == 404:
+        if response.status >= 300:
             req = JsonObject(method=_method, url=url)
-            raise ApiNotFoundError(url, req, payload)
+            resp = JsonObject(
+                code=response.status, json=payload,
+                _headers=dict(response.headers.items())
+            )
+            if response.status == 404:
+                raise ApiNotFoundError(url, req, resp)
+            raise ApiError(url, req, resp)
+
         return payload
 
     def _http(self, _method, _path, headers={}, **kw):
