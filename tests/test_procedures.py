@@ -211,6 +211,8 @@ def test_iter_heads_close_next(list_repositories):
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_throttle_sleep(mocker, SETTINGS):
+    GITHUB = mocker.patch('jenkins_epo.procedures.GITHUB')
+    GITHUB.rate_limit.aget = CoroutineMock(return_value=dict())
     compute_throttling = mocker.patch(
         'jenkins_epo.procedures.compute_throttling'
     )
