@@ -272,7 +272,7 @@ Failed to create or update Jenkins job `%(name)s`.
             if name in self.current.jobs:
                 continue
             try:
-                self.current.jobs[name] = JENKINS.get_job(name)
+                self.current.jobs[name] = yield from JENKINS.aget_job(name)
             except UnknownJob:
                 pass
 

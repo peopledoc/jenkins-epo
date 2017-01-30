@@ -347,6 +347,23 @@ def test_get_job(factory, load, SETTINGS):
     my.get_job('name')
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_aget_job(mocker, SETTINGS):
+    mocker.patch('jenkins_epo.jenkins.LazyJenkins.load')
+    mocker.patch('jenkins_epo.jenkins.Job.factory')
+    RESTClient = mocker.patch('jenkins_epo.jenkins.RESTClient')
+    client = RESTClient.return_value
+    client.return_value.aget = CoroutineMock()
+
+    from jenkins_epo.jenkins import LazyJenkins
+    my = LazyJenkins()
+    my._instance = Mock()
+    job = yield from my.aget_job('name')
+
+    assert job
+
+
 @patch('jenkins_epo.jenkins.Job.factory')
 def test_update_job(factory, SETTINGS):
     from jenkins_epo.jenkins import LazyJenkins

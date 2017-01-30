@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
+from asynctest import CoroutineMock
 import pytest
 
 
@@ -14,9 +15,12 @@ def test_yml_notfound(mocker, SETTINGS):
         ApiNotFoundError, YamlExtension
     )
 
+    SETTINGS.update(YamlExtension.SETTINGS)
+
     ext = YamlExtension('ext', Mock())
     ext.current = ext.bot.current
     ext.current.yaml = {}
+    ext.current.errors = []
 
     GITHUB.fetch_file_contents.side_effect = ApiNotFoundError(
         'url', Mock(), Mock())
@@ -28,6 +32,7 @@ def test_yml_notfound(mocker, SETTINGS):
     yield from ext.run()
 
     assert GITHUB.fetch_file_contents.mock_calls
+    assert not ext.current.errors
     assert not ext.current.job_specs
 
 
@@ -59,6 +64,8 @@ def test_yml_invalid(mocker, SETTINGS):
 def test_yml_found(mocker, SETTINGS):
     GITHUB = mocker.patch('jenkins_epo.extensions.core.GITHUB')
     from jenkins_epo.extensions.core import YamlExtension
+
+    SETTINGS.update(YamlExtension.SETTINGS)
 
     ext = YamlExtension('ext', Mock())
     ext.current = ext.bot.current
@@ -131,6 +138,8 @@ def test_yml_override_unknown_job(mocker, SETTINGS):
 
 def test_yml_list_specs(SETTINGS):
     from jenkins_epo.extensions.core import YamlExtension
+
+    SETTINGS.update(YamlExtension.SETTINGS)
 
     ext = YamlExtension('ext', Mock())
     ext.current = ext.bot.current
@@ -212,13 +221,14 @@ def test_jenkins_create_success(mocker):
     ext.current.head.repository.jobs = {}
     ext.current.job_specs = dict(new=JobSpec('new', dict(periodic=True)))
     ext.current.jobs = {}
-    JENKINS.get_job.side_effect = UnknownJob('POUET')
+    JENKINS.aget_job = CoroutineMock(side_effect=UnknownJob('POUET'))
     JENKINS.create_job.return_value.name = 'new'
     process_job_specs.return_value = [(JENKINS.create_job, Mock())]
 
     yield from ext.run()
 
     assert not ext.current.errors.append.mock_calls
+    assert JENKINS.aget_job.mock_calls
     assert JENKINS.create_job.mock_calls
     assert ext.current.jobs['new'] == JENKINS.create_job.return_value
 
