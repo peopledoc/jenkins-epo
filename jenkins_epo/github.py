@@ -200,13 +200,17 @@ class CustomGitHub(GitHub):
         else:
             payload = JsonObject(payload)
         self._process_resp(response.headers)
+        payload.__dict__['_headers'] = dict(response.headers.items())
         post_rate_limit = self.x_ratelimit_remaining
         if pre_rate_limit > 0 and pre_rate_limit < post_rate_limit:
             logger.info(
                 "GitHub rate limit reset. %d calls remained.",
                 pre_rate_limit,
             )
-        payload.__dict__['_headers'] = dict(response.headers.items())
+
+        if response.status == 404:
+            req = JsonObject(method=_method, url=url)
+            raise ApiNotFoundError(url, req, payload)
         return payload
 
     def _http(self, _method, _path, headers={}, **kw):
