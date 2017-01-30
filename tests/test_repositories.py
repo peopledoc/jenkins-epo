@@ -119,7 +119,10 @@ def test_process_pulls():
 @asyncio.coroutine
 def test_load_settings_no_yml(mocker):
     GITHUB = mocker.patch('jenkins_epo.repository.GITHUB')
-    cached_request = mocker.patch('jenkins_epo.repository.cached_request')
+    cached_arequest = mocker.patch(
+        'jenkins_epo.repository.cached_arequest',
+        CoroutineMock(return_value=[]),
+    )
     from jenkins_epo.repository import ApiNotFoundError, Repository
 
     GITHUB.fetch_file_contents = CoroutineMock(side_effect=ApiNotFoundError(
@@ -130,14 +133,16 @@ def test_load_settings_no_yml(mocker):
     yield from repo.load_settings()
 
     assert GITHUB.fetch_file_contents.mock_calls
-    assert cached_request.mock_calls
+    assert cached_arequest.mock_calls
 
 
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_load_settings_collaborators_denied(mocker):
     GITHUB = mocker.patch('jenkins_epo.repository.GITHUB')
-    cached_request = mocker.patch('jenkins_epo.repository.cached_request')
+    cached_arequest = mocker.patch(
+        'jenkins_epo.repository.cached_arequest', CoroutineMock(),
+    )
     from jenkins_epo.repository import (
         Repository, ApiNotFoundError, UnauthorizedRepository,
     )
@@ -145,14 +150,14 @@ def test_load_settings_collaborators_denied(mocker):
     GITHUB.fetch_file_contents = CoroutineMock(
         return_value=repr(dict(settings=dict(branches=['master'])))
     )
-    cached_request.side_effect = ApiNotFoundError('u', Mock(), Mock())
+    cached_arequest.side_effect = ApiNotFoundError('u', Mock(), Mock())
 
     repo = Repository('owner', 'repo1')
     with pytest.raises(UnauthorizedRepository):
         yield from repo.load_settings()
 
     assert GITHUB.fetch_file_contents.mock_calls
-    assert cached_request.mock_calls
+    assert cached_arequest.mock_calls
 
 
 @patch('jenkins_epo.repository.GITHUB')

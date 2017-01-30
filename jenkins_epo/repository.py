@@ -215,7 +215,7 @@ class Repository(object):
             collaborators = []
         else:
             try:
-                collaborators = cached_request(
+                collaborators = yield from cached_arequest(
                     GITHUB.repos(self).collaborators
                 )
             except ApiNotFoundError as e:
