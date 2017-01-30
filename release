@@ -1,5 +1,14 @@
 #!/bin/bash -eux
 
-git tag $1
+TAG=$1
+clean() {
+    exit_code=$?
+    if [ $exit_code -gt 0 ] ; then
+        git tag -d $TAG
+    fi
+}
+
+git tag $TAG
+trap clean EXIT
 python3.5 setup.py sdist bdist_wheel upload -r pypi
 git push --tags
