@@ -195,7 +195,12 @@ class CustomGitHub(GitHub):
         finally:
             logger.debug("Closing HTTP session.")
             yield from session.close()
+        if isinstance(payload, list):
+            payload = GHList(payload)
+        else:
+            payload = JsonObject(payload)
         self._process_resp(response.headers)
+        payload.__dict__['_headers'] = dict(response.headers.items())
         post_rate_limit = self.x_ratelimit_remaining
         if pre_rate_limit > 0 and pre_rate_limit < post_rate_limit:
             logger.info(
@@ -203,7 +208,16 @@ class CustomGitHub(GitHub):
                 pre_rate_limit,
             )
 
-        payload['_headers'] = dict(response.headers.items())
+        if response.status >= 300:
+            req = JsonObject(method=_method, url=url)
+            resp = JsonObject(
+                code=response.status, json=payload,
+                _headers=dict(response.headers.items())
+            )
+            if response.status == 404:
+                raise ApiNotFoundError(url, req, resp)
+            raise ApiError(url, req, resp)
+
         return payload
 
     def _http(self, _method, _path, headers={}, **kw):

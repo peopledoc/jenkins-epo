@@ -33,21 +33,76 @@ def test_log_reset(build_opener, _process_resp):
 
 
 @pytest.mark.asyncio
-def test_aget(mocker):
+def test_aget_dict(mocker):
     from jenkins_epo.github import CustomGitHub
 
     aiohttp = mocker.patch('jenkins_epo.github.aiohttp')
     session = aiohttp.ClientSession.return_value
-    response = Mock(spec=['headers', 'json'])
+    response = Mock(spec=['headers', 'json', 'status'])
     session.get = CoroutineMock(return_value=response)
-    response.headers = {}
+    response.status = 200
+    response.headers = {'ETag': 'cafed0d0'}
     response.json = CoroutineMock(return_value={'data': 1})
+    GITHUB = CustomGitHub(access_token='cafed0d0')
+    res = yield from GITHUB.user.aget()
+
+    assert res._headers
+    assert 'data' in res
+
+
+@pytest.mark.asyncio
+def test_aget_list(mocker):
+    from jenkins_epo.github import CustomGitHub
+
+    aiohttp = mocker.patch('jenkins_epo.github.aiohttp')
+    session = aiohttp.ClientSession.return_value
+    response = Mock(spec=['headers', 'json', 'status'])
+    session.get = CoroutineMock(return_value=response)
+    response.status = 200
+    response.headers = {'ETag': 'cafed0d0'}
+    response.json = CoroutineMock(return_value=[{'data': 1}])
 
     GITHUB = CustomGitHub(access_token='cafed0d0')
     res = yield from GITHUB.user.aget()
 
-    assert '_headers' in res
-    assert 'data' in res
+    assert res._headers
+    assert 'data' in res[0]
+
+
+@pytest.mark.asyncio
+def test_aget_404(mocker):
+    from jenkins_epo.github import CustomGitHub, ApiNotFoundError
+
+    aiohttp = mocker.patch('jenkins_epo.github.aiohttp')
+    session = aiohttp.ClientSession.return_value
+    response = Mock(spec=['headers', 'json', 'status'])
+    session.get = CoroutineMock(return_value=response)
+    response.status = 404
+    response.headers = {'ETag': 'cafed0d0'}
+    response.json = CoroutineMock(return_value={'message': 'Not found'})
+
+    GITHUB = CustomGitHub(access_token='cafed0d0')
+
+    with pytest.raises(ApiNotFoundError):
+        yield from GITHUB.user.aget()
+
+
+@pytest.mark.asyncio
+def test_aget_304(mocker):
+    from jenkins_epo.github import CustomGitHub, ApiError
+
+    aiohttp = mocker.patch('jenkins_epo.github.aiohttp')
+    session = aiohttp.ClientSession.return_value
+    response = Mock(spec=['headers', 'json', 'status'])
+    session.get = CoroutineMock(return_value=response)
+    response.status = 304
+    response.headers = {'ETag': 'cafed0d0'}
+    response.json = CoroutineMock(return_value={'message': 'Not found'})
+
+    GITHUB = CustomGitHub(access_token='cafed0d0')
+
+    with pytest.raises(ApiError):
+        yield from GITHUB.user.aget()
 
 
 @patch('jenkins_epo.github.CACHE')
