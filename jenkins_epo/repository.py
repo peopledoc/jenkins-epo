@@ -197,12 +197,15 @@ class Repository(object):
         for entry in islice(payload, 4):
             yield Commit(self, entry['sha'], payload=entry)
 
+    @asyncio.coroutine
     def load_settings(self):
         if self.SETTINGS:
             return
 
         try:
-            jenkins_yml = GITHUB.fetch_file_contents(self, 'jenkins.yml')
+            jenkins_yml = yield from GITHUB.fetch_file_contents(
+                self, 'jenkins.yml'
+            )
             logger.debug("Loading settings from jenkins.yml")
         except ApiNotFoundError:
             jenkins_yml = '{}'

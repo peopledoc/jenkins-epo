@@ -1,3 +1,5 @@
+import asyncio
+import base64
 from datetime import datetime, timedelta, timezone
 
 from asynctest import patch, CoroutineMock, Mock
@@ -170,6 +172,22 @@ def test_cached_arequest_error(CACHE, GITHUB, SETTINGS):
     ))
     with pytest.raises(ApiError):
         yield from cached_arequest(query)
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_fetch_file_contents(SETTINGS, mocker):
+    cached_arequest = mocker.patch(
+        'jenkins_epo.github.cached_arequest', CoroutineMock()
+    )
+
+    cached_arequest.return_value = dict(content=base64.b64encode(b'{}'))
+    from jenkins_epo.github import GITHUB
+
+    contents = yield from GITHUB.fetch_file_contents(Mock(), '/jenkins.yml')
+
+    assert contents == '{}'
+    assert cached_arequest.mock_calls
 
 
 def test_wait_rate_limit(mocker, SETTINGS):

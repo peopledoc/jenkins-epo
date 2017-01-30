@@ -296,9 +296,10 @@ class LazyGithub(object):
             self._instance = CustomGitHub(access_token=SETTINGS.GITHUB_TOKEN)
 
     @retry
+    @asyncio.coroutine
     def fetch_file_contents(self, repository, path, **kwargs):
         path = os.path.normpath(path)
-        payload = cached_request(
+        payload = yield from cached_arequest(
             self.repos(repository).contents(path), **kwargs
         )
         return base64.b64decode(payload['content']).decode('utf-8')

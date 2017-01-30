@@ -95,7 +95,7 @@ def process_head(head, me=None):
     task.logging_id = head.sha[:4]
     bot = Bot(me=me)
     try:
-        head.repository.load_settings()
+        yield from head.repository.load_settings()
     except UnauthorizedRepository:
         logger.error("Write access denied to %s.", head.repository)
         raise

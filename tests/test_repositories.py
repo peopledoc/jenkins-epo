@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime
 from unittest.mock import Mock, patch
 
+from asynctest import CoroutineMock
 import pytest
 
 
@@ -114,36 +115,43 @@ def test_process_pulls():
     assert 'feature' == head.ref
 
 
-@patch('jenkins_epo.repository.GITHUB')
-@patch('jenkins_epo.repository.cached_request')
-def test_load_settings_no_yml(cached_request, GITHUB):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_load_settings_no_yml(mocker):
+    GITHUB = mocker.patch('jenkins_epo.repository.GITHUB')
+    cached_request = mocker.patch('jenkins_epo.repository.cached_request')
     from jenkins_epo.repository import ApiNotFoundError, Repository
 
-    GITHUB.fetch_file_contents.side_effect = ApiNotFoundError(
+    GITHUB.fetch_file_contents = CoroutineMock(side_effect=ApiNotFoundError(
         'url', Mock(), Mock())
+    )
 
     repo = Repository('owner', 'repo1')
-    repo.load_settings()
+    yield from repo.load_settings()
 
+    assert GITHUB.fetch_file_contents.mock_calls
     assert cached_request.mock_calls
 
 
-@patch('jenkins_epo.repository.GITHUB')
-@patch('jenkins_epo.repository.cached_request')
-def test_load_settings_collaborators_denied(cached_request, GITHUB):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_load_settings_collaborators_denied(mocker):
+    GITHUB = mocker.patch('jenkins_epo.repository.GITHUB')
+    cached_request = mocker.patch('jenkins_epo.repository.cached_request')
     from jenkins_epo.repository import (
         Repository, ApiNotFoundError, UnauthorizedRepository,
     )
 
-    GITHUB.fetch_file_contents.side_effect = [
-        repr(dict(settings=dict(branches=['master']))),
-    ]
+    GITHUB.fetch_file_contents = CoroutineMock(
+        return_value=repr(dict(settings=dict(branches=['master'])))
+    )
     cached_request.side_effect = ApiNotFoundError('u', Mock(), Mock())
 
     repo = Repository('owner', 'repo1')
     with pytest.raises(UnauthorizedRepository):
-        repo.load_settings()
+        yield from repo.load_settings()
 
+    assert GITHUB.fetch_file_contents.mock_calls
     assert cached_request.mock_calls
 
 

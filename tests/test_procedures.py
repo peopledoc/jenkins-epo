@@ -16,8 +16,10 @@ def test_process_head(mocker, SETTINGS):
 
     bot = Bot.return_value
     bot.run = CoroutineMock()
+    head = Mock(sha='cafed0d0')
+    head.repository.load_settings = CoroutineMock()
 
-    yield from process_head(Mock(sha='cafed0d0'))
+    yield from process_head(head)
 
     assert bot.run.mock_calls
 
@@ -31,7 +33,9 @@ def test_process_head_repo_denied(mocker, SETTINGS):
 
     bot = Bot.return_value
     head = Mock(sha='cafed0d0')
-    head.repository.load_settings.side_effect = UnauthorizedRepository()
+    head.repository.load_settings = CoroutineMock(
+        side_effect=UnauthorizedRepository()
+    )
 
     with pytest.raises(UnauthorizedRepository):
         yield from process_head(head)
@@ -67,8 +71,10 @@ def test_process_head_cancelled(mocker, SETTINGS):
 
     bot = Bot.return_value
     bot.run = CoroutineMock(side_effect=CancelledError())
+    head = Mock(sha='cafed0d0')
+    head.repository.load_settings = CoroutineMock()
 
-    yield from process_head(Mock(sha='cafed0d0'))
+    yield from process_head(head)
 
     assert bot.run.mock_calls
 
@@ -82,8 +88,10 @@ def test_process_head_log_exception(mocker, SETTINGS):
 
     bot = Bot.return_value
     bot.run = CoroutineMock(side_effect=ValueError('POUET'))
+    head = Mock(sha='cafed0d0')
+    head.repository.load_settings = CoroutineMock()
 
-    yield from process_head(Mock(sha='cafed0d0'))
+    yield from process_head(head)
 
     assert bot.run.mock_calls
 
@@ -98,9 +106,11 @@ def test_process_head_raise_exception(mocker, SETTINGS):
 
     bot = Bot.return_value
     bot.run = CoroutineMock(side_effect=ValueError('POUET'))
+    head = Mock(sha='cafed0d0')
+    head.repository.load_settings = CoroutineMock()
 
     with pytest.raises(ValueError):
-        yield from process_head(Mock(sha='cafed0d0'))
+        yield from process_head(head)
 
     assert bot.run.mock_calls
 
