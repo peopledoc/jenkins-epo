@@ -3,63 +3,93 @@ import pytest
 from unittest.mock import Mock
 
 
-@pytest.fixture
-def bot():
-    from jenkins_epo.bot import Bot
-
-    bot = Bot().workon(Mock())
-    bot.current.SETTINGS.COLLABORATORS = ['trusted']
-
-    return bot
-
-
-@pytest.fixture
-def instruction():
+def test_process_feedback():
     from jenkins_epo.bot import Instruction
+    from jenkins_epo.extensions.core import SecurityExtension
 
-    return Instruction(author='jenkins', name='security-feedback-processed')
+    ext = SecurityExtension('sec', Mock())
+    ext.current = ext.bot.current
+    ext.current.security_feedback_processed = None
+
+    ext.process_instruction(Instruction(
+        author='bot', name='security-feedback-processed'
+    ))
+
+    assert ext.current.security_feedback_processed
 
 
-def test_defaults(bot):
-    assert bot.current.secure is False
-    assert bot.current.security_feedback_processed is False
+def test_process_allow():
+    from jenkins_epo.bot import Instruction
+    from jenkins_epo.extensions.core import SecurityExtension
+
+    ext = SecurityExtension('sec', Mock())
+    ext.current = ext.bot.current
+    ext.current.head.author = 'contributor'
+    ext.current.security_feedback_processed = None
+    ext.current.SETTINGS.COLLABORATORS = ['owner']
+
+    ext.process_instruction(Instruction(
+        author='owner', name='allow'
+    ))
+
+    assert 'contributor' in ext.current.SETTINGS.COLLABORATORS
 
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_non_pr(bot):
-    bot.current.head.author = None  # cancel out mock
-    bot.extensions_map['security'].begin()
-    assert bot.current.secure is False
-    yield from bot.extensions_map['security'].run()
+def test_non_pr():
+    from jenkins_epo.extensions.core import SecurityExtension
+
+    ext = SecurityExtension('sec', Mock())
+    ext.current = ext.bot.current
+    ext.current.head.author = None
+
+    yield from ext.run()
 
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_untrusted_author(bot, instruction):
-    from jenkins_epo.extensions.core import SkipHead
+def test_allowed():
+    from jenkins_epo.extensions.core import SecurityExtension
 
-    bot.current.head.author = 'untrusted'
-    bot.extensions_map['security'].begin()
-    assert bot.current.secure is False
+    ext = SecurityExtension('sec', Mock())
+    ext.current = ext.bot.current
+    ext.current.SETTINGS.COLLABORATORS = ['owner']
+    ext.current.head.author = 'owner'
+    ext.current.security_feedback_processed = None
+
+    yield from ext.run()
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_deny_and_comment():
+    from jenkins_epo.extensions.core import SecurityExtension, SkipHead
+
+    ext = SecurityExtension('sec', Mock())
+    ext.current = ext.bot.current
+    ext.current.head.author = 'untrusted'
+    ext.current.security_feedback_processed = None
+    ext.current.SETTINGS.COLLABORATORS = ['trusted']
+
     with pytest.raises(SkipHead):
-        yield from bot.extensions_map['security'].run()
-    assert bot.current.head.comment.call_args_list
-    assert 'security-feedback-processed' in str(
-        bot.current.head.comment.call_args_list[0]
-    )
+        yield from ext.run()
 
-    bot.current.head.comment = Mock()  # reset calls
-    bot.extensions_map['security'].process_instruction(instruction)
-    with pytest.raises(SkipHead):
-        yield from bot.extensions_map['security'].run()
-    assert not bot.current.head.comment.call_args_list
+    assert ext.current.head.comment.call_args_list
 
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_trusted_author(bot):
-    bot.current.head.author = 'trusted'
-    bot.extensions_map['security'].begin()
-    assert bot.current.secure is True
-    yield from bot.extensions_map['security'].run()
+def test_deny_and_no_comment():
+    from jenkins_epo.extensions.core import SecurityExtension, SkipHead
+
+    ext = SecurityExtension('sec', Mock())
+    ext.current = ext.bot.current
+    ext.current.head.author = 'untrusted'
+    ext.current.security_feedback_processed = True
+    ext.current.SETTINGS.COLLABORATORS = ['trusted']
+
+    with pytest.raises(SkipHead):
+        yield from ext.run()
+
+    assert not ext.current.head.comment.call_args_list
