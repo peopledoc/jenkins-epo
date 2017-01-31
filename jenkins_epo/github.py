@@ -32,7 +32,7 @@ from github import (
 
 from .cache import CACHE
 from .settings import SETTINGS
-from .utils import retry
+from .utils import parse_links, retry
 
 
 logger = logging.getLogger(__name__)
@@ -145,7 +145,14 @@ def cached_arequest(query, **kw):
 @asyncio.coroutine
 def unpaginate(query):
     payload = yield from cached_arequest(query)
-    import pdb; pdb.set_trace()
+    links = parse_links(payload._headers.get('Link', ''))
+    while 'next' in links:
+        logger.debug("Fetching next page.")
+        url = links['next'].replace('https://api.github.com/repositories/', '')
+        query = GITHUB.repositories(url)
+        next_payload = yield from cached_arequest(query)
+        payload.extend(next_payload)
+        links = parse_links(next_payload._headers['Link'])
     return payload
 
 

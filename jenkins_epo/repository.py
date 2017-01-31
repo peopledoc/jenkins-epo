@@ -25,7 +25,7 @@ from github import ApiError
 import yaml
 
 from .github import (
-    cached_arequest, cached_request, GITHUB, ApiNotFoundError
+    cached_arequest, cached_request, unpaginate, GITHUB, ApiNotFoundError
 )
 from .settings import SETTINGS
 from .utils import (
@@ -215,7 +215,7 @@ class Repository(object):
             collaborators = []
         else:
             try:
-                collaborators = yield from cached_arequest(
+                collaborators = yield from unpaginate(
                     GITHUB.repos(self).collaborators
                 )
             except ApiNotFoundError as e:
