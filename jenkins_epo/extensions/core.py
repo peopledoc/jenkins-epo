@@ -394,6 +394,9 @@ jenkins: report-done
 
 
 class SecurityExtension(Extension):
+    """
+    jenkins: allow  # Allow to build this PR.
+    """
     stage = '00'
 
     DEFAULTS = {
@@ -402,53 +405,44 @@ class SecurityExtension(Extension):
     }
 
     FEEDBACK_TEMPLATE = """
-%(mention)s, %(message)s %(emoji)s
+Sorry %(mention)s, I'm not allowed to test your code! %(emoji)s
 
 <!--
 jenkins: security-feedback-processed
 -->
 """
 
-    def begin(self):
-        author = getattr(self.current.head, 'author', None)
-
-        if not author:
-            # In case the extension is running on a branch
-            return
-
-        for collaborator in self.current.SETTINGS.COLLABORATORS:
-            if collaborator == author:
-                self.current.secure = True
-                break
-
-        if not self.current.secure:
-            logger.warn("Untrusted PR author")
-
     def process_instruction(self, instruction):
         if instruction.name == 'security-feedback-processed':
             self.current.security_feedback_processed = True
+        elif instruction == 'allow':
+            author = getattr(self.current.head, 'author', None)
+            if author:
+                logger.warn("Allowing EPO to test @%s's code.", author)
+                self.current.SETTINGS.COLLABORATORS.append(author)
 
     @asyncio.coroutine
     def run(self):
         author = getattr(self.current.head, 'author', None)
 
-        # is this needed ?
         if not author:
             # In case the extension is running on a branch
             return
 
-        if self.current.secure:
+        if author in self.current.SETTINGS.COLLABORATORS:
             return
 
         if not self.current.security_feedback_processed:
             self.current.head.comment(body=self.FEEDBACK_TEMPLATE % dict(
                 emoji=random.choice((
-                    ':hand:', ':no_entry_sign:', ':no_entry',
+                    ':hand:', ':no_entry_sign:', ':no_entry:',
+                    ':confused:', ':cop:', ':hear_no_evil:', ':innocent:',
+                    ':neutral_face:', ':scream_cat:', ':see_no_evil:',
                 )),
                 mention='@' + author,
-                message="code execution from non-collaborator forbidden",
             ))
 
+        logger.warn("Skipping PR from @%s.", author)
         raise SkipHead()
 
 
