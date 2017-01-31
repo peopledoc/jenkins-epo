@@ -92,7 +92,7 @@ jenkins: urgent
 You can mix instructions. Multiline instructions **must** be in code block.
 
 --
-*%(me)s for your service*
+*%(me)s at your service*
 
 <!--
 jenkins: [process, help-reset]
