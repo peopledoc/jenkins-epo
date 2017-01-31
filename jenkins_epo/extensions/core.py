@@ -443,7 +443,7 @@ jenkins: security-feedback-processed
         if not self.current.security_feedback_processed:
             self.current.head.comment(body=self.FEEDBACK_TEMPLATE % dict(
                 emoji=random.choice((
-                    ':hand:', ':no_entry_sign:', ':no_entry',
+                    ':hand:', ':no_entry_sign:', ':no_entry:',
                 )),
                 mention='@' + author,
                 message="code execution from non-collaborator forbidden",
