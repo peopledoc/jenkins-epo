@@ -396,6 +396,19 @@ jenkins: report-done
 class SecurityExtension(Extension):
     stage = '00'
 
+    DEFAULTS = {
+        'secure': False,
+        'security_feedback_processed': False,
+    }
+
+    FEEDBACK_TEMPLATE = """
+%(mention)s, %(message)s %(emoji)s
+
+<!--
+jenkins: security-feedback-processed
+-->
+"""
+
     def begin(self):
         author = getattr(self.current.head, 'author', None)
 
@@ -403,16 +416,40 @@ class SecurityExtension(Extension):
             # In case the extension is running on a branch
             return
 
-        collaborators = self.current.SETTINGS.COLLABORATORS
-        secure = False
-        for collaborator in collaborators:
+        for collaborator in self.current.SETTINGS.COLLABORATORS:
             if collaborator == author:
-                secure = True
+                self.current.secure = True
                 break
 
-        if not secure:
-            logger.warn("Skipping insecure PR")
-            raise SkipHead()
+        if not self.current.secure:
+            logger.warn("Untrusted PR author")
+
+    def process_instruction(self, instruction):
+        if instruction.name == 'security-feedback-processed':
+            self.current.security_feedback_processed = True
+
+    @asyncio.coroutine
+    def run(self):
+        author = getattr(self.current.head, 'author', None)
+
+        # is this needed ?
+        if not author:
+            # In case the extension is running on a branch
+            return
+
+        if self.current.secure:
+            return
+
+        if not self.current.security_feedback_processed:
+            self.current.head.comment(body=self.FEEDBACK_TEMPLATE % dict(
+                emoji=random.choice((
+                    ':hand:', ':no_entry_sign:', ':no_entry',
+                )),
+                mention='@' + author,
+                message="code execution from non-collaborator forbidden",
+            ))
+
+        raise SkipHead()
 
 
 class SkipExtension(Extension):
