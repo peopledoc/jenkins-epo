@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 import fnmatch
 from itertools import zip_longest
 import logging
+import re
 
 from github import ApiError
 from http.client import HTTPException
@@ -109,6 +110,17 @@ def match(item, patterns):
 
 def parse_datetime(formatted):
     return datetime.strptime(formatted, '%Y-%m-%dT%H:%M:%SZ')
+
+
+_link_re = re.compile(r'<(?P<url>.*?)>; rel="(?P<rel>.*?)"')
+
+
+def parse_links(data):
+    return {
+        m.group('rel'): m.group('url')
+        for m in
+        _link_re.finditer(data)
+    }
 
 
 def parse_patterns(raw):

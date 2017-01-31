@@ -142,6 +142,13 @@ def cached_arequest(query, **kw):
         return e.value
 
 
+@asyncio.coroutine
+def unpaginate(query):
+    payload = yield from cached_arequest(query)
+    import pdb; pdb.set_trace()
+    return payload
+
+
 class GHList(list):
     pass
 

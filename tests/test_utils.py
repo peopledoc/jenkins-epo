@@ -85,3 +85,16 @@ def test_deepupdate():
     c = deepupdate(a, b)
 
     assert dict(a=1, b=1) == c['common']
+
+
+def test_parse_links():
+    from jenkins_epo.utils import parse_links
+
+    links = parse_links(
+        '<https://api.github.com/pouet?page=1>; rel="prev", '
+        '<https://api.github.com/pouet?page=3>; rel="next", '
+        '<https://api.github.com/pouet?page=50>; rel="last"',
+    )
+
+    assert 'last' in links
+    assert 'next' in links
