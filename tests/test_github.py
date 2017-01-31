@@ -218,3 +218,20 @@ def test_wait_rate_limit_reenter(mocker, SETTINGS):
 
     assert not sleep.mock_calls
     assert 0 == waited_seconds
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_unpaginate(mocker):
+    cached_arequest = mocker.patch(
+        'jenkins_epo.github.cached_arequest', CoroutineMock()
+    )
+    cached_arequest.side_effect = [
+        Mock(_headers=dict(Link='<next_url>; rel="next"')),
+        Mock(_headers=dict(Link='<prev_url>; rel="prev"'))
+    ]
+    from jenkins_epo.github import unpaginate
+
+    yield from unpaginate(Mock())
+
+    assert 2 == len(cached_arequest.mock_calls)
