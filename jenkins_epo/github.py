@@ -62,14 +62,17 @@ def check_rate_limit_threshold():
         return
 
     if GITHUB.x_ratelimit_remaining > SETTINGS.RATE_LIMIT_THRESHOLD:
-        # Cool, we didn't hit our threshold
-        return
+        return  # Fine
+
+    # Hmmm... wait, we might have outdated info
+    GITHUB.rate_limit.get()
+    if GITHUB.x_ratelimit_remaining > SETTINGS.RATE_LIMIT_THRESHOLD:
+        return  # Cool, we didn't hit our threshold
 
     logger.debug(
         "GitHub hit rate limit threshold exceeded. (remaining=%s)",
         GITHUB.x_ratelimit_remaining,
     )
-    GITHUB.rate_limit.get()
     # Fake rate limit exceeded
     raise ApiError(url='any', request={}, response=dict(code='403', json=dict(
         message="API rate limit exceeded for 0.0.0.0"

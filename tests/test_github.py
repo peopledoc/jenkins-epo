@@ -7,7 +7,31 @@ import pytest
 
 
 @patch('jenkins_epo.github.GITHUB')
-def test_threshold(GITHUB, SETTINGS):
+def test_threshold_not_hit(GITHUB, SETTINGS):
+    from jenkins_epo.github import check_rate_limit_threshold
+
+    SETTINGS.RATE_LIMIT_THRESHOLD = 3000
+    GITHUB.x_ratelimit_remaining = 5000
+
+    check_rate_limit_threshold()
+
+
+@patch('jenkins_epo.github.GITHUB')
+def test_threshold_reenter(GITHUB, SETTINGS):
+    from jenkins_epo.github import check_rate_limit_threshold
+
+    SETTINGS.RATE_LIMIT_THRESHOLD = 3000
+    GITHUB.x_ratelimit_remaining = 2999
+
+    def get_sideeffect():
+        GITHUB.x_ratelimit_remaining = 5000
+    GITHUB.rate_limit.get.side_effect = get_sideeffect
+
+    check_rate_limit_threshold()
+
+
+@patch('jenkins_epo.github.GITHUB')
+def test_threshold_hit(GITHUB, SETTINGS):
     from jenkins_epo.github import check_rate_limit_threshold, ApiError
 
     SETTINGS.RATE_LIMIT_THRESHOLD = 3000
