@@ -15,6 +15,7 @@ def test_main():
 def test_main_sync(mocker):
     command = mocker.patch('jenkins_epo.main.bot')
     command.__name__ = 'bot'
+    command.__code__ = Mock(co_varnames=(), co_argcount=0)
     command._is_coroutine = None
     from jenkins_epo.main import main
 
@@ -28,6 +29,7 @@ def test_main_sync(mocker):
 def test_main_async(mocker, event_loop):
     command = mocker.patch('jenkins_epo.main.bot', CoroutineMock())
     command.__name__ = 'bot'
+    command.__code__ = Mock(co_varnames=(), co_argcount=0)
     from jenkins_epo.main import main
 
     main(argv=['bot'], loop=event_loop)
