@@ -25,7 +25,6 @@ import sys
 
 from .bot import Bot
 from .cache import CACHE
-from .github import GITHUB
 from .settings import SETTINGS
 from .utils import grouper
 from . import procedures
@@ -74,10 +73,7 @@ def bot():
 
     CACHE.purge()
 
-    logger.info(
-        "GitHub poll done. %s remaining API calls.",
-        GITHUB.x_ratelimit_remaining,
-    )
+    logger.info("GitHub poll done.")
 
     if failures:
         if not SETTINGS.LOOP:
