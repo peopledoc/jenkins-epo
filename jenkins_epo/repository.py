@@ -400,6 +400,35 @@ class Commit(object):
 class Head(object):
     contexts_filter = parse_patterns(SETTINGS.JOBS)
 
+    _url_re = re.compile(
+        r'^https://github.com/(?P<owner>[\w-]+)/(?P<name>[\w-]+)/'
+        r'(?P<type>pull|tree)/(?P<id>.*)$'
+    )
+
+    @classmethod
+    @asyncio.coroutine
+    def from_url(cls, url):
+        match = cls._url_re.match(url)
+        if not match:
+            raise Exception("Can't infer HEAD from %s." % (url,))
+
+        repository = Repository.from_name(
+            match.group('owner'), match.group('name')
+        )
+
+        type_ = match.group('type')
+        if type_ == 'pull':
+            payload = yield from cached_arequest(
+                GITHUB.repos(repository).pulls(match.group('id'))
+            )
+
+            return PullRequest(repository, payload)
+        else:
+            payload = yield from cached_arequest(
+                GITHUB.repos(repository).branches(match.group('id'))
+            )
+            return Branch(repository, payload)
+
     def __init__(self, repository, ref, sha):
         self.repository = repository
         self.sha = sha
