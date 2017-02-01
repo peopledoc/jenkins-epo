@@ -38,7 +38,7 @@ def utcnow():
 def retry(callable_):
     defaults = dict(
         retry=tenacity.retry_if_exception(filter_exception_for_retry),
-        wait=tenacity.wait_exponential(),
+        wait=tenacity.wait_exponential(max=300),
     )
     return tenacity.retry(**defaults)(callable_)
 
