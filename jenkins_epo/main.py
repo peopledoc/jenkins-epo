@@ -28,7 +28,6 @@ from .cache import CACHE
 from .github import GITHUB
 from .settings import SETTINGS
 from .utils import grouper
-from .watchdog import WatchDog
 from . import procedures
 
 
@@ -162,6 +161,8 @@ def main(argv=None, *, loop=None):
     }
 
     if asyncio.iscoroutinefunction(command_func):
-        WatchDog().run(run_async, command_func, **kwargs)
+        loop = loop or asyncio.get_event_loop()
+        loop.run_until_complete(run_async(command_func, **kwargs))
+        loop.close()
     else:
         command_func(**kwargs)

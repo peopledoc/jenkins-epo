@@ -72,8 +72,6 @@ DEFAULTS = {
     # Jenkins baseurl, like http://jenkins.lan:8080/.
     'JENKINS_URL': '',
     'JENKINS_QUEUE': '*',
-    # Timeout of watchdog. Disable with 0.
-    'WATCHDOG': 30,
 }
 
 SETTINGS = EnvironmentSettings(defaults=DEFAULTS)
