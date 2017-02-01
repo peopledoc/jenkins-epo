@@ -266,3 +266,20 @@ def test_throttling_compute(SETTINGS):
     )
 
     assert seconds > 0  # Chill !
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_process_url(mocker):
+    mod = 'jenkins_epo.procedures'
+    whoami = mocker.patch(mod + '.whoami', CoroutineMock())
+    from_url = mocker.patch(mod + '.Head.from_url', CoroutineMock())
+    process_head = mocker.patch(mod + '.process_head', CoroutineMock())
+
+    from jenkins_epo.procedures import process_url
+
+    yield from process_url('https//github/owner/name/pull/1')
+
+    assert whoami.mock_calls
+    assert from_url.mock_calls
+    assert process_head.mock_calls

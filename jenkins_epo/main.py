@@ -56,8 +56,6 @@ def loop(wrapped):
 @asyncio.coroutine
 def bot():
     """Poll GitHub to find something to do"""
-    task = asyncio.Task.current_task()
-    task.logging_id = 'bot'
     me = yield from procedures.whoami()
     loop = asyncio.get_event_loop()
 
@@ -103,10 +101,17 @@ def list_heads():
 
 
 @asyncio.coroutine
-def run_async(command_func):
+def process(url):
+    """Process one head"""
+    yield from procedures.process_url(url)
+
+
+@asyncio.coroutine
+def run_async(command_func, *args, **kwargs):
     me = asyncio.Task.current_task()
+    me.logging_id = 'cmd'
     try:
-        yield from command_func()
+        yield from command_func(*args, **kwargs)
     except BaseException:
         # Hide ^C in terminal
         sys.stderr.write('\r')
@@ -124,16 +129,25 @@ def run_async(command_func):
         raise
 
 
+def addcommand(subparsers, command):
+    parser = subparsers.add_parser(
+        command.__name__.replace('_', '-'),
+        help=inspect.cleandoc(command.__doc__ or '').split('\n')[0],
+    )
+    parser.set_defaults(command_func=command)
+    argnames = command.__code__.co_varnames[:command.__code__.co_argcount]
+    for var in argnames:
+        parser.add_argument(
+            var, metavar=var.upper(), type=str
+        )
+
+
 def main(argv=None, *, loop=None):
     argv = argv or sys.argv
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='command', metavar='COMMAND')
-    for command in [bot, list_extensions, list_heads]:
-        subparser = subparsers.add_parser(
-            command.__name__.replace('_', '-'),
-            help=inspect.cleandoc(command.__doc__ or '').split('\n')[0],
-        )
-        subparser.set_defaults(command_func=command)
+    for command in bot, list_extensions, list_heads, process:
+        addcommand(subparsers, command)
 
     args = parser.parse_args(argv)
     try:
@@ -141,7 +155,13 @@ def main(argv=None, *, loop=None):
     except AttributeError:
         command_func = parser.print_usage
 
+    kwargs = {
+        k: v
+        for k, v in args._get_kwargs()
+        if k not in {'command', 'command_func'}
+    }
+
     if asyncio.iscoroutinefunction(command_func):
-        WatchDog().run(run_async, command_func)
+        WatchDog().run(run_async, command_func, **kwargs)
     else:
-        command_func()
+        command_func(**kwargs)
