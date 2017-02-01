@@ -70,3 +70,16 @@ def test_list_extensions():
     from jenkins_epo.main import list_extensions
 
     list_extensions()
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_process(mocker):
+    process_url = mocker.patch(
+        'jenkins_epo.main.procedures.process_url', CoroutineMock(),
+    )
+    from jenkins_epo.main import process
+
+    yield from process('http:///')
+
+    assert process_url.mock_calls

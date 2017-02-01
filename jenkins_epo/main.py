@@ -103,6 +103,12 @@ def list_heads():
 
 
 @asyncio.coroutine
+def process(url):
+    """Process one head"""
+    yield from procedures.process_url(url)
+
+
+@asyncio.coroutine
 def run_async(command_func, *args, **kwargs):
     me = asyncio.Task.current_task()
     try:
@@ -141,7 +147,7 @@ def main(argv=None, *, loop=None):
     argv = argv or sys.argv
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='command', metavar='COMMAND')
-    for command in bot, list_extensions, list_heads:
+    for command in bot, list_extensions, list_heads, process:
         addcommand(subparsers, command)
 
     args = parser.parse_args(argv)

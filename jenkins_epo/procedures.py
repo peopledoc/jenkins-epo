@@ -20,7 +20,7 @@ import logging
 
 from .bot import Bot
 from .github import GITHUB, cached_arequest
-from .repository import Repository, UnauthorizedRepository
+from .repository import Head, Repository, UnauthorizedRepository
 from .settings import SETTINGS
 from .utils import retry
 
@@ -115,6 +115,13 @@ def process_head(head, me=None):
 
     logger.info("Processed %s.", head)
     del task.logging_id
+
+
+@asyncio.coroutine
+def process_url(url):
+    me = yield from whoami()
+    head = yield from Head.from_url(url)
+    yield from process_head(head, me)
 
 
 @asyncio.coroutine
