@@ -89,5 +89,6 @@ class WatchDog(object):
                 coro = self.wrapper(callable_, *args, **kwargs)
                 try:
                     loop.run_until_complete(coro)
+                    break
                 except (CancelledError, RuntimeError):
                     pass
