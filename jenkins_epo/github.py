@@ -211,8 +211,9 @@ class CustomGitHub(GitHub):
             response = yield from session.get(url, headers=headers)
             payload = yield from response.json()
         finally:
-            logger.debug("Closing HTTP session.")
-            yield from session.close()
+            if not asyncio.get_event_loop().is_closed():
+                logger.debug("Closing HTTP session.")
+                yield from session.close()
         if isinstance(payload, list):
             payload = GHList(payload)
         else:

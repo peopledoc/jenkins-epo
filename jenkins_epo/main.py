@@ -101,29 +101,6 @@ def process(url):
     yield from procedures.process_url(url)
 
 
-@asyncio.coroutine
-def run_async(command_func, *args, **kwargs):
-    me = asyncio.Task.current_task()
-    me.logging_id = 'cmd'
-    try:
-        yield from command_func(*args, **kwargs)
-    except BaseException:
-        # Hide ^C in terminal
-        sys.stderr.write('\r')
-        for task in asyncio.Task.all_tasks():
-            if task is me:
-                continue
-
-            if task.done():
-                # Consume any exception
-                task.exception()
-            else:
-                logger.debug("Cancelling %s", task)
-                task.cancel()
-        CACHE.save()
-        raise
-
-
 def addcommand(subparsers, command):
     parser = subparsers.add_parser(
         command.__name__.replace('_', '-'),
@@ -158,7 +135,12 @@ def main(argv=None, *, loop=None):
 
     if asyncio.iscoroutinefunction(command_func):
         loop = loop or asyncio.get_event_loop()
-        loop.run_until_complete(run_async(command_func, **kwargs))
-        loop.close()
+        try:
+            loop.run_until_complete(command_func(**kwargs))
+        except BaseException:
+            loop.close()
+            raise
+        else:
+            loop.close()
     else:
         command_func(**kwargs)
