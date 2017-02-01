@@ -46,7 +46,7 @@ def wait_rate_limit_reset(now):
     )
     delta = reset - now
     wait = delta.total_seconds() + .5
-    if wait < 1:
+    if wait < 1 or 3500 < wait:
         # Our data is outdated. Just go on.
         return 0
 
