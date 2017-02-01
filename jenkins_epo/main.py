@@ -56,8 +56,6 @@ def loop(wrapped):
 @asyncio.coroutine
 def bot():
     """Poll GitHub to find something to do"""
-    task = asyncio.Task.current_task()
-    task.logging_id = 'bot'
     me = yield from procedures.whoami()
     loop = asyncio.get_event_loop()
 
@@ -111,6 +109,7 @@ def process(url):
 @asyncio.coroutine
 def run_async(command_func, *args, **kwargs):
     me = asyncio.Task.current_task()
+    me.logging_id = 'cmd'
     try:
         yield from command_func(*args, **kwargs)
     except BaseException:
