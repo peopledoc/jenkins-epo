@@ -52,8 +52,12 @@ def test_job_is_running(mocker):
         dict(building=True),
     ])
     running = yield from job.is_running_async()
-
     assert running is True
+
+    client = RESTClient.return_value
+    client.aget = CoroutineMock(return_value=dict(lastBuild=None))
+    running = yield from job.is_running_async()
+    assert running is False
 
 
 def test_freestyle_build(SETTINGS):
