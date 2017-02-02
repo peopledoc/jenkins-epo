@@ -39,11 +39,15 @@ def test_from_remote(cached_request):
     assert 'newname' == repo.name
 
 
-@patch('jenkins_epo.repository.cached_request')
-def test_fetch_protected_branches(cached_request):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_fetch_protected_branches(mocker):
+    cached_arequest = mocker.patch('jenkins_epo.repository.cached_arequest')
     from jenkins_epo.repository import Repository
 
-    assert Repository('owner', 'name').fetch_protected_branches()
+    yield from Repository('owner', 'name').fetch_protected_branches()
+
+    assert cached_arequest.mock_calls
 
 
 @pytest.mark.asyncio
@@ -57,8 +61,7 @@ def test_fetch_commit(mocker):
     yield from Repository('owner', 'name').fetch_commit('cafedodo')
 
 
-@patch('jenkins_epo.repository.cached_request')
-def test_process_protected_branches(cached_request):
+def test_process_protected_branches():
     from jenkins_epo.repository import Repository
 
     repo = Repository('owner', 'name')
@@ -78,11 +81,15 @@ def test_process_protected_branches(cached_request):
     assert 'refs/heads/master' == branches[0].ref
 
 
-@patch('jenkins_epo.repository.cached_request')
-def test_fetch_pull_requests(cached_request):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_fetch_pull_requests(mocker):
+    cached_arequest = mocker.patch('jenkins_epo.repository.cached_arequest')
     from jenkins_epo.repository import Repository
 
-    assert Repository('owner', 'name').fetch_pull_requests()
+    yield from Repository('owner', 'name').fetch_pull_requests()
+
+    assert cached_arequest.mock_calls
 
 
 def test_process_pulls():
@@ -268,9 +275,12 @@ def test_sort_heads():
     ))
     urgent_pr.urgent = True
 
+    assert master < pr
+    assert urgent_pr < pr
+
     heads = [master, pr, urgent_pr]
 
-    computed = list(reversed(sorted(heads, key=lambda h: h.sort_key())))
+    computed = list(sorted(heads, key=lambda h: h.sort_key()))
     wanted = [urgent_pr, master, pr]
 
     assert wanted == computed

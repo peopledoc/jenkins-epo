@@ -15,11 +15,11 @@
 import asyncio
 from concurrent.futures import CancelledError
 from datetime import datetime, timedelta, timezone
-import itertools
 import logging
 
 from .bot import Bot
 from .github import GITHUB, cached_arequest
+from .queuer import Queuer
 from .repository import Head, Repository, UnauthorizedRepository
 from .settings import SETTINGS
 from .utils import retry
@@ -28,40 +28,15 @@ from .utils import retry
 logger = logging.getLogger(__name__)
 
 
-def iter_heads():
-    queues = []
-
-    for repository in list_repositories():
-        logger.info("Fetching %s heads.", repository)
-        branches = repository.fetch_protected_branches()
-        pulls = repository.fetch_pull_requests()
-        heads = reversed(sorted(itertools.chain(
-            repository.process_protected_branches(branches),
-            repository.process_pull_requests(pulls),
-        ), key=lambda head: head.sort_key()))
-
-        # Yield first head of the repository before loading next repositories.
-        queue = iter(heads)
-        try:
-            yield next(heads)
-        except StopIteration:
-            continue
-        except GeneratorExit:
-            return
-        else:
-            queues.append(queue)
-
-    while queues:
-        for queue in queues[:]:
-            try:
-                yield next(queue)
-            except StopIteration:
-                queues.remove(queue)
-            except GeneratorExit:
-                return
+@asyncio.coroutine
+def queue_heads(queue):
+    repositories = list_repositories()
+    queuer = Queuer(queue)
+    yield from queuer.queue_repositories(repositories)
 
 
 def list_repositories(with_settings=False):
+    logger.info("Fetching repositories.")
     repositories = set()
 
     env_repos = filter(
@@ -98,9 +73,6 @@ def process_head(head, me=None):
         yield from head.repository.load_settings()
     except UnauthorizedRepository:
         logger.error("Write access denied to %s.", head.repository)
-        raise
-    except Exception:
-        logger.exception("Failed to load %s settings.", head.repository)
         raise
 
     logger.info("Working on %s.", head)

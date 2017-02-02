@@ -14,11 +14,11 @@
 
 from __future__ import absolute_import
 
+import asyncio
 import aiohttp.errors
 import collections
 from datetime import datetime, timedelta, timezone
 import fnmatch
-from itertools import zip_longest
 import logging
 import re
 
@@ -148,8 +148,7 @@ def deepupdate(self, other):
     return self
 
 
-def grouper(iterable, n, fillvalue=None):
-    "Collect data into fixed-length chunks or blocks"
-    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
-    args = [iter(iterable)] * n
-    return zip_longest(*args, fillvalue=fillvalue)
+@asyncio.coroutine
+def switch_coro(_seconds=.005):
+    """Tiny helper lettting loop switch to another coroutine."""
+    yield from asyncio.sleep(_seconds)

@@ -49,6 +49,7 @@ DEFAULTS = {
     'ALWAYS_QUEUE': False,
     'CACHE_PATH': '.epo-cache',
     'CACHE_LIFE': 30,
+    # Size of worker pool
     'CONCURRENCY': 4,
     # Drop into Pdb on unhandled exception
     'DEBUG': False,
