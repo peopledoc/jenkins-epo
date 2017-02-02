@@ -192,6 +192,7 @@ class CustomGitHub(GitHub):
     @asyncio.coroutine
     def ahttp(self, _method, _path, headers={}, **kw):
         url = URL('%s%s' % (_URL, _path))
+        kw = dict(kw, **url.query)
         if kw:
             url = url.with_query(**kw)
         headers = headers or {}
