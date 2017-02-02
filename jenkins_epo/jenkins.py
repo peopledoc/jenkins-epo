@@ -285,7 +285,10 @@ class Job(object):
     @asyncio.coroutine
     def is_running_async(self):
         yield from self.update_data_async()
-        url = self._instance._data['lastBuild']['url']
+        try:
+            url = self._instance._data['lastBuild']['url']
+        except (TypeError, KeyError):
+            return False
         client = RESTClient(url)
         payload = yield from client.aget()
         return payload['building']
