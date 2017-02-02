@@ -239,7 +239,21 @@ def test_throttle_sleep(mocker, SETTINGS):
     assert sleep.mock_calls
 
 
-def test_throttling_compute(SETTINGS):
+def test_throttling_compute_early(SETTINGS):
+    SETTINGS.RATE_LIMIT_THRESHOLD = 0
+    from jenkins_epo.procedures import compute_throttling
+
+    remaining = 4900
+    seconds = compute_throttling(
+        now=Mock(),
+        rate_limit=dict(rate=dict(
+            limit=5000, remaining=remaining,
+        )),
+    )
+    assert 0 == seconds
+
+
+def test_throttling_compute_fine(SETTINGS):
     SETTINGS.RATE_LIMIT_THRESHOLD = 0
     from jenkins_epo.procedures import compute_throttling
 
@@ -255,6 +269,11 @@ def test_throttling_compute(SETTINGS):
         )),
     )
     assert 0 == seconds  # Fine !
+
+
+def test_throttling_compute_chill(SETTINGS):
+    SETTINGS.RATE_LIMIT_THRESHOLD = 0
+    from jenkins_epo.procedures import compute_throttling
 
     # Consumed 4/5 calls at 1/3 of the time.
     seconds = compute_throttling(
