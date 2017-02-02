@@ -151,7 +151,9 @@ def cached_arequest(query, **kw):
 def unpaginate(query):
     payload = yield from cached_arequest(query)
     links = parse_links(payload._headers.get('Link', ''))
-    while 'next' in links:
+    for _ in range(16):
+        if 'next' not in links:
+            break
         logger.debug("Fetching next page.")
         url = links['next'].replace('https://api.github.com/repositories/', '')
         query = GITHUB.repositories(url)
@@ -192,6 +194,7 @@ class CustomGitHub(GitHub):
     @asyncio.coroutine
     def ahttp(self, _method, _path, headers={}, **kw):
         url = URL('%s%s' % (_URL, _path))
+        kw = dict(kw, **url.query)
         if kw:
             url = url.with_query(**kw)
         headers = headers or {}
