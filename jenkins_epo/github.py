@@ -85,7 +85,7 @@ def _cached_request_middleware(query, **kw):
         'gh', SETTINGS.GITHUB_TOKEN[:8], str(query._name), _encode_params(kw),
     ])
     headers = {
-        b'Accept': b'application/vnd.github.loki-preview+json',
+        'Accept': 'application/vnd.github.loki-preview+json',
     }
     try:
         response = CACHE.get(cache_key)
@@ -132,7 +132,7 @@ def cached_request(query, **kw):
 def cached_arequest(query, **kw):
     generator = _cached_request_middleware(query, **kw)
     headers = next(generator)
-    kw = dict(per_page=b'100', **kw)
+    kw = dict(per_page='100', **kw)
     try:
         response = yield from query.aget(headers=headers, **kw)
     except Exception as e:
