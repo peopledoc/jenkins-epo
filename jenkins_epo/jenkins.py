@@ -163,7 +163,7 @@ class LazyJenkins(object):
 
         api_instance = self._instance.create_job(job_spec.name, config)
         logger.warn("Created new Jenkins job %s.", job_spec.name)
-
+        api_instance.poll()
         return Job.factory(api_instance)
 
     @retry
@@ -177,7 +177,7 @@ class LazyJenkins(object):
 
         api_instance.update_config(config)
         logger.warn("Updated Jenkins job %s.", job_spec.name)
-
+        api_instance.poll()
         return Job.factory(api_instance)
 
 
