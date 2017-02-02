@@ -25,10 +25,8 @@ import sys
 
 from .bot import Bot
 from .cache import CACHE
-from .github import GITHUB
 from .settings import SETTINGS
 from .utils import grouper
-from .watchdog import WatchDog
 from . import procedures
 
 
@@ -75,10 +73,7 @@ def bot():
 
     CACHE.purge()
 
-    logger.info(
-        "GitHub poll done. %s remaining API calls.",
-        GITHUB.x_ratelimit_remaining,
-    )
+    logger.info("GitHub poll done.")
 
     if failures:
         if not SETTINGS.LOOP:
@@ -104,29 +99,6 @@ def list_heads():
 def process(url):
     """Process one head"""
     yield from procedures.process_url(url)
-
-
-@asyncio.coroutine
-def run_async(command_func, *args, **kwargs):
-    me = asyncio.Task.current_task()
-    me.logging_id = 'cmd'
-    try:
-        yield from command_func(*args, **kwargs)
-    except BaseException:
-        # Hide ^C in terminal
-        sys.stderr.write('\r')
-        for task in asyncio.Task.all_tasks():
-            if task is me:
-                continue
-
-            if task.done():
-                # Consume any exception
-                task.exception()
-            else:
-                logger.debug("Cancelling %s", task)
-                task.cancel()
-        CACHE.save()
-        raise
 
 
 def addcommand(subparsers, command):
@@ -162,6 +134,13 @@ def main(argv=None, *, loop=None):
     }
 
     if asyncio.iscoroutinefunction(command_func):
-        WatchDog().run(run_async, command_func, **kwargs)
+        loop = loop or asyncio.get_event_loop()
+        try:
+            loop.run_until_complete(command_func(**kwargs))
+        except BaseException:
+            loop.close()
+            raise
+        else:
+            loop.close()
     else:
         command_func(**kwargs)

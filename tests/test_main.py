@@ -37,6 +37,20 @@ def test_main_async(mocker, event_loop):
     assert command.mock_calls
 
 
+def test_main_async_exception(mocker, event_loop):
+    command = mocker.patch('jenkins_epo.main.bot', CoroutineMock())
+    command.__name__ = 'bot'
+    command.__code__ = Mock(co_varnames=(), co_argcount=0)
+    command.side_effect = ValueError()
+    from jenkins_epo.main import main
+
+    with pytest.raises(ValueError):
+        main(argv=['bot'], loop=event_loop)
+
+    assert command.mock_calls
+    assert event_loop.is_closed()
+
+
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_bot(mocker, SETTINGS):
