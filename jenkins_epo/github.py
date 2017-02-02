@@ -21,6 +21,7 @@ import logging
 import os.path
 import sys
 import time
+from yarl import URL
 
 import aiohttp
 from github import GitHub, ApiError, ApiNotFoundError, _Callable, _Executable
@@ -85,7 +86,7 @@ def _cached_request_middleware(query, **kw):
         'gh', SETTINGS.GITHUB_TOKEN[:8], str(query._name), _encode_params(kw),
     ])
     headers = {
-        b'Accept': b'application/vnd.github.loki-preview+json',
+        'Accept': 'application/vnd.github.loki-preview+json',
     }
     try:
         response = CACHE.get(cache_key)
@@ -132,7 +133,7 @@ def cached_request(query, **kw):
 def cached_arequest(query, **kw):
     generator = _cached_request_middleware(query, **kw)
     headers = next(generator)
-    kw = dict(per_page=b'100', **kw)
+    kw = dict(per_page='100', **kw)
     try:
         response = yield from query.aget(headers=headers, **kw)
     except Exception as e:
@@ -190,7 +191,9 @@ class CustomGitHub(GitHub):
 
     @asyncio.coroutine
     def ahttp(self, _method, _path, headers={}, **kw):
-        url = '%s%s' % (_URL, _path)
+        url = URL('%s%s' % (_URL, _path))
+        if kw:
+            url = url.with_query(**kw)
         headers = headers or {}
         if self._authorization:
             headers['Authorization'] = self._authorization

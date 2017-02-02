@@ -157,11 +157,9 @@ def compute_throttling(now, rate_limit):
     estimated_end = now + timedelta(seconds=int(countdown))
 
     logger.info(
-        "%d remaining API calls estimated to end by %s.",
-        calls_remaining, estimated_end.replace(tzinfo=timezone.utc),
-    )
-    logger.info(
-        "GitHub API rate limit reset at %s.",
+        "%d remaining API calls. Consumed at %s. Reset at %s.",
+        calls_remaining,
+        estimated_end.replace(tzinfo=timezone.utc),
         reset.replace(tzinfo=timezone.utc)
     )
 

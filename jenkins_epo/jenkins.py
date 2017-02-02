@@ -173,6 +173,7 @@ class LazyJenkins(object):
         config = job_spec.as_xml()
         if SETTINGS.DRY_RUN:
             logger.warn("Would update Jenkins job %s.", job_spec)
+            api_instance.poll()
             return Job.factory(api_instance)
 
         api_instance.update_config(config)

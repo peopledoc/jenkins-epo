@@ -40,7 +40,7 @@ On your poller host:
    # Check repository is manageable
    jenkins-epo list-heads
    # Trigger a dry run
-   DRY_RUN=1 jenkins-epo bot
+   DRY_RUN=1 jenkins-epo process https://github.com/owner/repo/tree/master
    # Run it for real
    jenkins-epo bot
 

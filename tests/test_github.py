@@ -70,7 +70,7 @@ def test_aget_dict(mocker):
     response.headers = {'ETag': 'cafed0d0'}
     response.json = CoroutineMock(return_value={'data': 1})
     GITHUB = CustomGitHub(access_token='cafed0d0')
-    res = yield from GITHUB.user.aget()
+    res = yield from GITHUB.user.aget(per_page='100')
 
     assert res._headers
     assert 'data' in res
