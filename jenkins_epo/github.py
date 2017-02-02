@@ -21,6 +21,7 @@ import logging
 import os.path
 import sys
 import time
+from yarl import URL
 
 import aiohttp
 from github import GitHub, ApiError, ApiNotFoundError, _Callable, _Executable
@@ -190,7 +191,9 @@ class CustomGitHub(GitHub):
 
     @asyncio.coroutine
     def ahttp(self, _method, _path, headers={}, **kw):
-        url = '%s%s' % (_URL, _path)
+        url = URL('%s%s' % (_URL, _path))
+        if kw:
+            url = url.with_query(**kw)
         headers = headers or {}
         if self._authorization:
             headers['Authorization'] = self._authorization
