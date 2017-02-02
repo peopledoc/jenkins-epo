@@ -335,7 +335,10 @@ class Stage(object):
                 return False
 
         for spec in self.job_specs:
-            job = jobs[spec.name]
+            try:
+                job = jobs[spec.name]
+            except KeyError:
+                continue
             for context in job.list_contexts(spec):
                 state = statuses.get(context, {}).get('state')
                 if state != 'success':

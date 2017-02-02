@@ -45,8 +45,10 @@ def test_second_stage():
     ext.current.SETTINGS.STAGES = ['build', 'test']
     ext.current.job_specs = specs = {
         'test': Mock(config=dict()),
+        'missing': Mock(config=dict()),
     }
     specs['test'].name = 'test'
+    specs['missing'].name = 'missing'
 
     ext.current.jobs = jobs = {
         'test': Mock(),
