@@ -151,7 +151,9 @@ def cached_arequest(query, **kw):
 def unpaginate(query):
     payload = yield from cached_arequest(query)
     links = parse_links(payload._headers.get('Link', ''))
-    while 'next' in links:
+    for _ in range(16):
+        if 'next' not in links:
+            break
         logger.debug("Fetching next page.")
         url = links['next'].replace('https://api.github.com/repositories/', '')
         query = GITHUB.repositories(url)
