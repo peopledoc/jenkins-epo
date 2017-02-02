@@ -133,6 +133,12 @@ def whoami():
 
 def compute_throttling(now, rate_limit):
     data = rate_limit['rate']
+    calls_limit = data['limit'] - SETTINGS.RATE_LIMIT_THRESHOLD
+    calls_remaining = data['remaining'] - SETTINGS.RATE_LIMIT_THRESHOLD
+    calls_consumed = calls_limit - calls_remaining
+    if calls_consumed < 200:
+        return 0  # Don't throttle on first calls. Rate is unreliable.
+
     now = now.replace(microsecond=0)
     reset = (
         datetime
@@ -144,10 +150,6 @@ def compute_throttling(now, rate_limit):
     time_limit = 3600
     time_remaining = (reset - now).total_seconds()
     time_consumed = time_limit - time_remaining
-
-    calls_limit = data['limit'] - SETTINGS.RATE_LIMIT_THRESHOLD
-    calls_remaining = data['remaining'] - SETTINGS.RATE_LIMIT_THRESHOLD
-    calls_consumed = calls_limit - calls_remaining
 
     countdown = (
         calls_limit / max(1, calls_consumed) * time_consumed - time_consumed
