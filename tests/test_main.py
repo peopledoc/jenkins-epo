@@ -1,8 +1,14 @@
 import asyncio
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
 from asynctest import CoroutineMock
 import pytest
+
+
+def head():
+    head = MagicMock(name='HEAD')
+    head.__lt__ = lambda a, b: id(a) < id(b)
+    return head
 
 
 def test_main():
@@ -56,28 +62,56 @@ def test_main_async_exception(mocker, event_loop):
 def test_bot(mocker, SETTINGS):
     procedures = mocker.patch('jenkins_epo.main.procedures')
     procedures.process_head = CoroutineMock()
-    procedures.iter_heads.return_value = [Mock()]
-    procedures.throttle_github = CoroutineMock()
-    procedures.whoami = CoroutineMock()
+    procedures.queue_heads = CoroutineMock()
+    WORKERS = mocker.patch('jenkins_epo.main.WORKERS')
+    WORKERS.start = CoroutineMock()
+    WORKERS.terminate = CoroutineMock()
 
-    from jenkins_epo.main import bot
+    from jenkins_epo.main import bot, PriorityQueue
+
+    class MockQueue(PriorityQueue):
+        @asyncio.coroutine
+        def join(self):
+            yield from self.get()
+
+    WORKERS.start.return_value = MockQueue()
+
+    @asyncio.coroutine
+    def enqueue(queue):
+        yield from queue.put(head())
+
+    procedures.queue_heads.side_effect = enqueue
 
     yield from bot()
 
-    assert procedures.whoami.mock_calls
-    assert procedures.iter_heads.mock_calls
-    assert procedures.process_head.mock_calls
-    assert procedures.throttle_github.mock_calls
+    assert procedures.queue_heads.mock_calls
+    assert WORKERS.start.mock_calls
+    assert WORKERS.terminate.mock_calls
 
 
 @pytest.mark.asyncio
 def test_list_heads(mocker):
-    from jenkins_epo.main import list_heads
+    sleep = mocker.patch('jenkins_epo.main.asyncio.sleep', CoroutineMock())
+
+    from jenkins_epo.main import list_heads, PriorityQueue
+
+    queue = PriorityQueue()
+    PriorityQueue = mocker.patch('jenkins_epo.main.PriorityQueue')
+    PriorityQueue.return_value = queue
 
     procedures = mocker.patch('jenkins_epo.main.procedures')
-    procedures.iter_heads.return_value = iter([Mock()])
+
+    @asyncio.coroutine
+    def enqueue(*a):
+        yield from queue.put(head())
+
+    sleep.side_effect = enqueue
+    procedures.queue_heads = CoroutineMock(side_effect=enqueue)
 
     yield from list_heads()
+
+    assert PriorityQueue.mock_calls
+    assert procedures.queue_heads.mock_calls
 
 
 def test_list_extensions():

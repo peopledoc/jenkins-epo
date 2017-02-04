@@ -24,10 +24,10 @@ import sys
 
 
 from .bot import Bot
-from .cache import CACHE
+from .compat import PriorityQueue
 from .settings import SETTINGS
-from .utils import grouper
 from . import procedures
+from .workers import WORKERS
 
 
 logger = logging.getLogger('jenkins_epo')
@@ -53,31 +53,13 @@ def loop(wrapped):
 @loop
 @asyncio.coroutine
 def bot():
-    """Poll GitHub to find something to do"""
-    me = yield from procedures.whoami()
-    loop = asyncio.get_event_loop()
-
-    failures = []
-    return_exceptions = SETTINGS.LOOP or not SETTINGS.DEBUG
-    for chunk in grouper(procedures.iter_heads(), SETTINGS.CONCURRENCY):
-        yield from procedures.throttle_github()
-        tasks = [
-            loop.create_task(procedures.process_head(head, me=me))
-            for head in chunk if head
-        ]
-
-        res = yield from asyncio.gather(
-            *tasks, return_exceptions=return_exceptions
-        )
-        failures.extend([r for r in res if isinstance(r, Exception)])
-
-    CACHE.purge()
-
-    logger.info("GitHub poll done.")
-
-    if failures:
-        if not SETTINGS.LOOP:
-            raise Exception("Some heads failed to process.")
+    """Poll GitHub to build heads"""
+    queue = yield from WORKERS.start()
+    yield from procedures.queue_heads(queue)
+    while not queue.empty():
+        logger.info("Waiting for workers to build heads in queue.")
+        yield from queue.join()
+    yield from WORKERS.terminate()
 
 
 def list_extensions():
@@ -88,11 +70,28 @@ def list_extensions():
 
 
 @asyncio.coroutine
+def printer(queue):
+    while True:
+        head = yield from queue.get()
+        print(head)
+        queue.task_done()
+
+
+@asyncio.coroutine
 def list_heads():
     """List heads to build"""
-    yield from procedures.whoami()
-    for head in procedures.iter_heads():
-        print(head)
+    loop = asyncio.get_event_loop()
+    queue = PriorityQueue()
+    queuer = loop.create_task(procedures.queue_heads(queue))
+    printer_ = loop.create_task(printer(queue))
+
+    for _ in range(10):
+        if not queue.empty():
+            break
+        yield from asyncio.sleep(0.5)
+    yield from queuer
+    yield from queue.join()
+    printer_.cancel()
 
 
 @asyncio.coroutine
@@ -136,7 +135,9 @@ def main(argv=None, *, loop=None):
     if asyncio.iscoroutinefunction(command_func):
         loop = loop or asyncio.get_event_loop()
         try:
-            loop.run_until_complete(command_func(**kwargs))
+            task = loop.create_task(command_func(**kwargs))
+            task.logging_id = command_func.__name__[:4]
+            loop.run_until_complete(task)
         except BaseException:
             loop.close()
             raise

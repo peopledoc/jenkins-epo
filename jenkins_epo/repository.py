@@ -162,13 +162,19 @@ class Repository(object):
         )
         return payload
 
+    @asyncio.coroutine
     def fetch_protected_branches(self):
         logger.debug("Querying GitHub for %s protected branches.", self)
-        return cached_request(GITHUB.repos(self).branches, protected='true')
+        payload = yield from cached_arequest(
+            GITHUB.repos(self).branches, protected='true'
+        )
+        return payload
 
+    @asyncio.coroutine
     def fetch_pull_requests(self):
         logger.debug("Querying GitHub for %s PR.", self)
-        return cached_request(GITHUB.repos(self).pulls)
+        payload = yield from cached_arequest(GITHUB.repos(self).pulls)
+        return payload
 
     def process_protected_branches(self, branches):
         for branch in branches:
@@ -434,6 +440,9 @@ class Head(object):
         self.sha = sha
         self.ref = ref
 
+    def __lt__(self, other):
+        return self.sort_key() < other.sort_key()
+
     def list_comments(self):
         raise NotImplemented
 
@@ -449,7 +458,7 @@ class Branch(Head):
 
     def sort_key(self):
         # Sort by not urgent, type branche, branche name
-        return False, 100, self.ref
+        return True, 100, self.ref
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.ref)
@@ -507,7 +516,7 @@ class PullRequest(Head):
         # Return sort data. Higher is more urgent. By defaults, last PR is
         # built first. This avoid building staled PR first. It's the default
         # order of GitHub PR listing.
-        return self.urgent, 50, self.payload['number']
+        return not self.urgent, 200, 0xffff - self.payload['number']
 
     def __str__(self):
         return '%s (%s)' % (self.payload['html_url'], self.ref)
