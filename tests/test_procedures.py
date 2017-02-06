@@ -9,36 +9,49 @@ import pytest
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_process_head(mocker, SETTINGS):
+def test_process_url(mocker, SETTINGS):
+    throttle_github = mocker.patch(
+        'jenkins_epo.procedures.throttle_github', CoroutineMock(),
+    )
     Bot = mocker.patch('jenkins_epo.procedures.Bot')
+    from_url = mocker.patch(
+        'jenkins_epo.procedures.Head.from_url', CoroutineMock()
+    )
 
-    from jenkins_epo.procedures import process_head
+    from jenkins_epo.procedures import process_url
 
     bot = Bot.return_value
     bot.run = CoroutineMock()
     head = Mock(sha='cafed0d0')
     head.repository.load_settings = CoroutineMock()
+    from_url.return_value = head
 
-    yield from process_head(head)
+    yield from process_url('https://github.com/owner/name/tree/master')
 
+    assert throttle_github.mock_calls
+    assert from_url.mock_calls
     assert bot.run.mock_calls
 
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_process_head_repo_denied(mocker, SETTINGS):
+def test_process_url_repo_denied(mocker, SETTINGS):
     Bot = mocker.patch('jenkins_epo.procedures.Bot')
+    from_url = mocker.patch(
+        'jenkins_epo.procedures.Head.from_url', CoroutineMock()
+    )
 
-    from jenkins_epo.procedures import process_head, UnauthorizedRepository
+    from jenkins_epo.procedures import process_url, UnauthorizedRepository
 
     bot = Bot.return_value
-    head = Mock(sha='cafed0d0')
+    head = from_url.return_value
+    head.sha = 'cafed0d0'
     head.repository.load_settings = CoroutineMock(
         side_effect=UnauthorizedRepository()
     )
 
     with pytest.raises(UnauthorizedRepository):
-        yield from process_head(head)
+        yield from process_url('https://url', throttle=False)
 
     assert head.repository.load_settings.mock_calls
     assert not bot.run.mock_calls
@@ -46,71 +59,21 @@ def test_process_head_repo_denied(mocker, SETTINGS):
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_process_head_repo_failed(mocker, SETTINGS):
+def test_process_url_cancelled(mocker, SETTINGS):
     Bot = mocker.patch('jenkins_epo.procedures.Bot')
+    from_url = mocker.patch(
+        'jenkins_epo.procedures.Head.from_url', CoroutineMock()
+    )
 
-    from jenkins_epo.procedures import process_head
-
-    bot = Bot.return_value
-    head = Mock(sha='cafed0d0')
-    head.repository.load_settings.side_effect = ValueError()
-
-    with pytest.raises(ValueError):
-        yield from process_head(head)
-
-    assert head.repository.load_settings.mock_calls
-    assert not bot.run.mock_calls
-
-
-@pytest.mark.asyncio
-@asyncio.coroutine
-def test_process_head_cancelled(mocker, SETTINGS):
-    Bot = mocker.patch('jenkins_epo.procedures.Bot')
-
-    from jenkins_epo.procedures import process_head, CancelledError
+    from jenkins_epo.procedures import process_url, CancelledError
 
     bot = Bot.return_value
     bot.run = CoroutineMock(side_effect=CancelledError())
-    head = Mock(sha='cafed0d0')
+    head = from_url.return_value
+    head.sha = 'cafed0d0'
     head.repository.load_settings = CoroutineMock()
 
-    yield from process_head(head)
-
-    assert bot.run.mock_calls
-
-
-@pytest.mark.asyncio
-@asyncio.coroutine
-def test_process_head_log_exception(mocker, SETTINGS):
-    Bot = mocker.patch('jenkins_epo.procedures.Bot')
-
-    from jenkins_epo.procedures import process_head
-
-    bot = Bot.return_value
-    bot.run = CoroutineMock(side_effect=ValueError('POUET'))
-    head = Mock(sha='cafed0d0')
-    head.repository.load_settings = CoroutineMock()
-
-    yield from process_head(head)
-
-    assert bot.run.mock_calls
-
-
-@pytest.mark.asyncio
-@asyncio.coroutine
-def test_process_head_raise_exception(mocker, SETTINGS):
-    Bot = mocker.patch('jenkins_epo.procedures.Bot')
-    SETTINGS.DEBUG = 1
-
-    from jenkins_epo.procedures import process_head
-
-    bot = Bot.return_value
-    bot.run = CoroutineMock(side_effect=ValueError('POUET'))
-    head = Mock(sha='cafed0d0')
-    head.repository.load_settings = CoroutineMock()
-
-    with pytest.raises(ValueError):
-        yield from process_head(head)
+    yield from process_url('https://url', throttle=False)
 
     assert bot.run.mock_calls
 
@@ -222,31 +185,36 @@ def test_throttling_compute_chill(SETTINGS):
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_process_url(mocker):
-    mod = 'jenkins_epo.procedures'
-    whoami = mocker.patch(mod + '.whoami', CoroutineMock())
-    from_url = mocker.patch(mod + '.Head.from_url', CoroutineMock())
-    process_head = mocker.patch(mod + '.process_head', CoroutineMock())
-
-    from jenkins_epo.procedures import process_url
-
-    yield from process_url('https//github/owner/name/pull/1')
-
-    assert whoami.mock_calls
-    assert from_url.mock_calls
-    assert process_head.mock_calls
-
-
-@pytest.mark.asyncio
-@asyncio.coroutine
 def test_queue_heads(mocker):
     list_repositories = mocker.patch(
         'jenkins_epo.procedures.list_repositories'
     )
     list_repositories.return_value = []
+    whoami = mocker.patch('jenkins_epo.procedures.whoami', CoroutineMock())
 
     from jenkins_epo.procedures import queue_heads
     from jenkins_epo.compat import PriorityQueue
 
     yield from queue_heads(PriorityQueue())
     assert list_repositories.mock_calls
+    assert whoami.mock_calls
+
+
+def test_queue_message(mocker):
+    process_url = mocker.patch(
+        'jenkins_epo.procedures.process_url', CoroutineMock()
+    )
+
+    from jenkins_epo.procedures import HeadMessage
+
+    head0 = Mock(url='url://')
+    head0.sort_key.return_value = 0
+    head1 = Mock(url='url://')
+    head1.sort_key.return_value = 1
+    msg0 = HeadMessage(head0, me=Mock())
+    msg1 = HeadMessage(head1, me=Mock())
+
+    assert str(msg0)
+    assert msg0 < msg1
+    assert msg0()
+    assert process_url.mock_calls

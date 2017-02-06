@@ -61,7 +61,6 @@ def test_main_async_exception(mocker, event_loop):
 @asyncio.coroutine
 def test_bot(mocker, SETTINGS):
     procedures = mocker.patch('jenkins_epo.main.procedures')
-    procedures.process_head = CoroutineMock()
     procedures.queue_heads = CoroutineMock()
     WORKERS = mocker.patch('jenkins_epo.main.WORKERS')
     WORKERS.start = CoroutineMock()
@@ -123,6 +122,9 @@ def test_list_extensions():
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_process(mocker):
+    whoami = mocker.patch(
+        'jenkins_epo.main.procedures.whoami', CoroutineMock(),
+    )
     process_url = mocker.patch(
         'jenkins_epo.main.procedures.process_url', CoroutineMock(),
     )
@@ -130,4 +132,5 @@ def test_process(mocker):
 
     yield from process('http:///')
 
+    assert whoami.mock_calls
     assert process_url.mock_calls

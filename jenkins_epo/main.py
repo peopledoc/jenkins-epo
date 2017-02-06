@@ -97,7 +97,8 @@ def list_heads():
 @asyncio.coroutine
 def process(url):
     """Process one head"""
-    yield from procedures.process_url(url)
+    me = yield from procedures.whoami()
+    yield from procedures.process_url(url, me=me, throttle=False)
 
 
 def addcommand(subparsers, command):

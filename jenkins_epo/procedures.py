@@ -24,14 +24,30 @@ from .repository import Head, Repository, UnauthorizedRepository
 from .settings import SETTINGS
 from .utils import retry
 
-
 logger = logging.getLogger(__name__)
+
+
+class HeadMessage(object):
+    def __init__(self, head, me):
+        self.priority = head.sort_key()
+        self.url = head.url
+        self.me = me
+
+    def __lt__(self, other):
+        return self.priority < other.priority
+
+    def __str__(self):
+        return self.url
+
+    def __call__(self, *kw):
+        return process_url(self.url, me=self.me)
 
 
 @asyncio.coroutine
 def queue_heads(queue):
+    me = yield from whoami()
     repositories = list_repositories()
-    queuer = Queuer(queue)
+    queuer = Queuer(queue, lambda h: HeadMessage(h, me=me))
     yield from queuer.queue_repositories(repositories)
 
 
@@ -65,9 +81,14 @@ def list_repositories(with_settings=False):
 
 
 @asyncio.coroutine
-def process_head(head, me=None):
+def process_url(url, me=None, throttle=True):
+    if throttle:
+        yield from throttle_github()
+    head = yield from Head.from_url(url)
+
     task = asyncio.Task.current_task()
     task.logging_id = head.sha[:4]
+
     bot = Bot(me=me)
     try:
         yield from head.repository.load_settings()
@@ -80,20 +101,9 @@ def process_head(head, me=None):
         yield from bot.run(head)
     except CancelledError:
         logger.warn("Cancelled processing %s:", head)
-    except Exception as e:
-        logger.error("Failed to process %s: %r", head, e)
-        if SETTINGS.DEBUG:
-            raise
 
     logger.info("Processed %s.", head)
     del task.logging_id
-
-
-@asyncio.coroutine
-def process_url(url):
-    me = yield from whoami()
-    head = yield from Head.from_url(url)
-    yield from process_head(head, me)
 
 
 @asyncio.coroutine

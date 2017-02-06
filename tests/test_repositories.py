@@ -78,7 +78,9 @@ def test_process_protected_branches():
     ]))
 
     assert 1 == len(branches)
-    assert 'refs/heads/master' == branches[0].ref
+    head = branches[0]
+    assert 'refs/heads/master' == head.ref
+    assert head.url.startswith('https://github.com')
 
 
 @pytest.mark.asyncio
@@ -120,6 +122,7 @@ def test_process_pulls():
     assert 1 == len(heads)
     head = heads[0]
     assert 'feature' == head.ref
+    assert head.url.startswith('https://github.com')
 
 
 @pytest.mark.asyncio
@@ -277,6 +280,7 @@ def test_sort_heads():
 
     assert master < pr
     assert urgent_pr < pr
+    assert master != pr
 
     heads = [master, pr, urgent_pr]
 

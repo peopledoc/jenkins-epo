@@ -16,7 +16,7 @@ import logging
 
 from .compat import PriorityQueue
 from .settings import SETTINGS
-from . import procedures
+from .utils import switch_coro
 
 
 logger = logging.getLogger(__name__)
@@ -30,11 +30,11 @@ class WorkerPool(object):
     @asyncio.coroutine
     def start(self):
         loop = asyncio.get_event_loop()
-        self.me = yield from procedures.whoami()
         self.queue = PriorityQueue(maxsize=1024)
         for i in range(SETTINGS.CONCURRENCY):
             task = loop.create_task(self.worker(i))
             self.tasks.append(task)
+            yield from switch_coro()  # Let worker start
         return self.queue
 
     @asyncio.coroutine
@@ -43,15 +43,14 @@ class WorkerPool(object):
         asyncio.Task.current_task().logging_id = 'wk%02d' % (id_,)
 
         while True:
-            yield from procedures.throttle_github()
             logger.debug("Worker %d waiting.", id_)
-            head = yield from self.queue.get()
-            logger.debug("Worker %d working on %s.", id_, head)
-            task = loop.create_task(procedures.process_head(head, self.me))
+            item = yield from self.queue.get()
+            logger.debug("Worker %d working on %s.", id_, item)
+            task = loop.create_task(item())
             try:
                 yield from task
             except Exception as e:
-                logger.error("Failed to process %s: %s", head, e)
+                logger.error("Failed to process %s: %s", item, e)
             finally:
                 self.queue.task_done()
 
