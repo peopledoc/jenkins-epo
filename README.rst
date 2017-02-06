@@ -70,5 +70,5 @@ help`` in an open PR!
    :alt: Version on PyPI
 
 .. |RTFD| image:: https://readthedocs.org/projects/jenkins-epo/badge/?version=latest
-   :target: https://jenkins-epo.rtfd.io/
+   :target: http://jenkins-epo.rtfd.io/
    :alt: Documentation
