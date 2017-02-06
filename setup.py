@@ -46,60 +46,61 @@ except subprocess.CalledProcessError:
             VERSION = line.replace('Version: ', '').strip()
             break
 
-setup(
-    name='jenkins-epo',
-    version=VERSION,
-    entry_points={
-        'console_scripts': ['jenkins-epo=jenkins_epo.script:entrypoint'],
-        'jenkins_epo.bot.extensions': [
-            'security = jenkins_epo.extensions.core:SecurityExtension',
-            'error = jenkins_epo.extensions.core:ErrorExtension',
-            'help = jenkins_epo.extensions.core:HelpExtension',
-            'autocancel = jenkins_epo.extensions.core:AutoCancelExtension',
-            'jenkins-autocancel = jenkins_epo.extensions.jenkins:AutoCancelExtension',  # noqa
-            'jenkins-builder = jenkins_epo.extensions.jenkins:BuilderExtension',  # noqa
-            'jenkins-canceller = jenkins_epo.extensions.jenkins:CancellerExtension',  # noqa
-            'jenkins-createjobs = jenkins_epo.extensions.jenkins:CreateJobsExtension',  # noqa
-            'jenkins-stages = jenkins_epo.extensions.jenkins:StagesExtension',
-            'merger = jenkins_epo.extensions.core:MergerExtension',
-            'outdated = jenkins_epo.extensions.core:OutdatedExtension',
-            'report = jenkins_epo.extensions.core:ReportExtension',
-            'skip = jenkins_epo.extensions.core:SkipExtension',
-            'yaml = jenkins_epo.extensions.core:YamlExtension'
+if __name__ == '__main__':
+    setup(
+        name='jenkins-epo',
+        version=VERSION,
+        entry_points={
+            'console_scripts': ['jenkins-epo=jenkins_epo.script:entrypoint'],
+            'jenkins_epo.bot.extensions': [
+                'security = jenkins_epo.extensions.core:SecurityExtension',
+                'error = jenkins_epo.extensions.core:ErrorExtension',
+                'help = jenkins_epo.extensions.core:HelpExtension',
+                'autocancel = jenkins_epo.extensions.core:AutoCancelExtension',
+                'jenkins-autocancel = jenkins_epo.extensions.jenkins:AutoCancelExtension',  # noqa
+                'jenkins-builder = jenkins_epo.extensions.jenkins:BuilderExtension',  # noqa
+                'jenkins-canceller = jenkins_epo.extensions.jenkins:CancellerExtension',  # noqa
+                'jenkins-createjobs = jenkins_epo.extensions.jenkins:CreateJobsExtension',  # noqa
+                'jenkins-stages = jenkins_epo.extensions.jenkins:StagesExtension',  # noqa
+                'merger = jenkins_epo.extensions.core:MergerExtension',
+                'outdated = jenkins_epo.extensions.core:OutdatedExtension',
+                'report = jenkins_epo.extensions.core:ReportExtension',
+                'skip = jenkins_epo.extensions.core:SkipExtension',
+                'yaml = jenkins_epo.extensions.core:YamlExtension'
+            ],
+        },
+        extras_require={
+            'release': ['wheel'],
+            'test': [
+                'asynctest', 'libfaketime', 'pytest', 'pytest-asyncio',
+                'pytest-cov', 'pytest-logging', 'pytest-mock',
+            ],
+        },
+        install_requires=[
+            'aiohttp',
+            'githubpy',
+            'jenkinsapi',
+            'jenkins-yml[renderer]',
+            'pyyaml',
+            'tenacity',
+            'setuptools>11.3',
         ],
-    },
-    extras_require={
-        'release': ['wheel'],
-        'test': [
-            'asynctest', 'libfaketime', 'pytest', 'pytest-asyncio',
-            'pytest-cov', 'pytest-logging', 'pytest-mock',
+        packages=find_packages(exclude=('tests',)),
+        description='Jenkins EPO',
+        author=', '.join([
+            'Étienne BERSAC <etienne.bersac@people-doc.com>',
+            'James Pic <james.pic@people-doc.com>',
+        ]),
+        author_email='rd@novapost.fr',
+        classifiers=[
+            'Development Status :: 4 - Beta',
+            'Environment :: Console',
+            'Intended Audience :: Developers',
+            'License :: OSI Approved :: MIT License',
+            'Programming Language :: Python',
         ],
-    },
-    install_requires=[
-        'aiohttp',
-        'githubpy',
-        'jenkinsapi',
-        'jenkins-yml[renderer]',
-        'pyyaml',
-        'tenacity',
-        'setuptools>11.3',
-    ],
-    packages=find_packages(exclude=('tests',)),
-    description='Jenkins EPO',
-    author=', '.join([
-        'Étienne BERSAC <etienne.bersac@people-doc.com>',
-        'James Pic <james.pic@people-doc.com>',
-    ]),
-    author_email='rd@novapost.fr',
-    classifiers=[
-        'Development Status :: 4 - Beta',
-        'Environment :: Console',
-        'Intended Audience :: Developers',
-        'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python',
-    ],
-    keywords=['jenkins', 'github', 'yml'],
-    license='GPL v3 or later',
-    url='https://github.com/novafloss/jenkins-epo',
-    **setup_kwargs
-)
+        keywords=['jenkins', 'github', 'yml'],
+        license='GPL v3 or later',
+        url='https://github.com/novafloss/jenkins-epo',
+        **setup_kwargs
+    )
