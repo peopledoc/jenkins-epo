@@ -23,5 +23,5 @@ test:
     - tox -e $(./toxenvs $(tox -l)):
         parallel: true
   post:
-    - codecov -X gcov -X pycov --root $CIRCLE_TEST_REPORTS:
+    - codecov --env CIRCLE_NODE_INDEX:
         parallel: true
