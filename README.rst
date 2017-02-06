@@ -6,7 +6,7 @@ Time for kickass CI !
  Jenkins EPO
 #############
 
-| |RTFD| |PyPI| |CI| |CodeCov|
+| |RTFD| |CI| |CodeCov| |PyPI|
 
 Implements extended CI features on top of Jenkins and GitHub for in-house CI.
 
