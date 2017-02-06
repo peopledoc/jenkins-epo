@@ -1,5 +1,5 @@
 .cache
-.coverage
+.coverage*
 .epo*.db
 .epo*.lock
 /*.egg-info/
