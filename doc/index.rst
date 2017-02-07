@@ -13,4 +13,5 @@ Table of contents
    :maxdepth: 2
 
    yml
+   comment
    bot
