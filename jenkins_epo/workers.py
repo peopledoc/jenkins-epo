@@ -22,15 +22,22 @@ from .utils import switch_coro
 logger = logging.getLogger(__name__)
 
 
+class Message(object):
+    def __init__(self, priority):
+        self.priority = priority
+
+    def __lt__(self, other):
+        return self.priority < other.priority
+
+
 class WorkerPool(object):
     def __init__(self):
         self.tasks = []
-        self.queue = None
+        self.queue = PriorityQueue(maxsize=1024)
 
     @asyncio.coroutine
     def start(self):
         loop = asyncio.get_event_loop()
-        self.queue = PriorityQueue(maxsize=1024)
         for i in range(SETTINGS.CONCURRENCY):
             task = loop.create_task(self.worker(i))
             self.tasks.append(task)
@@ -61,6 +68,7 @@ class WorkerPool(object):
         for task in pending_workers:
             if not task.done():
                 task.cancel()
+        self.tasks[:] = []
 
 
 WORKERS = WorkerPool()
