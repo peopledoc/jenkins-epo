@@ -57,60 +57,37 @@ def test_main_async_exception(mocker, event_loop):
     assert event_loop.is_closed()
 
 
-@pytest.mark.asyncio
-@asyncio.coroutine
-def test_bot(mocker, SETTINGS):
+def test_bot(mocker):
+    get_event_loop = mocker.patch('jenkins_epo.main.asyncio.get_event_loop')
     procedures = mocker.patch('jenkins_epo.main.procedures')
-    procedures.queue_heads = CoroutineMock()
+    procedures.poll = CoroutineMock()
     WORKERS = mocker.patch('jenkins_epo.main.WORKERS')
     WORKERS.start = CoroutineMock()
-    WORKERS.terminate = CoroutineMock()
 
-    from jenkins_epo.main import bot, PriorityQueue
+    from jenkins_epo.main import bot
 
-    class MockQueue(PriorityQueue):
-        @asyncio.coroutine
-        def join(self):
-            yield from self.get()
+    bot()
 
-    WORKERS.start.return_value = MockQueue()
-
-    @asyncio.coroutine
-    def enqueue(queue):
-        yield from queue.put(head())
-
-    procedures.queue_heads.side_effect = enqueue
-
-    yield from bot()
-
-    assert procedures.queue_heads.mock_calls
+    assert get_event_loop.mock_calls
+    assert procedures.poll.mock_calls
     assert WORKERS.start.mock_calls
-    assert WORKERS.terminate.mock_calls
 
 
 @pytest.mark.asyncio
 def test_list_heads(mocker):
-    sleep = mocker.patch('jenkins_epo.main.asyncio.sleep', CoroutineMock())
-
-    from jenkins_epo.main import list_heads, PriorityQueue
-
-    queue = PriorityQueue()
-    PriorityQueue = mocker.patch('jenkins_epo.main.PriorityQueue')
-    PriorityQueue.return_value = queue
-
     procedures = mocker.patch('jenkins_epo.main.procedures')
+    procedures.print_heads = CoroutineMock()
+    WORKERS = mocker.patch('jenkins_epo.main.WORKERS')
+    WORKERS.start = CoroutineMock()
+    WORKERS.terminate = CoroutineMock()
 
-    @asyncio.coroutine
-    def enqueue(*a):
-        yield from queue.put(head())
-
-    sleep.side_effect = enqueue
-    procedures.queue_heads = CoroutineMock(side_effect=enqueue)
+    from jenkins_epo.main import list_heads
 
     yield from list_heads()
 
-    assert PriorityQueue.mock_calls
-    assert procedures.queue_heads.mock_calls
+    assert WORKERS.start.mock_calls
+    assert procedures.print_heads.mock_calls
+    assert WORKERS.terminate.mock_calls
 
 
 def test_list_extensions():

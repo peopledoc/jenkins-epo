@@ -6,7 +6,6 @@ import pytest
 
 
 def test_purge(SETTINGS):
-    SETTINGS.LOOP = 10
     SETTINGS.CACHE_LIFE = 10
     SETTINGS.REPOSITORIES = 'owner/repository1 owner/repository2'
 
@@ -19,7 +18,7 @@ def test_purge(SETTINGS):
         data = cache.get('key')
         assert 'data' == data
 
-        time.tick(timedelta(seconds=120))
+        time.tick(timedelta(seconds=1800))
         cache.purge()
         with pytest.raises(KeyError):
             cache.get('key')
@@ -32,6 +31,7 @@ def test_corruptions(dbopen, fcntl):
 
     dbopen.side_effect = [Exception(), MagicMock()]
     my = FileCache()
+    my.open()
 
     with pytest.raises(KeyError):
         my.storage.__getitem__.side_effect = Exception()
@@ -43,11 +43,11 @@ def test_corruptions(dbopen, fcntl):
 
 @patch('jenkins_epo.cache.fcntl')
 @patch('jenkins_epo.cache.shelve.open')
-def test_save(dbopen, fcntl):
+def test_close(dbopen, fcntl):
     from jenkins_epo.cache import FileCache
 
     my = FileCache()
-    my.save()
+    my.close()
     assert my.storage.sync.mock_calls
 
 

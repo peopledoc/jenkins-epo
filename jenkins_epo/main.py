@@ -17,49 +17,24 @@
 
 import argparse
 import asyncio
-import functools
 import inspect
 import logging
 import sys
 
 
 from .bot import Bot
-from .compat import PriorityQueue
-from .settings import SETTINGS
 from . import procedures
 from .workers import WORKERS
-
 
 logger = logging.getLogger('jenkins_epo')
 
 
-def loop(wrapped):
-    if SETTINGS.LOOP:
-        @asyncio.coroutine
-        def wrapper(*args, **kwargs):
-            while True:
-                res = wrapped(*args, **kwargs)
-                if asyncio.iscoroutine(res):
-                    yield from res
-
-                logger.info("Looping in %s seconds", SETTINGS.LOOP)
-                yield from asyncio.sleep(SETTINGS.LOOP)
-        functools.update_wrapper(wrapper, wrapped)
-        return wrapper
-    else:
-        return wrapped
-
-
-@loop
-@asyncio.coroutine
 def bot():
     """Poll GitHub to build heads"""
-    queue = yield from WORKERS.start()
-    yield from procedures.queue_heads(queue)
-    while not queue.empty():
-        logger.info("Waiting for workers to build heads in queue.")
-        yield from queue.join()
-    yield from WORKERS.terminate()
+    loop = asyncio.get_event_loop()
+    loop.create_task(WORKERS.start())
+    loop.create_task(procedures.poll())
+    loop.run_forever()
 
 
 def list_extensions():
@@ -70,35 +45,18 @@ def list_extensions():
 
 
 @asyncio.coroutine
-def printer(queue):
-    while True:
-        head = yield from queue.get()
-        print(head)
-        queue.task_done()
-
-
-@asyncio.coroutine
 def list_heads():
     """List heads to build"""
-    loop = asyncio.get_event_loop()
-    queue = PriorityQueue()
-    queuer = loop.create_task(procedures.queue_heads(queue))
-    printer_ = loop.create_task(printer(queue))
-
-    for _ in range(10):
-        if not queue.empty():
-            break
-        yield from asyncio.sleep(0.5)
-    yield from queuer
-    yield from queue.join()
-    printer_.cancel()
+    yield from WORKERS.start()
+    yield from procedures.print_heads()
+    yield from WORKERS.terminate()
 
 
 @asyncio.coroutine
 def process(url):
     """Process one head"""
-    me = yield from procedures.whoami()
-    yield from procedures.process_url(url, me=me, throttle=False)
+    yield from procedures.whoami()
+    yield from procedures.process_url(url, throttle=False)
 
 
 def addcommand(subparsers, command):

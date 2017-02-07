@@ -138,7 +138,8 @@ def entrypoint(argv=None):
     logger.debug("Debug mode enabled")
 
     # Import modules after logging is setup
-    from jenkins_epo.main import main, SETTINGS
+    from .main import main
+    from .settings import SETTINGS
 
     try:
         logger.debug("Executing %s.", ' '.join(argv))

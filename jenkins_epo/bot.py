@@ -21,6 +21,7 @@ import re
 import reprlib
 import yaml
 
+from .github import GITHUB
 from .repository import Commit
 from .settings import SETTINGS
 from .utils import Bunch, parse_datetime, match, parse_patterns
@@ -67,8 +68,7 @@ See `jenkins: help` for documentation.
     )
     ext_patterns = parse_patterns(SETTINGS.EXTENSIONS)
 
-    def __init__(self, me=None):
-        self.me = me
+    def __init__(self):
         self.extensions_map = {}
         for ep in pkg_resources.iter_entry_points(__name__ + '.extensions'):
             cls = ep.resolve()
@@ -99,7 +99,8 @@ See `jenkins: help` for documentation.
         else:
             self.current.SETTINGS = head.repository.SETTINGS
 
-        self.current.SETTINGS.COLLABORATORS.append(self.me)
+        if GITHUB.me:
+            self.current.SETTINGS.COLLABORATORS.append(GITHUB.me)
 
         for ext in self.extensions:
             self.current.update(copy.deepcopy(ext.DEFAULTS))

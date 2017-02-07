@@ -311,6 +311,7 @@ class LazyGithub(object):
     def __init__(self):
         self._instance = None
         self.dry = SETTINGS.DRY_RUN or SETTINGS.GITHUB_RO
+        self.me = None
 
     def __getattr__(self, name):
         self.load()

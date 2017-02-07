@@ -22,20 +22,39 @@ from .utils import switch_coro
 logger = logging.getLogger(__name__)
 
 
+class Task(object):
+    # A priorized task class.
+    def __init__(self, priority):
+        self.priority = priority
+
+    def __lt__(self, other):
+        return self.priority < other.priority
+
+    @asyncio.coroutine
+    def __call__(self):
+        pass
+
+
 class WorkerPool(object):
     def __init__(self):
         self.tasks = []
-        self.queue = None
+        self.queue = PriorityQueue(maxsize=1024)
 
     @asyncio.coroutine
     def start(self):
         loop = asyncio.get_event_loop()
-        self.queue = PriorityQueue(maxsize=1024)
         for i in range(SETTINGS.CONCURRENCY):
             task = loop.create_task(self.worker(i))
             self.tasks.append(task)
             yield from switch_coro()  # Let worker start
         return self.queue
+
+    @asyncio.coroutine
+    def enqueue(self, item):
+        logger.debug("Queuing %s %s.", item.__class__.__name__, item)
+        yield from self.queue.put(item)
+        yield from switch_coro()
+        return item
 
     @asyncio.coroutine
     def worker(self, id_):
@@ -45,7 +64,10 @@ class WorkerPool(object):
         while True:
             logger.debug("Worker %d waiting.", id_)
             item = yield from self.queue.get()
-            logger.debug("Worker %d working on %s.", id_, item)
+            logger.debug(
+                "Worker %d working on %s %s.",
+                id_, item.__class__.__name__, item,
+            )
             task = loop.create_task(item())
             try:
                 yield from task
@@ -61,6 +83,7 @@ class WorkerPool(object):
         for task in pending_workers:
             if not task.done():
                 task.cancel()
+        self.tasks[:] = []
 
 
 WORKERS = WorkerPool()
