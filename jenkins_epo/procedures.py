@@ -97,9 +97,10 @@ def process_url(url, throttle=True):
     if throttle:
         yield from throttle_github()
     head = yield from Head.from_url(url)
-
     task = asyncio.Task.current_task()
     task.logging_id = head.sha[:4]
+
+    logger.info("Working %s.", head)
 
     bot = Bot()
     try:
@@ -108,7 +109,6 @@ def process_url(url, throttle=True):
         logger.error("Write access denied to %s.", head.repository)
         raise
 
-    logger.info("Working on %s.", head)
     try:
         yield from bot.run(head)
     except CancelledError:

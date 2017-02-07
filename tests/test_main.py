@@ -59,6 +59,7 @@ def test_main_async_exception(mocker, event_loop):
 
 def test_bot(mocker):
     get_event_loop = mocker.patch('jenkins_epo.main.asyncio.get_event_loop')
+    run_app = mocker.patch('jenkins_epo.main.run_app')
     procedures = mocker.patch('jenkins_epo.main.procedures')
     procedures.poll = CoroutineMock()
     WORKERS = mocker.patch('jenkins_epo.main.WORKERS')
@@ -71,6 +72,7 @@ def test_bot(mocker):
     assert get_event_loop.mock_calls
     assert procedures.poll.mock_calls
     assert WORKERS.start.mock_calls
+    assert run_app.mock_calls
 
 
 @pytest.mark.asyncio

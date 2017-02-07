@@ -58,12 +58,14 @@ DEFAULTS = {
     'EXTENSIONS': '*',
     # Whether to touch GitHub statuses or not
     'GITHUB_RO': False,
+    'HEADS': '*',
+    'HOST': '0.0.0.0',
     'IGNORE_STATUSES': '',
     'JOBS': '',
     # When commenting on PR
     'NAME': 'Jenkins EPO',
     'POLL_INTERVAL': 5,
-    'HEADS': '*',
+    'PORT': 2819,
     'RATE_LIMIT_THRESHOLD': 50,
     # List repositories: owner/repo1,owner/repo2
     'REPOSITORIES': '',
