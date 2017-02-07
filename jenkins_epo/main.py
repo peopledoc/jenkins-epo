@@ -52,6 +52,13 @@ def list_heads():
     yield from WORKERS.terminate()
 
 
+def list_plugins():
+    """List required Jenkins plugins"""
+    from jenkins_yml.job import Job
+    for plugin in sorted(Job.required_plugins):
+        print(plugin)
+
+
 @asyncio.coroutine
 def process(url):
     """Process one head"""
@@ -76,7 +83,7 @@ def main(argv=None, *, loop=None):
     argv = argv or sys.argv
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='command', metavar='COMMAND')
-    for command in bot, list_extensions, list_heads, process:
+    for command in bot, list_extensions, list_heads, list_plugins, process:
         addcommand(subparsers, command)
 
     args = parser.parse_args(argv)

@@ -96,6 +96,12 @@ def test_list_extensions():
     list_extensions()
 
 
+def test_list_plugins():
+    from jenkins_epo.main import list_plugins
+
+    list_plugins()
+
+
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_process(mocker):
