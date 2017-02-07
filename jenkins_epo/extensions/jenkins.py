@@ -35,8 +35,7 @@ class JenkinsExtension(Extension):
 
 class BuilderExtension(JenkinsExtension):
     """
-    # Requeue past failed/skipped jobs
-    jenkins: rebuild
+    jenkins: rebuild  # Retry failed jobs
     """
 
     DEFAULTS = {

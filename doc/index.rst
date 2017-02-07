@@ -14,4 +14,5 @@ Table of contents
 
    yml
    comment
+   troubleshoot
    bot
