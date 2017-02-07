@@ -136,8 +136,8 @@ class FileCache(Cache):
         self.storage.sync()
 
     def __del__(self):
-        if self.lock:
-            logger.error("CACHE not closed propery.")
+        if self.opened:
+            logger.error("CACHE not closed propery.")
 
 
 CACHE = FileCache()
