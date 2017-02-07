@@ -21,10 +21,10 @@ from .workers import WORKERS, Task
 logger = logging.getLogger(__name__)
 
 
-class ProcessTask(Task):
-    def __init__(self, head, callable_, origin='50-head'):
-        super(ProcessTask, self).__init__((origin, ) + head.sort_key())
-        self.url = head.url
+class ProcessUrlTask(Task):
+    def __init__(self, priority, url, callable_):
+        super(ProcessUrlTask, self).__init__(priority)
+        self.url = url
         self.callable_ = callable_
 
     def __str__(self):
@@ -32,6 +32,13 @@ class ProcessTask(Task):
 
     def __call__(self):
         return self.callable_(self.url)
+
+
+class ProcessTask(ProcessUrlTask):
+    def __init__(self, head, callable_, origin='50-poll'):
+        super(ProcessTask, self).__init__(
+            (origin,) + head.sort_key(), head.url, callable_=callable_,
+        )
 
 
 class QueuerTask(Task):

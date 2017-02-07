@@ -21,10 +21,14 @@ import inspect
 import logging
 import sys
 
+from aiohttp.web import run_app
 
 from .bot import Bot
 from . import procedures
+from .settings import SETTINGS
+from .web import app as webapp
 from .workers import WORKERS
+
 
 logger = logging.getLogger('jenkins_epo')
 
@@ -34,7 +38,12 @@ def bot():
     loop = asyncio.get_event_loop()
     loop.create_task(WORKERS.start())
     loop.create_task(procedures.poll())
-    loop.run_forever()
+
+    run_app(
+        webapp,
+        host=SETTINGS.HOST,
+        port=SETTINGS.PORT,
+    )
 
 
 def list_extensions():
