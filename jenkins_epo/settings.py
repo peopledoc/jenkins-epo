@@ -65,7 +65,7 @@ DEFAULTS = {
     # When commenting on PR
     'NAME': 'Jenkins EPO',
     'HEADS': '*',
-    'RATE_LIMIT_THRESHOLD': 250,
+    'RATE_LIMIT_THRESHOLD': 50,
     # List repositories: owner/repo1,owner/repo2
     'REPOSITORIES': '',
     'VERBOSE': '',

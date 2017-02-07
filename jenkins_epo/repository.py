@@ -466,6 +466,12 @@ class Branch(Head):
     def __str__(self):
         return '%s (%s)' % (self.url, self.sha[:7])
 
+    def __eq__(self, other):
+        return self.url == other.url
+
+    def __hash__(self):
+        return hash(self.url)
+
     @property
     def url(self):
         return 'https://github.com/%s/tree/%s' % (
@@ -519,13 +525,17 @@ class PullRequest(Head):
         return not self.urgent, 200, 0xffff - self.payload['number']
 
     def __str__(self):
-        return '%s (%s)' % (self.payload['html_url'], self.ref)
+        return '%s (%s)' % (self.url, self.ref)
 
     __repr__ = __str__
 
     @property
     def author(self):
         return self.payload['user']['login']
+
+    @property
+    def url(self):
+        return self.payload['html_url']
 
     def fetch_previous_commits(self, last_date=None):
         logger.debug("Fetching previous commits.")

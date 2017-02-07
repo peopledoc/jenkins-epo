@@ -14,19 +14,24 @@ import logging
 
 from .utils import switch_coro
 
-
 logger = logging.getLogger(__name__)
 
 
 class Queuer(object):
-    def __init__(self, queue):
+    def __init__(self, queue, message_factory):
         self.queue = queue
+        self.message_factory = message_factory
 
     @asyncio.coroutine
-    def queue_iterator(self, iterator):
-        for item in iterator:
-            logger.debug("Queuing %s.", item)
-            yield from self.queue.put(item)
+    def queue_head(self, head):
+        logger.debug("Queuing %s.", head)
+        message = self.message_factory(head)
+        yield from self.queue.put(message)
+
+    @asyncio.coroutine
+    def queue_iterator(self, heads):
+        for head in heads:
+            yield from self.queue_head(head)
             yield from switch_coro()  # Let consumer get the new item.
 
     @asyncio.coroutine

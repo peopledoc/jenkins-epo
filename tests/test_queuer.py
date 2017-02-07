@@ -5,10 +5,10 @@ from asynctest import CoroutineMock
 import pytest
 
 
-def head():
-    head = MagicMock(name='HEAD')
-    head.__lt__ = lambda a, b: id(a) < id(b)
-    return head
+def item(*a, **kw):
+    my = MagicMock()
+    my.__lt__.return_value = True
+    return my
 
 
 @pytest.mark.asyncio
@@ -20,11 +20,11 @@ def test_ok():
     queue = PriorityQueue()
     repo = Mock()
     repo.fetch_protected_branches = CoroutineMock()
-    repo.process_protected_branches.return_value = [head()]
+    repo.process_protected_branches.return_value = [Mock()]
     repo.fetch_pull_requests = CoroutineMock()
-    repo.process_pull_requests.return_value = [head(), head()]
+    repo.process_pull_requests.return_value = [Mock(), Mock()]
 
-    queuer = Queuer(queue)
+    queuer = Queuer(queue, Mock(side_effect=item))
     yield from queuer.queue_repositories([repo])
 
     assert not queue.empty()
