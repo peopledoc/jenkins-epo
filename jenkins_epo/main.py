@@ -80,6 +80,7 @@ def printer(queue):
 @asyncio.coroutine
 def list_heads():
     """List heads to build"""
+    yield from procedures.whoami()
     loop = asyncio.get_event_loop()
     queue = PriorityQueue()
     queuer = loop.create_task(procedures.queue_heads(queue))
@@ -97,8 +98,8 @@ def list_heads():
 @asyncio.coroutine
 def process(url):
     """Process one head"""
-    me = yield from procedures.whoami()
-    yield from procedures.process_url(url, me=me, throttle=False)
+    yield from procedures.whoami()
+    yield from procedures.process_url(url, throttle=False)
 
 
 def addcommand(subparsers, command):

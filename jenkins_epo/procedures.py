@@ -81,7 +81,7 @@ def list_repositories(with_settings=False):
 
 
 @asyncio.coroutine
-def process_url(url, me=None, throttle=True):
+def process_url(url, throttle=True):
     if throttle:
         yield from throttle_github()
     head = yield from Head.from_url(url)
@@ -89,7 +89,7 @@ def process_url(url, me=None, throttle=True):
     task = asyncio.Task.current_task()
     task.logging_id = head.sha[:4]
 
-    bot = Bot(me=me)
+    bot = Bot()
     try:
         yield from head.repository.load_settings()
     except UnauthorizedRepository:
@@ -108,9 +108,11 @@ def process_url(url, me=None, throttle=True):
 
 @asyncio.coroutine
 def whoami():
-    user = yield from cached_arequest(GITHUB.user)
-    logger.info("I'm @%s on GitHub.", user['login'])
-    return user['login']
+    if not isinstance(GITHUB.me, str):
+        user = yield from cached_arequest(GITHUB.user)
+        logger.info("I'm @%s on GitHub.", user['login'])
+        GITHUB.me = user['login']
+    return GITHUB.me
 
 
 def compute_throttling(now, rate_limit):
