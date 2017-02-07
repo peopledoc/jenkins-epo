@@ -37,10 +37,7 @@ class Cache(object):
         # updated, this mean that the query wont happen anymore (PR is closed,
         # etc.)
         repo_count = len(SETTINGS.REPOSITORIES.split())
-        rounds_delta = (
-            2 * (SETTINGS.LOOP or 20) +
-            SETTINGS.CACHE_LIFE * repo_count
-        )
+        rounds_delta = 300 + SETTINGS.CACHE_LIFE * repo_count
         limit = time.time() - rounds_delta
         cleaned = 0
         for key in list(self.storage.keys()):
@@ -66,9 +63,12 @@ class MemoryCache(Cache):
 
 class FileCache(Cache):
     def __init__(self):
-        self.open()
+        self.opened = False
 
     def open(self):
+        if self.opened:
+            return
+
         self.lock = open(SETTINGS.CACHE_PATH + '.lock', 'ab')
         try:
             fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -87,6 +87,7 @@ class FileCache(Cache):
             logger.warn("Dropping corrupted cache on %s", e)
             self.lock.truncate(0)
             self.storage = shelve.open(SETTINGS.CACHE_PATH, mode)
+        self.opened = True
 
     def close(self):
         self.save()
@@ -95,16 +96,23 @@ class FileCache(Cache):
             fcntl.lockf(self.lock, fcntl.LOCK_UN)
             self.lock.close()
             os.unlink(self.lock.name)
+        self.opened = False
 
     def destroy(self):
         self.close()
         os.unlink(SETTINGS.CACHE_PATH + '.db')
 
+    def get(self, *a, **kw):
+        self.open()
+        return super(FileCache, self).get(*a, **kw)
+
     def save(self):
+        self.open()
         self.storage.sync()
         logger.debug("Saved %s.", SETTINGS.CACHE_PATH)
 
     def set(self, key, value):
+        self.open()
         if not self.lock:
             return time.time(), value
 
@@ -120,6 +128,7 @@ class FileCache(Cache):
             return time.time(), value
 
     def purge(self):
+        self.open()
         if not self.lock:
             return
 
@@ -127,7 +136,8 @@ class FileCache(Cache):
         self.storage.sync()
 
     def __del__(self):
-        self.close()
+        if self.lock:
+            logger.error("CACHE not closed propery.")
 
 
 CACHE = FileCache()

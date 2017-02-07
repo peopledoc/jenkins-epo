@@ -19,40 +19,52 @@ import logging
 
 from .bot import Bot
 from .github import GITHUB, cached_arequest
-from .queuer import Queuer
 from .repository import Head, Repository, UnauthorizedRepository
 from .settings import SETTINGS
+from .tasks import ProcessTask, QueuerTask, PrinterTask
 from .utils import retry
+from .workers import WORKERS
 
 logger = logging.getLogger(__name__)
 
 
-class HeadMessage(object):
-    def __init__(self, head, me):
-        self.priority = head.sort_key()
-        self.url = head.url
-        self.me = me
-
-    def __lt__(self, other):
-        return self.priority < other.priority
-
-    def __str__(self):
-        return self.url
-
-    def __call__(self, *kw):
-        return process_url(self.url, me=self.me)
+def process_task_factory(head):
+    return ProcessTask(head, callable_=process_url)
 
 
 @asyncio.coroutine
-def queue_heads(queue):
-    me = yield from whoami()
+def poll():
+    yield from whoami()
     repositories = list_repositories()
-    queuer = Queuer(queue, lambda h: HeadMessage(h, me=me))
-    yield from queuer.queue_repositories(repositories)
+    while True:
+        repositories = yield from _queue_heads(
+            repositories, head_task_factory=process_task_factory,
+        )
+        yield from asyncio.sleep(SETTINGS.POLL_INTERVAL)
+        logger.info("Waiting for workers to consume queue.")
+        yield from WORKERS.queue.join()
 
 
-def list_repositories(with_settings=False):
-    logger.info("Fetching repositories.")
+@asyncio.coroutine
+def print_heads():
+    yield from _queue_heads(head_task_factory=PrinterTask)
+    yield from WORKERS.queue.join()
+
+
+@asyncio.coroutine
+def _queue_heads(repositories=None, head_task_factory=None):
+    repositories_set = set()
+    repositories = repositories or list_repositories()
+    for repository in repositories:
+        yield from WORKERS.enqueue(
+            QueuerTask(repository, task_factory=head_task_factory),
+        )
+        repositories_set.add(repository)
+    return repositories_set
+
+
+def list_repositories():
+    logger.info("Listing repositories.")
     repositories = set()
 
     env_repos = filter(

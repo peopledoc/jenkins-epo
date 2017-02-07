@@ -60,10 +60,9 @@ DEFAULTS = {
     'GITHUB_RO': False,
     'IGNORE_STATUSES': '',
     'JOBS': '',
-    # Trigger loop
-    'LOOP': 0,
     # When commenting on PR
     'NAME': 'Jenkins EPO',
+    'POLL_INTERVAL': 5,
     'HEADS': '*',
     'RATE_LIMIT_THRESHOLD': 50,
     # List repositories: owner/repo1,owner/repo2

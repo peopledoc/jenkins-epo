@@ -4,22 +4,27 @@ from asynctest import CoroutineMock
 import pytest
 
 
+def test_task_priority():
+    from jenkins_epo.workers import Task
+
+    assert Task(1) > Task(0)
+
+
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_ok(SETTINGS, mocker):
-    from jenkins_epo.workers import WORKERS
+def test_cycle(SETTINGS, mocker):
+    from jenkins_epo.workers import WORKERS, Task, PriorityQueue
     SETTINGS.CONCURRENCY = 2
 
-    class TestMessage(object):
+    class MockTask(Task):
         __call__ = CoroutineMock(side_effect=[None, Exception()])
 
-        def __lt__(self, other):
-            return id(self) < id(other)
-
-    queue = yield from WORKERS.start()
-    yield from queue.put(TestMessage())
-    yield from queue.put(TestMessage())
-    yield from queue.join()
+    WORKERS.queue = PriorityQueue()
+    yield from WORKERS.start()
+    yield from WORKERS.enqueue(Task(0))
+    yield from WORKERS.enqueue(MockTask(0))
+    yield from WORKERS.enqueue(MockTask(1))
+    yield from WORKERS.queue.join()
     yield from WORKERS.terminate()
 
-    assert 2 == len(TestMessage.__call__.mock_calls)
+    assert 2 == len(MockTask.__call__.mock_calls)

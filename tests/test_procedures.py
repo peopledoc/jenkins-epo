@@ -9,6 +9,55 @@ import pytest
 
 @pytest.mark.asyncio
 @asyncio.coroutine
+def test_poll(mocker, SETTINGS, WORKERS):
+    mocker.patch('jenkins_epo.procedures.WORKERS', WORKERS)
+    whoami = mocker.patch('jenkins_epo.procedures.whoami', CoroutineMock())
+    asyncio = mocker.patch('jenkins_epo.procedures.asyncio')
+    asyncio.sleep = CoroutineMock()
+
+    list_repositories = mocker.patch(
+        'jenkins_epo.procedures.list_repositories'
+    )
+    list_repositories.return_value = [Mock()]
+
+    WORKERS.queue.join.side_effect = [None, ValueError()]
+    from jenkins_epo.procedures import poll
+
+    with pytest.raises(ValueError):
+        yield from poll()
+
+    assert whoami.mock_calls
+    assert list_repositories.mock_calls
+    assert asyncio.sleep.mock_calls
+    assert WORKERS.queue.join.mock_calls
+
+
+def test_task_factory():
+    from jenkins_epo.procedures import process_task_factory, process_url
+    head = Mock()
+    head.sort_key.return_value = (1,)
+    task = process_task_factory(head)
+    assert task.callable_ is process_url
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_print(mocker, SETTINGS, WORKERS):
+    mocker.patch('jenkins_epo.procedures.WORKERS', WORKERS)
+    queue_heads = mocker.patch(
+        'jenkins_epo.procedures._queue_heads', CoroutineMock(),
+    )
+
+    from jenkins_epo.procedures import print_heads
+
+    yield from print_heads()
+
+    assert queue_heads.mock_calls
+    assert WORKERS.queue.join.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_process_url(mocker, SETTINGS):
     throttle_github = mocker.patch(
         'jenkins_epo.procedures.throttle_github', CoroutineMock(),
@@ -181,40 +230,3 @@ def test_throttling_compute_chill(SETTINGS):
     )
 
     assert seconds > 0  # Chill !
-
-
-@pytest.mark.asyncio
-@asyncio.coroutine
-def test_queue_heads(mocker):
-    list_repositories = mocker.patch(
-        'jenkins_epo.procedures.list_repositories'
-    )
-    list_repositories.return_value = []
-    whoami = mocker.patch('jenkins_epo.procedures.whoami', CoroutineMock())
-
-    from jenkins_epo.procedures import queue_heads
-    from jenkins_epo.compat import PriorityQueue
-
-    yield from queue_heads(PriorityQueue())
-    assert list_repositories.mock_calls
-    assert whoami.mock_calls
-
-
-def test_queue_message(mocker):
-    process_url = mocker.patch(
-        'jenkins_epo.procedures.process_url', CoroutineMock()
-    )
-
-    from jenkins_epo.procedures import HeadMessage
-
-    head0 = Mock(url='url://')
-    head0.sort_key.return_value = 0
-    head1 = Mock(url='url://')
-    head1.sort_key.return_value = 1
-    msg0 = HeadMessage(head0, me=Mock())
-    msg1 = HeadMessage(head1, me=Mock())
-
-    assert str(msg0)
-    assert msg0 < msg1
-    assert msg0()
-    assert process_url.mock_calls
