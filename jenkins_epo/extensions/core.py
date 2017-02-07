@@ -515,7 +515,7 @@ class YamlExtension(Extension):
         # Jenkins credentials used to clone
         'JOBS_CREDENTIALS': None,
         # Jenkins node/label
-        'JOBS_NODE': 'yml',
+        'JOBS_NODE': 'master',
     }
 
     def process_instruction(self, instruction):
