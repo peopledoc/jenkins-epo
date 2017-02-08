@@ -43,6 +43,16 @@ def test_logging_verbose(os):
     assert 'adebug' == config['handlers']['stderr']['formatter']
 
 
+@patch('jenkins_epo.script.os')
+def test_logging_systemd(os):
+    from jenkins_epo.script import setup_logging
+
+    os.environ = {'SYSTEMD': '1'}
+    config = setup_logging()
+    assert 'INFO' == config['loggers']['jenkins_epo']['level']
+    assert 'systemd' == config['handlers']['stderr']['formatter']
+
+
 def test_logging_sync():
     from jenkins_epo.script import AsyncLogRecord
 
@@ -67,3 +77,44 @@ def test_logging_async():
 
     record = AsyncLogRecord('name', 0, '/pathname', 1, 'message', (), None)
     assert record.task is 'TEST'
+
+
+def test_entrypoint_success(mocker):
+    mocker.patch('jenkins_epo.script.logging')
+    from jenkins_epo.script import entrypoint
+
+    mocker.patch('jenkins_epo.main.main')
+    CACHE = mocker.patch('jenkins_epo.cache.CACHE')
+
+    with pytest.raises(SystemExit):
+        entrypoint()
+    assert CACHE.close.mock_calls
+
+
+def test_entrypoint_interrupt(mocker):
+    mocker.patch('jenkins_epo.script.logging')
+    from jenkins_epo.script import entrypoint
+
+    main = mocker.patch('jenkins_epo.main.main')
+    CACHE = mocker.patch('jenkins_epo.cache.CACHE')
+
+    main.side_effect = KeyboardInterrupt()
+
+    with pytest.raises(SystemExit):
+        entrypoint()
+    assert CACHE.close.mock_calls
+
+
+def test_entrypoint_pdb(mocker):
+    mocker.patch('jenkins_epo.script.logging')
+    from jenkins_epo.script import entrypoint
+    from bdb import BdbQuit
+
+    main = mocker.patch('jenkins_epo.main.main')
+    CACHE = mocker.patch('jenkins_epo.cache.CACHE')
+
+    main.side_effect = BdbQuit()
+
+    with pytest.raises(SystemExit):
+        entrypoint()
+    assert CACHE.close.mock_calls
