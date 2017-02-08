@@ -75,7 +75,10 @@ class WorkerPool(object):
             except CancelledError:
                 logger.warn("Cancel of %s", item)
             except Exception as e:
-                logger.error("Failed to process %s: %s", item, e)
+                if SETTINGS.DEBUG:
+                    logger.exception("Failed to process %s: %s", item, e)
+                else:
+                    logger.error("Failed to process %s: %s", item, e)
             finally:
                 self.queue.task_done()
 

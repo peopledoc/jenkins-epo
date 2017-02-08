@@ -32,6 +32,25 @@ def test_cycle(SETTINGS, mocker):
 
 @pytest.mark.asyncio
 @asyncio.coroutine
+def test_debug(SETTINGS, mocker):
+    from jenkins_epo.workers import WORKERS, PriorityQueue, Task
+    SETTINGS.CONCURRENCY = 2
+    SETTINGS.DEBUG = 1
+
+    class MockTask(Task):
+        __call__ = CoroutineMock(side_effect=Exception())
+
+    WORKERS.queue = PriorityQueue()  # Create queue in current loop
+    yield from WORKERS.start()
+    yield from WORKERS.enqueue(MockTask(0))
+    yield from WORKERS.queue.join()
+    yield from WORKERS.terminate()
+
+    assert 1 == len(MockTask.__call__.mock_calls)
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_cancel(SETTINGS, mocker):
     from jenkins_epo.workers import (
         WORKERS, PriorityQueue, Task, CancelledError

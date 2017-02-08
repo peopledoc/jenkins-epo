@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock
 
 from asynctest import CoroutineMock
 import pytest
@@ -21,6 +21,33 @@ def test_task_priority():
 
     assert ProcessTask(pr, Mock()) < QueuerTask(Mock(), Mock())
     assert PrinterTask(pr) < QueuerTask(Mock(), Mock())
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_poll_repository(mocker, WORKERS):
+    mocker.patch('jenkins_epo.tasks.WORKERS', WORKERS)
+    mocker.patch.dict(
+        'jenkins_epo.tasks.RepositoryPollerTask.repositories_map', {}
+    )
+    Repository = mocker.patch('jenkins_epo.tasks.Repository')
+    from jenkins_epo.tasks import RepositoryPollerTask
+
+    Repository.from_name = CoroutineMock(return_value=MagicMock())
+    repo = Repository.from_name.return_value
+    repo.__str__.return_value = 'owner/repo'
+
+    task = RepositoryPollerTask('owner/repo', Mock)
+    assert str(task)
+
+    yield from task()
+    assert WORKERS.enqueue.mock_calls
+    assert Repository.from_name.mock_calls
+    assert RepositoryPollerTask.repositories_map
+
+    Repository.from_name.reset_mock()
+    yield from task()
+    assert not Repository.from_name.mock_calls
 
 
 @pytest.mark.asyncio

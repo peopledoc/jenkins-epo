@@ -120,28 +120,16 @@ class Repository(object):
     )
 
     @classmethod
+    @asyncio.coroutine
     def from_name(cls, owner, name):
-        data = cached_request(GITHUB.repos(owner)(name))
+        data = yield from cached_arequest(GITHUB.repos(owner)(name))
         return cls(owner=data['owner']['login'], name=data['name'])
-
-    @classmethod
-    def from_remote(cls, remote_url):
-        match = cls.remote_re.match(remote_url)
-        if not match:
-            raise ValueError('%r is not github' % (remote_url,))
-        return cls.from_name(**match.groupdict())
 
     def __init__(self, owner, name, jobs=None):
         self.owner = owner
         self.name = name
         self.jobs = jobs or {}
         self.SETTINGS = Bunch()
-
-    def __eq__(self, other):
-        return str(self) == str(other)
-
-    def __hash__(self):
-        return hash(str(self))
 
     def __str__(self):
         return '%s/%s' % (self.owner, self.name)
@@ -418,7 +406,7 @@ class Head(object):
         if not match:
             raise Exception("Can't infer HEAD from %s." % (url,))
 
-        repository = Repository.from_name(
+        repository = yield from Repository.from_name(
             match.group('owner'), match.group('name')
         )
 

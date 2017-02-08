@@ -6,35 +6,21 @@ from asynctest import CoroutineMock
 import pytest
 
 
-@patch('jenkins_epo.repository.cached_request')
-def test_from_name(cached_request):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_from_name(mocker):
+    cached_arequest = mocker.patch(
+        'jenkins_epo.repository.cached_arequest',
+        CoroutineMock()
+    )
     from jenkins_epo.repository import Repository
 
-    cached_request.return_value = {
+    cached_arequest.return_value = {
         'owner': {'login': 'newowner'},
         'name': 'newname',
     }
 
-    repo = Repository.from_name('oldowner', 'oldname')
-    assert 'newowner' == repo.owner
-    assert 'newname' == repo.name
-
-
-@patch('jenkins_epo.repository.cached_request')
-def test_from_remote(cached_request):
-    from jenkins_epo.repository import Repository
-
-    with pytest.raises(ValueError):
-        Repository.from_remote('https://git.lan/project.git')
-
-    assert not cached_request.mock_calls
-
-    cached_request.return_value = {
-        'owner': {'login': 'newowner'},
-        'name': 'newname',
-    }
-
-    repo = Repository.from_remote('https://github.com/owner/project.git')
+    repo = yield from Repository.from_name('oldowner', 'oldname')
     assert 'newowner' == repo.owner
     assert 'newname' == repo.name
 
