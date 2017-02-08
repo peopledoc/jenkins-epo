@@ -19,7 +19,7 @@ import logging
 
 from jenkinsapi.custom_exceptions import UnknownJob
 
-from ..bot import Extension, Error
+from ..bot import Extension, Error, SkipHead
 from ..jenkins import JENKINS
 from ..repository import Commit, CommitStatus
 from ..utils import match
@@ -325,6 +325,9 @@ class Stage(object):
         self.external_contextes = external or []
         self.statuses = []
 
+    def __bool__(self):
+        return bool(self.job_specs or self.external_contextes)
+
     def __str__(self):
         return self.name
 
@@ -370,13 +373,18 @@ class StagesExtension(JenkinsExtension):
             stage = spec.config.get('stage', default_stage)
             stages[stage].job_specs.append(spec)
 
+        stage = None
         # Search current stage to build.
-        for stage in stages.values():
+        for stage in [s for s in stages.values() if bool(s)]:
             complete = stage.is_complete(
                 self.current.jobs, self.current.statuses
             )
             if not complete:
                 break
+
+        if not stage:
+            logger.warn("Not in any stage. Skipping.")
+            raise SkipHead()
 
         self.current.current_stage = stage
         # Filter job specs to the current stage ones.
