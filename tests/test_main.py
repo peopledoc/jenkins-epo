@@ -19,6 +19,7 @@ def test_main():
 
 
 def test_main_sync(mocker):
+    CACHE = mocker.patch('jenkins_epo.main.CACHE')
     command = mocker.patch('jenkins_epo.main.bot')
     command.__name__ = 'bot'
     command.__code__ = Mock(co_varnames=(), co_argcount=0)
@@ -30,9 +31,11 @@ def test_main_sync(mocker):
     main(argv=['bot'])
 
     assert command.mock_calls
+    assert CACHE.close.mock_calls
 
 
 def test_main_async(mocker, event_loop):
+    CACHE = mocker.patch('jenkins_epo.main.CACHE')
     command = mocker.patch('jenkins_epo.main.bot', CoroutineMock())
     command.__name__ = 'bot'
     command.__code__ = Mock(co_varnames=(), co_argcount=0)
@@ -41,6 +44,7 @@ def test_main_async(mocker, event_loop):
     main(argv=['bot'], loop=event_loop)
 
     assert command.mock_calls
+    assert CACHE.close.mock_calls
 
 
 def test_main_async_exception(mocker, event_loop):
