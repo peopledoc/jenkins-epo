@@ -80,7 +80,7 @@ if __name__ == '__main__':
             'aiohttp',
             'githubpy',
             'jenkinsapi',
-            'jenkins-yml[renderer]>=2.33',
+            'jenkins-yml[renderer]',
             'pyyaml',
             'tenacity',
             'setuptools>11.3',
