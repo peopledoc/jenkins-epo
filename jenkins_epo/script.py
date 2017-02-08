@@ -18,6 +18,7 @@
 
 import asyncio
 import bdb
+from copy import deepcopy
 import os
 import logging.config
 import pkg_resources
@@ -99,6 +100,7 @@ logging_config['loggers']['jenkins_yml'] = (
 
 
 def setup_logging():
+    config = deepcopy(logging_config)
     adebug = os.environ.get("PYTHONASYNCIODEBUG") == '1'
 
     names = {p + k for p in ['', 'GHP_', 'EPO_'] for k in ['VERBOSE', 'DEBUG']}
@@ -106,17 +108,17 @@ def setup_logging():
     debug = bool([v for v in debug if v not in ('0', '', None)])
 
     if debug or adebug:
-        logging_config['loggers']['jenkins_epo']['level'] = 'DEBUG'
-        logging_config['handlers']['stderr']['formatter'] = 'debug'
+        config['loggers']['jenkins_epo']['level'] = 'DEBUG'
+        config['handlers']['stderr']['formatter'] = 'debug'
 
     if adebug:
-        logging_config['loggers']['asyncio']['level'] = 'DEBUG'
-        logging_config['handlers']['stderr']['formatter'] = 'adebug'
+        config['loggers']['asyncio']['level'] = 'DEBUG'
+        config['handlers']['stderr']['formatter'] = 'adebug'
 
     if os.environ.get('SYSTEMD'):
-        logging_config['handlers']['stderr']['formatter'] = 'systemd'
+        config['handlers']['stderr']['formatter'] = 'systemd'
 
-    logging.config.dictConfig(logging_config)
+    return config
 
 
 def post_mortem():
@@ -132,7 +134,7 @@ def post_mortem():
 def entrypoint(argv=None):
     argv = argv or sys.argv[1:]
 
-    setup_logging()
+    logging.config.dictConfig(setup_logging())
     distribution = pkg_resources.get_distribution('jenkins-epo')
     logger.info("Starting jenkins-epo %s.", distribution.version)
     logger.debug("Debug mode enabled")
