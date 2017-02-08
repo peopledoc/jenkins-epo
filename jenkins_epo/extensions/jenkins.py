@@ -44,6 +44,7 @@ class BuilderExtension(JenkinsExtension):
 
     def process_instruction(self, instruction):
         if instruction == 'rebuild':
+            logger.info("Retrying jobs failed before %s.", instruction.date)
             self.current.rebuild_failed = instruction.date
 
     def is_queue_empty(self):
@@ -65,6 +66,7 @@ class BuilderExtension(JenkinsExtension):
             queue_empty = self.is_queue_empty()
             toqueue_contexts = []
             for context in not_built:
+                logger.debug("Computing new status for %s.", spec)
                 new_status = self.current.last_commit.maybe_update_status(
                     self.status_for_new_context(job, context, queue_empty),
                 )
