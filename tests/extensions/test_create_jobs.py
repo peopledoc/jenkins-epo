@@ -12,7 +12,7 @@ def test_yml_notfound(mocker, SETTINGS):
     GITHUB = mocker.patch('jenkins_epo.extensions.core.GITHUB')
 
     from jenkins_epo.extensions.core import (
-        ApiNotFoundError, YamlExtension
+        ApiNotFoundError, SkipHead, YamlExtension
     )
 
     SETTINGS.update(YamlExtension.SETTINGS)
@@ -21,6 +21,7 @@ def test_yml_notfound(mocker, SETTINGS):
     ext.current = ext.bot.current
     ext.current.yaml = {}
     ext.current.errors = []
+    ext.current.job_specs = []
 
     GITHUB.fetch_file_contents = CoroutineMock(side_effect=ApiNotFoundError(
         'url', Mock(), Mock())
@@ -30,7 +31,8 @@ def test_yml_notfound(mocker, SETTINGS):
     head.repository.url = 'https://github.com/owner/repo.git'
     head.repository.jobs = []
 
-    yield from ext.run()
+    with pytest.raises(SkipHead):
+        yield from ext.run()
 
     assert GITHUB.fetch_file_contents.mock_calls
     assert not ext.current.errors

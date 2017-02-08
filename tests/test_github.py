@@ -67,6 +67,7 @@ def test_aget_dict(mocker):
     response = Mock(spec=['headers', 'json', 'status'])
     session.get = CoroutineMock(return_value=response)
     response.status = 200
+    response.content_type = 'application/json'
     response.headers = {'ETag': 'cafed0d0'}
     response.json = CoroutineMock(return_value={'data': 1})
     GITHUB = CustomGitHub(access_token='cafed0d0')
@@ -85,6 +86,7 @@ def test_aget_list(mocker):
     response = Mock(spec=['headers', 'json', 'status'])
     session.get = CoroutineMock(return_value=response)
     response.status = 200
+    response.content_type = 'application/json'
     response.headers = {'ETag': 'cafed0d0'}
     response.json = CoroutineMock(return_value=[{'data': 1}])
 
@@ -96,6 +98,25 @@ def test_aget_list(mocker):
 
 
 @pytest.mark.asyncio
+def test_aget_html(mocker):
+    from jenkins_epo.github import CustomGitHub
+
+    aiohttp = mocker.patch('jenkins_epo.github.aiohttp')
+    session = aiohttp.ClientSession.return_value
+    response = Mock(spec=['headers', 'read', 'status'])
+    session.get = CoroutineMock(return_value=response)
+    response.content_type = 'text/html'
+    response.headers = {'ETag': 'cafed0d0'}
+    response.read = CoroutineMock(return_value='<!DOCTYPE')
+
+    GITHUB = CustomGitHub(access_token='cafed0d0')
+    with pytest.raises(Exception):
+        yield from GITHUB.user.aget()
+
+    assert response.read.mock_calls
+
+
+@pytest.mark.asyncio
 def test_aget_404(mocker):
     from jenkins_epo.github import CustomGitHub, ApiNotFoundError
 
@@ -104,6 +125,7 @@ def test_aget_404(mocker):
     response = Mock(spec=['headers', 'json', 'status'])
     session.get = CoroutineMock(return_value=response)
     response.status = 404
+    response.content_type = 'application/json'
     response.headers = {'ETag': 'cafed0d0'}
     response.json = CoroutineMock(return_value={'message': 'Not found'})
 
@@ -122,6 +144,7 @@ def test_aget_304(mocker):
     response = Mock(spec=['headers', 'json', 'status'])
     session.get = CoroutineMock(return_value=response)
     response.status = 304
+    response.content_type = 'application/json'
     response.headers = {'ETag': 'cafed0d0'}
     response.json = CoroutineMock(return_value={'message': 'Not found'})
 

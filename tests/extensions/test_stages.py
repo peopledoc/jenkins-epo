@@ -184,7 +184,7 @@ def test_external_context():
     ext.current.head.ref = 'pr'
     ext.current.SETTINGS.STAGES = [
         dict(name='deploy', external=['deploy/prod']),
-        'final',
+        dict(name='final', external=['final']),
     ]
     ext.current.job_specs = {}
     ext.current.jobs = {}
@@ -203,16 +203,46 @@ def test_external_context():
 
 @pytest.mark.asyncio
 @asyncio.coroutine
+def test_nostages():
+    from jenkins_epo.extensions.jenkins import StagesExtension, SkipHead
+
+    ext = StagesExtension('stages', Mock())
+    ext.current = Mock()
+    ext.current.head.ref = 'pr'
+    ext.current.SETTINGS.STAGES = ['test', 'deploy']
+    ext.current.job_specs = {}
+    ext.current.jobs = {}
+    ext.current.statuses = {}
+
+    with pytest.raises(SkipHead):
+        yield from ext.run()
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_complete():
     from jenkins_epo.extensions.jenkins import StagesExtension
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
     ext.current.head.ref = 'pr'
-    ext.current.SETTINGS.STAGES = ['build', 'test', 'deploy']
-    ext.current.job_specs = {}
-    ext.current.jobs = {}
-    ext.current.statuses = {}
+    ext.current.SETTINGS.STAGES = ['test', 'deploy']
+    ext.current.job_specs = specs = {
+        'test-job': Mock(config=dict()),
+        'deploy-job': Mock(config=dict(stage='deploy')),
+    }
+    specs['test-job'].name = 'test-job'
+    specs['deploy-job'].name = 'deploy-job'
+    ext.current.jobs = jobs = {
+        'test-job': Mock(),
+        'deploy-job': Mock(),
+    }
+    jobs['test-job'].list_contexts.return_value = ['test']
+    jobs['deploy-job'].list_contexts.return_value = ['deploy']
+    ext.current.statuses = {
+        'test': {'state': 'success'},
+        'deploy': {'state': 'success'},
+    }
 
     yield from ext.run()
 

@@ -21,4 +21,11 @@ credentials for HTTPS clone, and set ``JOBS_CREDENTIALS`` according to it.
 
 Test your settings like this::
 
-    GITHUB_TOKEN=XXX JENKINS_URL=http://jenkins.lan JOBS_CREDENTIALS=botgithub jenkins-epo process https://github.com/owner/name/tree/master
+    GITHUB_TOKEN=XXX JENKINS_URL=http://jenkins.lan JOBS_CREDENTIALS=github-https jenkins-epo process https://github.com/owner/repo1/tree/master
+
+Then write it to Ansible vars or in ``/etc/jenkins-epo.conf`` like this:
+
+.. literalinclude:: ../jenkins-epo.conf
+
+And reload with ``systemctl restart jenkins-epo``. Watch it with
+``journalctl -fu jenkins-epo`` !

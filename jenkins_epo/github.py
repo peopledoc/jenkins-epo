@@ -215,6 +215,12 @@ class CustomGitHub(GitHub):
         session = aiohttp.ClientSession()
         try:
             response = yield from session.get(url, headers=headers)
+            if 'json' not in response.content_type:
+                payload = yield from response.read(1024)
+                raise Exception(
+                    "GitHub API did not returns JSON: %s...", payload
+                )
+
             payload = yield from response.json()
         finally:
             if not asyncio.get_event_loop().is_closed():
