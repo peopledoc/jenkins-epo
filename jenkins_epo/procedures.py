@@ -92,15 +92,24 @@ def list_repositories():
         yield repository
 
 
+_task_map = {}
+
+
 @asyncio.coroutine
 def process_url(url, throttle=True):
+    task = asyncio.Task.current_task()
+    running_task = _task_map.get(url)
+    if running_task and not running_task.done():
+        logger.debug("Cancelling current task on %s.", url)
+        running_task.cancel()
+    _task_map[url] = task
+
     if throttle:
         yield from throttle_github()
     head = yield from Head.from_url(url)
-    task = asyncio.Task.current_task()
     task.logging_id = head.sha[:4]
 
-    logger.info("Working %s.", head)
+    logger.info("Working on %s.", head)
 
     bot = Bot()
     try:
@@ -109,13 +118,11 @@ def process_url(url, throttle=True):
         logger.error("Write access denied to %s.", head.repository)
         raise
 
-    try:
-        yield from bot.run(head)
-    except CancelledError:
-        logger.warn("Cancelled processing %s:", head)
-
+    yield from bot.run(head)
     logger.info("Processed %s.", head)
+
     del task.logging_id
+    del _task_map[url]
 
 
 @asyncio.coroutine

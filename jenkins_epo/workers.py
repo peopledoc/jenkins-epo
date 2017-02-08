@@ -12,6 +12,7 @@
 # This file implements a simple async worker pool.
 
 import asyncio
+from concurrent.futures import CancelledError
 import logging
 
 from .compat import PriorityQueue
@@ -71,6 +72,8 @@ class WorkerPool(object):
             task = loop.create_task(item())
             try:
                 yield from task
+            except CancelledError:
+                logger.warn("Cancel of %s", item)
             except Exception as e:
                 logger.error("Failed to process %s: %s", item, e)
             finally:

@@ -95,12 +95,13 @@ def test_process_url_repo_denied(mocker, SETTINGS):
     bot = Bot.return_value
     head = from_url.return_value
     head.sha = 'cafed0d0'
+    head.url = 'url://test_process_url_repo_denied'
     head.repository.load_settings = CoroutineMock(
         side_effect=UnauthorizedRepository()
     )
 
     with pytest.raises(UnauthorizedRepository):
-        yield from process_url('https://url', throttle=False)
+        yield from process_url(head.url, throttle=False)
 
     assert head.repository.load_settings.mock_calls
     assert not bot.run.mock_calls
@@ -108,22 +109,27 @@ def test_process_url_repo_denied(mocker, SETTINGS):
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_process_url_cancelled(mocker, SETTINGS):
+def test_process_url_exclusive(mocker, SETTINGS, event_loop):
     Bot = mocker.patch('jenkins_epo.procedures.Bot')
     from_url = mocker.patch(
         'jenkins_epo.procedures.Head.from_url', CoroutineMock()
     )
 
-    from jenkins_epo.procedures import process_url, CancelledError
+    from jenkins_epo.procedures import process_url, _task_map
 
     bot = Bot.return_value
-    bot.run = CoroutineMock(side_effect=CancelledError())
+    bot.run = CoroutineMock()
     head = from_url.return_value
+    head.url = 'url://test_process_url_exclusive'
     head.sha = 'cafed0d0'
     head.repository.load_settings = CoroutineMock()
 
-    yield from process_url('https://url', throttle=False)
+    _task_map[head.url] = running = Mock()
+    running.done.return_value = False
 
+    yield from process_url(head.url, throttle=False)
+
+    assert running.cancel.mock_calls
     assert bot.run.mock_calls
 
 
