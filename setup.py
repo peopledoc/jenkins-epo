@@ -50,6 +50,8 @@ if __name__ == '__main__':
     setup(
         name='jenkins-epo',
         version=VERSION,
+        description="Leverage Jenkins feature for GitHub repositories.",
+        long_description=open('README.rst').read(),
         entry_points={
             'console_scripts': ['jenkins-epo=jenkins_epo.script:entrypoint'],
             'jenkins_epo.bot.extensions': [
@@ -85,7 +87,6 @@ if __name__ == '__main__':
             'tenacity',
         ],
         packages=find_packages(exclude=('tests',)),
-        description='Jenkins EPO',
         author=', '.join([
             'Étienne BERSAC <etienne.bersac@people-doc.com>',
             'James Pic <james.pic@people-doc.com>',
