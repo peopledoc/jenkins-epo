@@ -30,6 +30,7 @@ import yaml
 
 from .settings import SETTINGS
 from .utils import match, parse_patterns, retry
+from .web import fullurl
 
 
 logger = logging.getLogger(__name__)
@@ -317,6 +318,8 @@ class FreestyleJob(Job):
                     "Can't assign build to node %s.", spec.config['node'],
                 )
 
+        params['YML_NOTIFY_URL'] = fullurl(head=pr.url)
+
         if SETTINGS.DRY_RUN:
             return logger.info("Would queue %s.", log)
 
@@ -416,6 +419,11 @@ class MatrixJob(Job):
                 ],
                 'confs': confs,
             })
+
+        data['parameter'].append({
+            'name': 'YML_NOTIFY_URL',
+            'value': fullurl(head=pr.url),
+        })
 
         if SETTINGS.DRY_RUN:
             for context in contexts:

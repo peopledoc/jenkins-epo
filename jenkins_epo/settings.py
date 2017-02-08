@@ -69,6 +69,7 @@ DEFAULTS = {
     'RATE_LIMIT_THRESHOLD': 50,
     # List repositories: owner/repo1,owner/repo2
     'REPOSITORIES': '',
+    'SERVER_URL': 'http://localhost:2819',
     'VERBOSE': '',
     'GITHUB_TOKEN': None,
     # Jenkins baseurl, like http://jenkins.lan:8080/.
