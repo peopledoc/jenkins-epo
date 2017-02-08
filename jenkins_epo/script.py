@@ -138,6 +138,7 @@ def entrypoint(argv=None):
     logger.debug("Debug mode enabled")
 
     # Import modules after logging is setup
+    from .cache import CACHE
     from .main import main
     from .settings import SETTINGS
 
@@ -164,6 +165,9 @@ def entrypoint(argv=None):
             tb = tb[-6:]
             logger.warn("Interrupted at:\n%s", ''.join(tb).strip())
         sys.exit(1)
+    finally:
+        CACHE.close()
+
     sys.exit(0)
 
 

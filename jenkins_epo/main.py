@@ -24,7 +24,6 @@ import sys
 from aiohttp.web import run_app
 
 from .bot import Bot
-from .cache import CACHE
 from . import procedures
 from .settings import SETTINGS
 from .web import app as webapp
@@ -121,5 +120,3 @@ def main(argv=None, *, loop=None):
             loop.close()
     else:
         command_func(**kwargs)
-
-    CACHE.close()
