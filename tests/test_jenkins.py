@@ -69,7 +69,7 @@ def test_freestyle_build(SETTINGS):
     xml.findall.return_value = []
     xml.find.return_value = None
 
-    pr = Mock()
+    pr = Mock(url='url://')
     spec = Mock()
     spec.config = {
         'node': 'slave',
@@ -93,7 +93,7 @@ def test_freestyle_build_dry(SETTINGS):
     xml.findall.return_value = []
     xml.find.return_value = None
 
-    pr = Mock()
+    pr = Mock(url='url://')
     spec = Mock()
     spec.config = {}
     job = FreestyleJob(api_instance)
@@ -277,7 +277,7 @@ def test_matrix_build(post, SETTINGS):
 
     post.return_value.status_code = 200
 
-    job.build(Mock(), spec, 'matrix')
+    job.build(Mock(url='url://'), spec, 'matrix')
 
     assert post.mock_calls
 
@@ -304,7 +304,7 @@ def test_matrix_build_dry(post, SETTINGS):
 
     post.return_value.status_code = 200
 
-    job.build(Mock(), spec, 'matrix')
+    job.build(Mock(url='url://'), spec, 'matrix')
 
     assert not post.mock_calls
 

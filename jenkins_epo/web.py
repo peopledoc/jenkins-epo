@@ -17,9 +17,10 @@ import logging
 
 from aiohttp import web
 
-from .workers import WORKERS
 from .procedures import process_url
+from .settings import SETTINGS
 from .tasks import ProcessUrlTask
+from .workers import WORKERS
 
 app = web.Application()
 logger = logging.getLogger(__name__)
@@ -37,3 +38,10 @@ def simple_webhook(request):
 
 
 app.router.add_post('/simple-webhook', simple_webhook, name='simple-webhook')
+
+
+def fullurl(route='simple-webhook', **query):
+    return (
+        SETTINGS.SERVER_URL.rstrip('/') +
+        str(app.router[route].url_for().with_query(query))
+    )
