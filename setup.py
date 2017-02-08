@@ -50,7 +50,7 @@ if __name__ == '__main__':
     setup(
         name='jenkins-epo',
         version=VERSION,
-        description="Leverage Jenkins feature for GitHub repositories.",
+        description="Leverage Jenkins features for GitHub repositories.",
         long_description=open('README.rst').read(),
         entry_points={
             'console_scripts': ['jenkins-epo=jenkins_epo.script:entrypoint'],
@@ -101,6 +101,6 @@ if __name__ == '__main__':
         ],
         keywords=['jenkins', 'github', 'yml'],
         license='GPL v3 or later',
-        url='https://github.com/novafloss/jenkins-epo',
+        url='http://jenkins-epo.rtfd.io',
         **setup_kwargs
     )
