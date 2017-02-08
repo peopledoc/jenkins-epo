@@ -13,7 +13,6 @@
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
-from concurrent.futures import CancelledError
 from datetime import datetime, timedelta, timezone
 import logging
 
