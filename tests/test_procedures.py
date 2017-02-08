@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime, timezone
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from aiohttp.test_utils import make_mocked_coro
 from asynctest import CoroutineMock
@@ -10,15 +10,11 @@ import pytest
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_poll(mocker, SETTINGS, WORKERS):
+    SETTINGS.REPOSITORIES = 'owner/repo'
     mocker.patch('jenkins_epo.procedures.WORKERS', WORKERS)
     whoami = mocker.patch('jenkins_epo.procedures.whoami', CoroutineMock())
     asyncio = mocker.patch('jenkins_epo.procedures.asyncio')
     asyncio.sleep = CoroutineMock()
-
-    list_repositories = mocker.patch(
-        'jenkins_epo.procedures.list_repositories'
-    )
-    list_repositories.return_value = [Mock()]
 
     WORKERS.queue.join.side_effect = [None, ValueError()]
     from jenkins_epo.procedures import poll
@@ -27,7 +23,6 @@ def test_poll(mocker, SETTINGS, WORKERS):
         yield from poll()
 
     assert whoami.mock_calls
-    assert list_repositories.mock_calls
     assert asyncio.sleep.mock_calls
     assert WORKERS.queue.join.mock_calls
 
@@ -145,27 +140,6 @@ def test_whoami(mocker):
     login = yield from procedures.whoami()
 
     assert 'aramis' == login
-
-
-@patch('jenkins_epo.procedures.Repository.from_name')
-def test_list_repositories(from_name, SETTINGS):
-    from jenkins_epo import procedures
-
-    SETTINGS.REPOSITORIES = "owner/repo1,owner/repo1"
-    repositories = procedures.list_repositories()
-    assert 1 == len(list(repositories))
-
-
-@patch('jenkins_epo.procedures.Repository.from_name')
-def test_list_repositories_from_envvar_404(from_name, SETTINGS):
-    from jenkins_epo import procedures
-
-    SETTINGS.REPOSITORIES = "owner/repo1 owner/repo1"
-    from_name.side_effect = Exception('404')
-
-    repositories = procedures.list_repositories()
-
-    assert 0 == len(list(repositories))
 
 
 @pytest.mark.asyncio

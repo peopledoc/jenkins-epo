@@ -18,9 +18,9 @@ import logging
 
 from .bot import Bot
 from .github import GITHUB, cached_arequest
-from .repository import Head, Repository, UnauthorizedRepository
+from .repository import Head, UnauthorizedRepository
 from .settings import SETTINGS
-from .tasks import ProcessTask, QueuerTask, PrinterTask
+from .tasks import PrinterTask, ProcessTask, RepositoryPollerTask
 from .utils import retry
 from .workers import WORKERS
 
@@ -34,11 +34,8 @@ def process_task_factory(head):
 @asyncio.coroutine
 def poll():
     yield from whoami()
-    repositories = list_repositories()
     while True:
-        repositories = yield from _queue_heads(
-            repositories, head_task_factory=process_task_factory,
-        )
+        yield from _queue_heads(task_factory=process_task_factory)
         yield from asyncio.sleep(SETTINGS.POLL_INTERVAL)
         logger.info("Waiting for workers to consume queue.")
         yield from WORKERS.queue.join()
@@ -46,49 +43,24 @@ def poll():
 
 @asyncio.coroutine
 def print_heads():
-    yield from _queue_heads(head_task_factory=PrinterTask)
+    yield from _queue_heads(task_factory=PrinterTask)
     yield from WORKERS.queue.join()
 
 
 @asyncio.coroutine
-def _queue_heads(repositories=None, head_task_factory=None):
-    repositories_set = set()
-    repositories = repositories or list_repositories()
-    for repository in repositories:
-        yield from WORKERS.enqueue(
-            QueuerTask(repository, task_factory=head_task_factory),
+def _queue_heads(repositories=None, task_factory=None):
+    logger.info("Polling repositories.")
+    qualnames = RepositoryPollerTask.repositories_map.keys()
+    if not qualnames:
+        qualnames = filter(
+            None, SETTINGS.REPOSITORIES.replace(' ', ',').split(',')
         )
-        repositories_set.add(repository)
-    return repositories_set
-
-
-def list_repositories():
-    logger.info("Listing repositories.")
-    repositories = set()
-
-    env_repos = filter(
-        None,
-        SETTINGS.REPOSITORIES.replace(' ', ',').split(',')
-    )
-    for repository in env_repos:
-        if repository in repositories:
-            continue
-        owner, name = repository.split('/')
-        try:
-            repository = Repository.from_name(owner, name)
-        except Exception as e:
-            logger.warn("Failed to fetch repo %s: %s", repository, e)
-            if SETTINGS.DEBUG:
-                raise
-            else:
-                continue
-
-        if repository in repositories:
-            continue
-
-        repositories.add(repository)
-        logger.debug("Managing %s.", repository)
-        yield repository
+    for qualname in qualnames:
+        yield from WORKERS.enqueue(
+            RepositoryPollerTask(
+                qualname, task_factory=task_factory
+            )
+        )
 
 
 _task_map = {}

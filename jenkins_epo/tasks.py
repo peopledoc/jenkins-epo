@@ -15,10 +15,35 @@
 import asyncio
 import logging
 
+from .repository import Repository
 from .workers import WORKERS, Task
 
 
 logger = logging.getLogger(__name__)
+
+
+class RepositoryPollerTask(Task):
+    repositories_map = {}
+
+    def __init__(self, qualname, task_factory):
+        super(RepositoryPollerTask, self).__init__(('99-poll', qualname))
+        self.qualname = qualname
+        self.task_factory = task_factory
+
+    def __str__(self):
+        return self.qualname
+
+    @asyncio.coroutine
+    def __call__(self):
+        try:
+            repository = self.repositories_map[self.qualname]
+        except KeyError:
+            owner, name = self.qualname.split('/')
+            repository = yield from Repository.from_name(owner, name)
+            self.repositories_map[str(repository)] = repository
+            logger.debug("Managing %s.", repository)
+
+        yield from WORKERS.enqueue(QueuerTask(repository, self.task_factory))
 
 
 class ProcessUrlTask(Task):
