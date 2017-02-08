@@ -100,8 +100,7 @@ def test_process_url_repo_denied(mocker, SETTINGS):
         side_effect=UnauthorizedRepository()
     )
 
-    with pytest.raises(UnauthorizedRepository):
-        yield from process_url(head.url, throttle=False)
+    yield from process_url(head.url, throttle=False)
 
     assert head.repository.load_settings.mock_calls
     assert not bot.run.mock_calls

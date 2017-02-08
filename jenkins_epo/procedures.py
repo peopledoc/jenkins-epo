@@ -115,7 +115,7 @@ def process_url(url, throttle=True):
         yield from head.repository.load_settings()
     except UnauthorizedRepository:
         logger.error("Write access denied to %s.", head.repository)
-        raise
+        return
 
     yield from bot.run(head)
     logger.info("Processed %s.", head)
