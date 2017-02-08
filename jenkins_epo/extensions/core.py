@@ -560,7 +560,8 @@ class YamlExtension(Extension):
             )
             logger.info("Loading jenkins.yml.")
         except ApiNotFoundError:
-            jenkins_yml = None
+            logger.warn("No jenkins.yml. Skipping.")
+            raise SkipHead()
 
         try:
             self.current.job_specs = self.list_job_specs(jenkins_yml)
