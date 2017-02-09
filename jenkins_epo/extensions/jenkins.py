@@ -388,7 +388,7 @@ class StagesExtension(JenkinsExtension):
 
         self.current.current_stage = stage
         # Filter job specs to the current stage ones.
-        current_ref = self.current.head.ref
+        current_ref = self.current.head.shortref
         self.current.job_specs = {}
         for job in stage.job_specs:
             branches = list(job.config.get('branches', '*'))

@@ -11,7 +11,7 @@ def test_first_stage():
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
-    ext.current.head.ref = 'pr'
+    ext.current.head.shortref = 'pr'
     ext.current.SETTINGS.STAGES = ['build', 'test']
     ext.current.job_specs = specs = {
         'build': Mock(config=dict(stage='build')),
@@ -41,7 +41,7 @@ def test_second_stage():
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
-    ext.current.head.ref = 'pr'
+    ext.current.head.shortref = 'pr'
     ext.current.SETTINGS.STAGES = ['build', 'test']
     ext.current.job_specs = specs = {
         'test': Mock(config=dict()),
@@ -69,7 +69,7 @@ def test_no_test_stage():
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
-    ext.current.head.ref = 'pr'
+    ext.current.head.shortref = 'pr'
     ext.current.SETTINGS.STAGES = ['build', 'deploy']
     ext.current.job_specs = specs = {
         'build': Mock(config=dict()),
@@ -96,7 +96,7 @@ def test_periodic_ignored():
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
-    ext.current.head.ref = 'pr'
+    ext.current.head.shortref = 'pr'
     ext.current.SETTINGS.STAGES = ['deploy', 'test']
     ext.current.job_specs = specs = {
         'periodic': Mock(config=dict(periodic=True)),
@@ -126,7 +126,7 @@ def test_periodic_required():
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
-    ext.current.head.ref = 'pr'
+    ext.current.head.shortref = 'pr'
     ext.current.SETTINGS.STAGES = ['deploy', 'test']
     ext.current.job_specs = specs = {
         'deploy': Mock(config=dict(stage='deploy', periodic=True)),
@@ -156,7 +156,7 @@ def test_branches_limit():
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
-    ext.current.head.ref = 'pr'
+    ext.current.head.shortref = 'pr'
     ext.current.SETTINGS.STAGES = ['test']
     ext.current.job_specs = specs = {
         'job': Mock(config=dict(branches=['master'])),
@@ -181,7 +181,7 @@ def test_external_context():
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
-    ext.current.head.ref = 'pr'
+    ext.current.head.shortref = 'pr'
     ext.current.SETTINGS.STAGES = [
         dict(name='deploy', external=['deploy/prod']),
         dict(name='final', external=['final']),
@@ -208,7 +208,7 @@ def test_nostages():
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
-    ext.current.head.ref = 'pr'
+    ext.current.head.shortref = 'pr'
     ext.current.SETTINGS.STAGES = ['test', 'deploy']
     ext.current.job_specs = {}
     ext.current.jobs = {}
@@ -225,7 +225,7 @@ def test_complete():
 
     ext = StagesExtension('stages', Mock())
     ext.current = Mock()
-    ext.current.head.ref = 'pr'
+    ext.current.head.shortref = 'pr'
     ext.current.SETTINGS.STAGES = ['test', 'deploy']
     ext.current.job_specs = specs = {
         'test-job': Mock(config=dict()),
