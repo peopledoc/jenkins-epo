@@ -23,6 +23,8 @@ def test_from_name(mocker):
     repo = yield from Repository.from_name('oldowner', 'oldname')
     assert 'newowner' == repo.owner
     assert 'newname' == repo.name
+    assert repo in {repo}
+    assert repo == repo
 
 
 @pytest.mark.asyncio

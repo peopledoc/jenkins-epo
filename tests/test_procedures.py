@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime, timezone
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
 from aiohttp.test_utils import make_mocked_coro
 from asynctest import CoroutineMock
@@ -39,21 +39,21 @@ def test_task_factory():
 @asyncio.coroutine
 def test_print(mocker, SETTINGS, WORKERS):
     mocker.patch('jenkins_epo.procedures.WORKERS', WORKERS)
-    queue_heads = mocker.patch(
-        'jenkins_epo.procedures._queue_heads', CoroutineMock(),
-    )
-
+    mocker.patch('jenkins_epo.procedures.REPOSITORIES', [Mock()])
     from jenkins_epo.procedures import print_heads
 
     yield from print_heads()
 
-    assert queue_heads.mock_calls
+    assert WORKERS.enqueue.mock_calls
     assert WORKERS.queue.join.mock_calls
 
 
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_process_url(mocker, SETTINGS):
+    REPOSITORIES = mocker.patch(
+        'jenkins_epo.procedures.REPOSITORIES', MagicMock()
+    )
     throttle_github = mocker.patch(
         'jenkins_epo.procedures.throttle_github', CoroutineMock(),
     )
@@ -68,6 +68,7 @@ def test_process_url(mocker, SETTINGS):
     bot.run = CoroutineMock()
     head = Mock(sha='cafed0d0')
     head.repository.load_settings = CoroutineMock()
+    REPOSITORIES.__contains__.return_value = True
     from_url.return_value = head
 
     yield from process_url('https://github.com/owner/name/tree/master')
@@ -80,6 +81,10 @@ def test_process_url(mocker, SETTINGS):
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_process_url_repo_denied(mocker, SETTINGS):
+    REPOSITORIES = mocker.patch(
+        'jenkins_epo.procedures.REPOSITORIES', MagicMock()
+    )
+    REPOSITORIES.__contains__.return_value = True
     Bot = mocker.patch('jenkins_epo.procedures.Bot')
     from_url = mocker.patch(
         'jenkins_epo.procedures.Head.from_url', CoroutineMock()
@@ -104,6 +109,10 @@ def test_process_url_repo_denied(mocker, SETTINGS):
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_process_url_exclusive(mocker, SETTINGS, event_loop):
+    REPOSITORIES = mocker.patch(
+        'jenkins_epo.procedures.REPOSITORIES', MagicMock()
+    )
+    REPOSITORIES.__contains__.return_value = True
     Bot = mocker.patch('jenkins_epo.procedures.Bot')
     from_url = mocker.patch(
         'jenkins_epo.procedures.Head.from_url', CoroutineMock()
@@ -125,6 +134,32 @@ def test_process_url_exclusive(mocker, SETTINGS, event_loop):
 
     assert running.cancel.mock_calls
     assert bot.run.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_process_url_unmanaged(mocker, SETTINGS, event_loop):
+    REPOSITORIES = mocker.patch(
+        'jenkins_epo.procedures.REPOSITORIES', MagicMock()
+    )
+    REPOSITORIES.__contains__.return_value = False
+    Bot = mocker.patch('jenkins_epo.procedures.Bot')
+    from_url = mocker.patch(
+        'jenkins_epo.procedures.Head.from_url', CoroutineMock()
+    )
+
+    from jenkins_epo.procedures import process_url
+
+    bot = Bot.return_value
+    bot.run = CoroutineMock()
+    head = from_url.return_value
+    head.url = 'url://test_process_url_exclusive'
+    head.repository.load_settings = CoroutineMock()
+
+    yield from process_url(head.url, throttle=False)
+
+    assert not head.repository.load_settings.mock_calls
+    assert not bot.run.mock_calls
 
 
 @pytest.mark.asyncio
