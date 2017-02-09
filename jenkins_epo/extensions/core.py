@@ -203,7 +203,6 @@ class MergerExtension(Extension):
         'opm': None,
         'opm_denied': [],
         'opm_processed': None,
-        'last_merge_error': None,
     }
 
     SETTINGS = {
@@ -215,14 +214,6 @@ class MergerExtension(Extension):
 
 <!--
 jenkins: opm-processed
--->
-"""
-
-    MERGE_ERROR_COMMENT = """
-%(mention)s, %(message)s %(emoji)s
-
-<!--
-jenkins: {last-merge-error: %(message)r}
 -->
 """
 
@@ -242,8 +233,6 @@ jenkins: {last-merge-error: %(message)r}
         elif instruction in {'lgtm-processed', 'opm-processed'}:
             self.current.opm_denied[:] = []
             self.current.opm_processed = instruction
-        elif instruction == 'last-merge-error':
-            self.current.last_merge_error = instruction
 
     def process_opm(self, opm):
         if not hasattr(self.current.head, 'merge'):
@@ -302,16 +291,8 @@ jenkins: {last-merge-error: %(message)r}
             self.current.head.merge()
         except ApiError as e:
             error = e.response['json']['message']
-            if self.current.last_merge_error:
-                last_error = self.current.last_merge_error.args
-                if error == last_error:
-                    return logger.debug("Merge still failing: %s", error)
-
-            logger.error("Failed to merge: %s", error)
-            self.current.head.comment(body=self.MERGE_ERROR_COMMENT % dict(
-                emoji=random.choice((':confused:', ':disappointed:')),
-                mention='@' + self.current.opm.author, message=error,
-            ))
+            if e.response['code'] in (405, 409):
+                logger.warn("Fail to merge: %s", error)
         else:
             self.current.head.delete_branch()
 

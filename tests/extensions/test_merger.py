@@ -230,52 +230,13 @@ def test_merge_fail():
     ext.current.last_commit.fetch_combined_status.return_value = {
         'state': 'success'
     }
-    ext.current.head.merge.side_effect = ApiError('url', {}, dict(json=dict(
-        message="error",
-    )))
+    ext.current.head.merge.side_effect = ApiError('url', {}, dict(
+        code=405, json=dict(message="error")
+    ))
 
     yield from ext.run()
 
-    assert ext.current.head.comment.mock_calls
-    body = ext.current.head.comment.call_args[1]['body']
-    assert '@collaborator' in body
-
-
-@pytest.mark.asyncio
-@asyncio.coroutine
-def test_merge_already_failed():
-    from jenkins_epo.bot import Instruction
-    from jenkins_epo.extensions.core import MergerExtension, ApiError
-
-    ext = MergerExtension('merger', Mock())
-    ext.current = Mock()
-    ext.current.SETTINGS.COLLABORATORS = ['collaborator']
-    ext.current.last_commit.date = datetime.now()
-    ext.current.opm_denied = []
-    ext.current.wip = None
-
-    date_opm = ext.current.last_commit.date + timedelta(minutes=30)
-    date_failed = ext.current.last_commit.date + timedelta(hours=1)
-
-    ext.process_instruction(Instruction(
-        author='collaborator', name='opm', date=date_opm
-    ))
-    ext.process_instruction(Instruction(
-        author='bot', name='last-merge-error', args='error', date=date_failed
-    ))
-
-    assert 'error' == ext.current.last_merge_error.args
-
-    ext.current.last_commit.fetch_combined_status.return_value = {
-        'state': 'success'
-    }
-    ext.current.head.merge.side_effect = ApiError('url', {}, dict(json=dict(
-        message="error",
-    )))
-
-    yield from ext.run()
-
-    assert not ext.current.head.comment.mock_calls
+    assert not ext.current.head.delete_branch.mock_calls
 
 
 @pytest.mark.asyncio
