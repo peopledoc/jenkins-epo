@@ -58,6 +58,7 @@ Feel free to contribute :)
 - Limit les webhooks to managed repositories.
 - Manage regular Jenkins notifications
   (https://wiki.jenkins-ci.org/display/JENKINS/Notification+Plugin).
+- [URGENT] in PR title to trigger urgent
 - Aggregate error comment.
 - inhibit GitHub merge errors
 - Comment *still broken* on previous *master is broken* rather than opening a
