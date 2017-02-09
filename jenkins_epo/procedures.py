@@ -36,9 +36,10 @@ def poll():
     yield from whoami()
     while True:
         yield from _queue_heads(task_factory=process_task_factory)
-        yield from asyncio.sleep(SETTINGS.POLL_INTERVAL)
         logger.info("Waiting for workers to consume queue.")
         yield from WORKERS.queue.join()
+        logger.info("Delaying next poll by %ss.", SETTINGS.POLL_INTERVAL)
+        yield from asyncio.sleep(SETTINGS.POLL_INTERVAL)
 
 
 @asyncio.coroutine
