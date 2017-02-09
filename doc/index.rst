@@ -17,3 +17,4 @@ Table of contents
    comment
    troubleshoot
    bot
+   hacking
