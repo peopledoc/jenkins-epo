@@ -421,7 +421,25 @@ class Head(object):
             payload = yield from cached_arequest(
                 GITHUB.repos(repository).branches(match.group('id'))
             )
-            return Branch(repository, payload)
+            if payload['protected']:
+                return Branch(repository, payload)
+
+            payload = yield from repository.fetch_pull_requests()
+            pr_map = {
+                p['head']['repo']['html_url'] + '/tree/' + p['head']['ref']: p
+                for p in payload
+            }
+            try:
+                payload = pr_map[url]
+            except KeyError:
+                raise Exception(
+                    "No open PR for unprotected branch %s." % (
+                        match.group('id'),
+                    ),
+                )
+            pr = PullRequest(repository, payload)
+            logger.debug("Resolved %s.", pr)
+            return pr
 
     def __init__(self, repository, ref, sha):
         self.repository = repository
