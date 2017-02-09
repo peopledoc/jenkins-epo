@@ -35,8 +35,8 @@ On your poller host:
 
    pip3 install jenkins-epo
    # Setup env vars
-   export GITHUB_TOKEN=YOUR_SECRET_TOKEN JENKINS_URL=http://myjenkins.lan
-   export REPOSITORIES=owner/repo
+   export JENKINS_URL=http://myjenkins.lan JOBS_CREDENTIALS=clone-creds
+   export GITHUB_TOKEN=YOUR_SECRET_TOKEN REPOSITORIES=owner/repo
    # Check repository is manageable
    jenkins-epo list-heads
    # Trigger a dry run
