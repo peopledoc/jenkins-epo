@@ -59,7 +59,6 @@ Feel free to contribute :)
 - Manage regular Jenkins notifications
   (https://wiki.jenkins-ci.org/display/JENKINS/Notification+Plugin).
 - Aggregate error comment.
-- inhibit GitHub merge errors
 - Comment *still broken* on previous *master is broken* rather than opening a
   new issue.
 - Put *Backed* ASAP, just after stage extension.
