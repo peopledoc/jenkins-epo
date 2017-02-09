@@ -427,6 +427,7 @@ class Head(object):
         self.repository = repository
         self.sha = sha
         self.ref = ref
+        self.shortref = ref[len('refs/heads/'):]
 
     def __lt__(self, other):
         return self.sort_key() < other.sort_key()
@@ -463,7 +464,7 @@ class Branch(Head):
     @property
     def url(self):
         return 'https://github.com/%s/tree/%s' % (
-            self.repository, self.ref[len('refs/heads/'):],
+            self.repository, self.shortref,
         )
 
     def fetch_previous_commits(self, last_date=None):
