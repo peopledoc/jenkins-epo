@@ -57,7 +57,6 @@ Feel free to contribute :)
 
 - Manage regular Jenkins notifications
   (https://wiki.jenkins-ci.org/display/JENKINS/Notification+Plugin).
-- [URGENT] in PR title to trigger urgent
 - Aggregate error comment.
 - Comment *still broken* on previous *master is broken* rather than opening a
   new issue.
@@ -84,4 +83,3 @@ Feel free to contribute :)
 - Distinct global/per project settings.
 - Disable extensions from jenkins.yml.
 - Support "jenkins, skip", "Jenkins, rebuild.", "@bot merge", "jenkins:rebuild"
-- Lint instructions : refuse ``jenkins: urgent`` out of description.

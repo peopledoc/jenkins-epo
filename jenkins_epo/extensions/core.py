@@ -83,9 +83,6 @@ jenkins: ignore
 %(mentions)s: this is what I understand:
 
 ```yaml
-# Build this PR first. Allowed only in PR description.
-jenkins: urgent
-
 %(help)s
 ```
 

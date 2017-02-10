@@ -49,10 +49,5 @@ Marking urgent pull requests
 
 Jenkins EPO priorize protected branches over pull-requests. It is possible to
 mark a pull request as urgent, to test it before protected branches and other
-pull requests.
-
-Add ``jenkins: urgent``, on a single line, in PR description.
-
-.. code-block:: yaml
-
-   jenkins: urgent
+pull requests. Prefix PR title with ``[URGENT]`` to increase PR priority in EPO
+queue.
