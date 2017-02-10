@@ -59,6 +59,35 @@ def test_log_reset(build_opener, _process_resp):
 
 
 @pytest.mark.asyncio
+@asyncio.coroutine
+def test_log_reset_async(mocker):
+    _process_resp = mocker.patch(
+        'jenkins_epo.github.CustomGitHub._process_resp'
+    )
+    ClientSession = mocker.patch('jenkins_epo.github.aiohttp.ClientSession')
+
+    from jenkins_epo.github import CustomGitHub
+
+    GITHUB = CustomGitHub()
+    GITHUB.x_ratelimit_remaining = 4000
+
+    def process_resp_se(*a, **kw):
+        GITHUB.x_ratelimit_remaining += 10
+    _process_resp.side_effect = process_resp_se
+
+    session = ClientSession.return_value
+    session.get = CoroutineMock(name='get')
+    resp = session.get.return_value
+    resp.status = 200
+    resp.content_type = 'application/json'
+    resp.json = CoroutineMock(return_value={})
+
+    yield from GITHUB.user.aget()
+
+    assert _process_resp.mock_calls
+
+
+@pytest.mark.asyncio
 def test_aget_dict(mocker):
     from jenkins_epo.github import CustomGitHub
 
@@ -105,6 +134,7 @@ def test_aget_html(mocker):
     session = aiohttp.ClientSession.return_value
     response = Mock(spec=['headers', 'read', 'status'])
     session.get = CoroutineMock(return_value=response)
+    response.status = 200
     response.content_type = 'text/html'
     response.headers = {'ETag': 'cafed0d0'}
     response.read = CoroutineMock(return_value='<!DOCTYPE')
