@@ -354,7 +354,8 @@ jenkins: report-done
             return
 
         branch_name = self.current.head.shortref
-        builds = '- ' + '\n- '.join([s['target_url'] for s in errored])
+        build_urls = [s['target_url'] for s in errored if s['target_url']]
+        builds = '- ' + '\n- '.join(build_urls)
         issue = self.current.head.repository.report_issue(
             title="%s is broken" % (branch_name,),
             body=self.ISSUE_TEMPLATE % dict(
