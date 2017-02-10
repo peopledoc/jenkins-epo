@@ -1,7 +1,26 @@
 import asyncio
+from unittest.mock import Mock
 
 from asynctest import CoroutineMock
 import pytest
+
+
+def test_urgent():
+    from jenkins_epo.repository import PullRequest
+
+    pr1 = PullRequest(payload=dict(
+        head=dict(sha='01234567899abcdef', ref='pr1'),
+        number=1, html_url='pulls/1',
+    ), repository=Mock())
+    assert not pr1.urgent
+    pr2_urgent = PullRequest(payload=dict(
+        head=dict(sha='01234567899abcdef', ref='pr2'),
+        title='[URGENT] urgent',
+        number=2, html_url='pulls/2',
+    ), repository=Mock())
+    assert pr2_urgent.urgent
+
+    assert pr1.sort_key() > pr2_urgent.sort_key()
 
 
 @pytest.mark.asyncio

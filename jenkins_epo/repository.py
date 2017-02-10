@@ -535,7 +535,7 @@ class Branch(Head):
 
 
 class PullRequest(Head):
-    _urgent_re = re.compile(r'^jenkins: *urgent$', re.MULTILINE)
+    urgent_filter = parse_patterns(SETTINGS.URGENT)
 
     def __init__(self, repository, payload):
         super(PullRequest, self).__init__(
@@ -544,8 +544,8 @@ class PullRequest(Head):
             sha=payload['head']['sha'],
         )
         self.payload = payload
-        body = (payload.get('body') or '').replace('\r', '')
-        self.urgent = bool(self._urgent_re.search(body))
+        title = payload.get('title', '').lower()
+        self.urgent = match(title, self.urgent_filter)
 
     def sort_key(self):
         # Return sort data. Higher is more urgent. By defaults, last PR is
