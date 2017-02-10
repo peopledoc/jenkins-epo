@@ -15,7 +15,7 @@ def test_main():
     from jenkins_epo.main import main
 
     with pytest.raises(SystemExit):
-        main(argv=['--help'])
+        main(argv=['inexistant'])
 
 
 def test_main_sync(mocker):
