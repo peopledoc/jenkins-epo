@@ -135,10 +135,6 @@ REPOSITORIES = RepositoriesRegistry()
 class Repository(object):
     heads_filter = parse_patterns(SETTINGS.HEADS)
 
-    remote_re = re.compile(
-        r'.*github.com[:/](?P<owner>[\w-]+)/(?P<name>[\w-]+).*'
-    )
-
     @classmethod
     @asyncio.coroutine
     def from_name(cls, owner, name):
