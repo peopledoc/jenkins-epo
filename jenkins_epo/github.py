@@ -90,8 +90,8 @@ def _cached_request_middleware(query, **kw):
     }
     try:
         response = CACHE.get(cache_key)
-        etag = response._headers['ETag']
-        headers[b'If-None-Match'] = etag
+        etag = response._headers['Etag'].replace('W/', '')
+        headers['If-None-Match'] = etag
     except (AttributeError, KeyError):
         pass
 

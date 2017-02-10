@@ -87,7 +87,7 @@ def test_aget_list(mocker):
     session.get = CoroutineMock(return_value=response)
     response.status = 200
     response.content_type = 'application/json'
-    response.headers = {'ETag': 'cafed0d0'}
+    response.headers = {'Etag': 'cafed0d0'}
     response.json = CoroutineMock(return_value=[{'data': 1}])
 
     GITHUB = CustomGitHub(access_token='cafed0d0')
@@ -161,12 +161,12 @@ def test_cached_request_etag(CACHE, SETTINGS):
     SETTINGS.GITHUB_TOKEN = 'cafec4e3e'
 
     CACHE.get.return_value = response = Mock()
-    response._headers = {'ETag': 'e1ag'}
+    response._headers = {'Etag': 'e1ag'}
     query = Mock()
     cached_request(query)
 
     headers = query.get.mock_calls[0][2]['headers']
-    assert b'If-None-Match' in headers
+    assert 'If-None-Match' in headers
 
 
 @pytest.mark.asyncio
@@ -193,7 +193,7 @@ def test_cached_arequest_no_cache_hit_valid(CACHE, GITHUB, SETTINGS):
     GITHUB.x_ratelimit_remaining = -1
     from jenkins_epo.github import ApiError, cached_arequest
 
-    cached_data = Mock(_headers={'ETag': 'etagsha'})
+    cached_data = Mock(_headers={'Etag': 'etagsha'})
     CACHE.get.return_value = cached_data
 
     query = Mock(aget=CoroutineMock(
