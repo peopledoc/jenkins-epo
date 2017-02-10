@@ -60,7 +60,6 @@ Feel free to contribute :)
 - Aggregate error comment.
 - Comment *still broken* on previous *master is broken* rather than opening a
   new issue.
-- Put *Backed* ASAP, just after stage extension.
 - Manage GitHub webhook event.
 - Test GraphQL.
 - Add ``clean-job`` command to drop jobs undefined un protected branches.

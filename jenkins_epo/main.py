@@ -75,16 +75,24 @@ def process(url):
     yield from procedures.process_url(url, throttle=False)
 
 
+def resolve(func):
+    while hasattr(func, '__wrapped__'):
+        func = func.__wrapped__
+    return func
+
+
 def addcommand(subparsers, command):
     parser = subparsers.add_parser(
         command.__name__.replace('_', '-'),
         help=inspect.cleandoc(command.__doc__ or '').split('\n')[0],
     )
     parser.set_defaults(command_func=command)
-    argnames = command.__code__.co_varnames[:command.__code__.co_argcount]
+    code = resolve(command).__code__
+    argnames = code.co_varnames[:code.co_argcount]
     for var in argnames:
+        logger.debug("Add %s argument", var.upper())
         parser.add_argument(
-            var, metavar=var.upper(), type=str
+            var, metavar=var.upper(), type=str,
         )
 
 

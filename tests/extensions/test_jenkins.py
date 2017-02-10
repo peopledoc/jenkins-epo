@@ -4,6 +4,24 @@ from unittest.mock import Mock
 import pytest
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_backed():
+    from jenkins_epo.extensions.jenkins import BackedExtension
+
+    ext = BackedExtension('b', Mock())
+    ext.current = ext.bot.current
+    ext.current.job_specs = {'job': Mock()}
+    ext.current.job_specs['job'].name = 'job'
+    ext.current.jobs = {'job': Mock()}
+    ext.current.jobs['job'].list_contexts.return_value = ['job-a', 'job-b']
+    ext.current.statuses = {'job-a'}
+
+    yield from ext.run()
+
+    assert 1 == len(ext.current.last_commit.mock_calls)
+
+
 def test_compute_rebuild():
     from jenkins_epo.bot import Instruction
     from jenkins_epo.extensions.jenkins import BuilderExtension
