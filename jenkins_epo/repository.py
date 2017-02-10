@@ -369,6 +369,7 @@ class Commit(object):
         return self.statuses
 
     def maybe_update_status(self, status):
+        status = CommitStatus(status)
         if status in self.statuses:
             if self.statuses[status] == status:
                 return status

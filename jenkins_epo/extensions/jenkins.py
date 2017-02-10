@@ -22,7 +22,7 @@ from jenkinsapi.custom_exceptions import UnknownJob
 from ..bot import Extension, Error, SkipHead
 from ..jenkins import JENKINS
 from ..repository import Commit, CommitStatus
-from ..utils import match
+from ..utils import match, switch_coro
 
 
 logger = logging.getLogger(__name__)
@@ -31,6 +31,27 @@ logger = logging.getLogger(__name__)
 class JenkinsExtension(Extension):
     def is_enabled(self, settings):
         return bool(settings.JENKINS_URL)
+
+
+class BackedExtension(JenkinsExtension):
+    stage = '20'
+
+    @asyncio.coroutine
+    def run(self):
+        missing_contextes = [
+            c
+            for spec in self.current.job_specs.values()
+            for c in self.current.jobs[spec.name].list_contexts(spec)
+            if c not in self.current.statuses
+        ]
+
+        for context in missing_contextes:
+            self.current.last_commit.maybe_update_status(dict(
+                context=context,
+                description='Backed',
+                state='pending',
+            ))
+            yield from switch_coro()
 
 
 class BuilderExtension(JenkinsExtension):

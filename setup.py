@@ -59,6 +59,7 @@ if __name__ == '__main__':
                 'error = jenkins_epo.extensions.core:ErrorExtension',
                 'help = jenkins_epo.extensions.core:HelpExtension',
                 'autocancel = jenkins_epo.extensions.core:AutoCancelExtension',
+                'jenkins-backed = jenkins_epo.extensions.jenkins:BackedExtension',  # noqa
                 'jenkins-autocancel = jenkins_epo.extensions.jenkins:AutoCancelExtension',  # noqa
                 'jenkins-builder = jenkins_epo.extensions.jenkins:BuilderExtension',  # noqa
                 'jenkins-canceller = jenkins_epo.extensions.jenkins:CancellerExtension',  # noqa
