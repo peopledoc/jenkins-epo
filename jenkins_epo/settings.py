@@ -64,7 +64,7 @@ DEFAULTS = {
     'JOBS': '',
     # When commenting on PR
     'NAME': 'Jenkins EPO',
-    'POLL_INTERVAL': 5,
+    'POLL_INTERVAL': 10,
     'PORT': 2819,
     'RATE_LIMIT_THRESHOLD': 50,
     # List repositories: owner/repo1,owner/repo2
