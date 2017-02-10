@@ -18,7 +18,7 @@ import logging
 
 from .bot import Bot
 from .github import GITHUB, cached_arequest
-from .repository import Head, UnauthorizedRepository
+from .repository import REPOSITORIES, Head, UnauthorizedRepository
 from .settings import SETTINGS
 from .tasks import PrinterTask, ProcessTask, RepositoryPollerTask
 from .utils import retry
@@ -35,7 +35,11 @@ def process_task_factory(head):
 def poll():
     yield from whoami()
     while True:
-        yield from _queue_heads(task_factory=process_task_factory)
+        logger.info("Polling repositories.")
+        for qualname in REPOSITORIES:
+            yield from WORKERS.enqueue(
+                RepositoryPollerTask(qualname, process_task_factory)
+            )
         logger.info("Waiting for workers to consume queue.")
         yield from WORKERS.queue.join()
         logger.info("Delaying next poll by %ss.", SETTINGS.POLL_INTERVAL)
@@ -44,24 +48,11 @@ def poll():
 
 @asyncio.coroutine
 def print_heads():
-    yield from _queue_heads(task_factory=PrinterTask)
-    yield from WORKERS.queue.join()
-
-
-@asyncio.coroutine
-def _queue_heads(repositories=None, task_factory=None):
-    logger.info("Polling repositories.")
-    qualnames = RepositoryPollerTask.repositories_map.keys()
-    if not qualnames:
-        qualnames = filter(
-            None, SETTINGS.REPOSITORIES.replace(' ', ',').split(',')
-        )
-    for qualname in qualnames:
+    for qualname in REPOSITORIES:
         yield from WORKERS.enqueue(
-            RepositoryPollerTask(
-                qualname, task_factory=task_factory
-            )
+            RepositoryPollerTask(qualname, task_factory=PrinterTask)
         )
+    yield from WORKERS.queue.join()
 
 
 _task_map = {}
@@ -79,6 +70,9 @@ def process_url(url, throttle=True):
     if throttle:
         yield from throttle_github()
     head = yield from Head.from_url(url)
+    if head.repository not in REPOSITORIES:
+        logger.error("%s not managed.", head.repository)
+        return
     task.logging_id = head.sha[:4]
 
     logger.info("Working on %s.", head)

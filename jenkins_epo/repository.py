@@ -112,6 +112,22 @@ class CommitStatus(dict):
             return self.__class__(self)
 
 
+class RepositoriesRegistry(dict):
+    def __init__(self):
+        pass
+
+    def __iter__(self):
+        qualnames = list(self.keys())
+        if not qualnames:
+            qualnames = filter(
+                None, SETTINGS.REPOSITORIES.replace(' ', ',').split(',')
+            )
+        return qualnames
+
+
+REPOSITORIES = RepositoriesRegistry()
+
+
 class Repository(object):
     heads_filter = parse_patterns(SETTINGS.HEADS)
 
@@ -133,6 +149,12 @@ class Repository(object):
 
     def __str__(self):
         return '%s/%s' % (self.owner, self.name)
+
+    def __eq__(self, other):
+        return str(self) == str(other)
+
+    def __hash__(self):
+        return hash(str(self))
 
     def __repr__(self):
         return '%s(%r, %r)' % (

@@ -55,7 +55,6 @@ Ideas of improvements
 
 Feel free to contribute :)
 
-- Limit les webhooks to managed repositories.
 - Manage regular Jenkins notifications
   (https://wiki.jenkins-ci.org/display/JENKINS/Notification+Plugin).
 - [URGENT] in PR title to trigger urgent

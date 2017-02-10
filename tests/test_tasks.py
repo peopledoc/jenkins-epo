@@ -27,9 +27,11 @@ def test_task_priority():
 @asyncio.coroutine
 def test_poll_repository(mocker, WORKERS):
     mocker.patch('jenkins_epo.tasks.WORKERS', WORKERS)
-    mocker.patch.dict(
-        'jenkins_epo.tasks.RepositoryPollerTask.repositories_map', {}
+    REPOSITORIES = mocker.patch(
+        'jenkins_epo.tasks.REPOSITORIES', MagicMock()
     )
+    REPOSITORIES.__getitem__.side_effect = KeyError('pouet')
+
     Repository = mocker.patch('jenkins_epo.tasks.Repository')
     from jenkins_epo.tasks import RepositoryPollerTask
 
@@ -41,11 +43,13 @@ def test_poll_repository(mocker, WORKERS):
     assert str(task)
 
     yield from task()
+
     assert WORKERS.enqueue.mock_calls
     assert Repository.from_name.mock_calls
-    assert RepositoryPollerTask.repositories_map
+    assert REPOSITORIES.__setitem__.mock_calls
 
     Repository.from_name.reset_mock()
+    REPOSITORIES.__getitem__.side_effect = None
     yield from task()
     assert not Repository.from_name.mock_calls
 
