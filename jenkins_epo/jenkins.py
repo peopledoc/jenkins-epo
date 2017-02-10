@@ -51,7 +51,7 @@ class RESTClient(object):
         url = '%s/api/json' % (self.path)
         logger.debug("GET %s", url)
         try:
-            response = yield from session.get(url)
+            response = yield from session.get(url, timeout=10)
             payload = yield from response.json()
         finally:
             yield from session.close()

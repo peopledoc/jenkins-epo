@@ -27,7 +27,7 @@ import aiohttp
 from github import GitHub, ApiError, ApiNotFoundError, _Callable, _Executable
 from github import (
     build_opener, HTTPSHandler, HTTPError, JsonObject, Request,
-    TIMEOUT, _METHOD_MAP, _URL,
+    _METHOD_MAP, _URL,
     _encode_json, _encode_params, _parse_json,
 )
 
@@ -188,6 +188,8 @@ class ACallable(_Callable):
 
 
 class CustomGitHub(GitHub):
+    TIMEOUT = 10
+
     def __getattr__(self, attr):
         return ACallable(self, '/%s' % attr)
 
@@ -203,23 +205,21 @@ class CustomGitHub(GitHub):
 
         pre_rate_limit = self.x_ratelimit_remaining
         logger.debug(
-            "%s %s (remaining=%s)",
-            _method, url, self.x_ratelimit_remaining,
+            "%s %s (remaining=%s)", _method, url, self.x_ratelimit_remaining,
         )
 
-        headers = {
-            str(k): str(v)
-            for k, v in headers.items()
-        }
-
+        headers = {str(k): str(v) for k, v in headers.items()}
         session = aiohttp.ClientSession()
         try:
-            response = yield from session.get(url, headers=headers)
+            response = yield from session.get(
+                url, headers=headers, timeout=self.TIMEOUT,
+            )
             self._process_resp(response.headers)
             post_rate_limit = self.x_ratelimit_remaining
             if 'json' in response.content_type:
                 payload = yield from response.json()
             else:
+                logger.debug("Fetching raw payload")
                 payload = yield from response.read()
         finally:
             if not asyncio.get_event_loop().is_closed():
@@ -280,7 +280,7 @@ class CustomGitHub(GitHub):
                 _method, url, self.x_ratelimit_remaining,
             )
 
-            response = opener.open(request, timeout=TIMEOUT)
+            response = opener.open(request, timeout=self.TIMEOUT)
             is_json = self._process_resp(response.headers)
 
             post_rate_limit = self.x_ratelimit_remaining
