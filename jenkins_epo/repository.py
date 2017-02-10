@@ -122,7 +122,7 @@ class RepositoriesRegistry(dict):
             qualnames = filter(
                 None, SETTINGS.REPOSITORIES.replace(' ', ',').split(',')
             )
-        return qualnames
+        return iter(qualnames)
 
 
 REPOSITORIES = RepositoriesRegistry()
