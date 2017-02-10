@@ -27,6 +27,15 @@ def test_from_name(mocker):
     assert repo == repo
 
 
+def test_registry(SETTINGS):
+    SETTINGS.REPOSITORIES = 'owner/name'
+    from jenkins_epo.repository import RepositoriesRegistry
+
+    registry = RepositoriesRegistry()
+
+    assert 'owner/name' in registry
+
+
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_fetch_protected_branches(mocker):
