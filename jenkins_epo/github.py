@@ -27,7 +27,7 @@ import aiohttp
 from github import GitHub, ApiError, ApiNotFoundError, _Callable, _Executable
 from github import (
     build_opener, HTTPSHandler, HTTPError, JsonObject, Request,
-    TIMEOUT, _METHOD_MAP, _URL,
+    _METHOD_MAP, _URL,
     _encode_json, _encode_params, _parse_json,
 )
 
@@ -90,8 +90,8 @@ def _cached_request_middleware(query, **kw):
     }
     try:
         response = CACHE.get(cache_key)
-        etag = response._headers['ETag']
-        headers[b'If-None-Match'] = etag
+        etag = response._headers['Etag'].replace('W/', '')
+        headers['If-None-Match'] = etag
     except (AttributeError, KeyError):
         pass
 
@@ -188,6 +188,8 @@ class ACallable(_Callable):
 
 
 class CustomGitHub(GitHub):
+    TIMEOUT = 10
+
     def __getattr__(self, attr):
         return ACallable(self, '/%s' % attr)
 
@@ -203,41 +205,26 @@ class CustomGitHub(GitHub):
 
         pre_rate_limit = self.x_ratelimit_remaining
         logger.debug(
-            "%s %s (remaining=%s)",
-            _method, url, self.x_ratelimit_remaining,
+            "%s %s (remaining=%s)", _method, url, self.x_ratelimit_remaining,
         )
 
-        headers = {
-            str(k): str(v)
-            for k, v in headers.items()
-        }
-
+        headers = {str(k): str(v) for k, v in headers.items()}
         session = aiohttp.ClientSession()
         try:
-            response = yield from session.get(url, headers=headers)
-            if 'json' not in response.content_type:
-                payload = yield from response.read(1024)
-                raise Exception(
-                    "GitHub API did not returns JSON: %s...", payload
-                )
-
-            payload = yield from response.json()
+            response = yield from session.get(
+                url, headers=headers, timeout=self.TIMEOUT,
+            )
+            self._process_resp(response.headers)
+            post_rate_limit = self.x_ratelimit_remaining
+            if 'json' in response.content_type:
+                payload = yield from response.json()
+            else:
+                logger.debug("Fetching raw payload")
+                payload = yield from response.read()
         finally:
             if not asyncio.get_event_loop().is_closed():
                 logger.debug("Closing HTTP session.")
                 yield from session.close()
-        if isinstance(payload, list):
-            payload = GHList(payload)
-        else:
-            payload = JsonObject(payload)
-        self._process_resp(response.headers)
-        payload.__dict__['_headers'] = dict(response.headers.items())
-        post_rate_limit = self.x_ratelimit_remaining
-        if pre_rate_limit > 0 and pre_rate_limit < post_rate_limit:
-            logger.info(
-                "GitHub rate limit reset. %d calls remained.",
-                pre_rate_limit,
-            )
 
         if response.status >= 300:
             req = JsonObject(method=_method, url=url)
@@ -248,6 +235,22 @@ class CustomGitHub(GitHub):
             if response.status == 404:
                 raise ApiNotFoundError(url, req, resp)
             raise ApiError(url, req, resp)
+
+        if 'json' not in response.content_type:
+            raise Exception(
+                "GitHub API did not returns JSON: %s...", payload
+            )
+
+        if isinstance(payload, list):
+            payload = GHList(payload)
+        else:
+            payload = JsonObject(payload)
+        payload.__dict__['_headers'] = dict(response.headers.items())
+
+        if pre_rate_limit > 0 and pre_rate_limit < post_rate_limit:
+            logger.info(
+                "GitHub rate limit reset. %d calls remained.", pre_rate_limit,
+            )
 
         return payload
 
@@ -277,7 +280,7 @@ class CustomGitHub(GitHub):
                 _method, url, self.x_ratelimit_remaining,
             )
 
-            response = opener.open(request, timeout=TIMEOUT)
+            response = opener.open(request, timeout=self.TIMEOUT)
             is_json = self._process_resp(response.headers)
 
             post_rate_limit = self.x_ratelimit_remaining

@@ -17,6 +17,7 @@ from __future__ import absolute_import
 import asyncio
 import aiohttp.errors
 import collections
+from concurrent.futures import TimeoutError
 from datetime import datetime, timedelta, timezone
 import fnmatch
 import logging
@@ -43,6 +44,14 @@ def retry(callable_):
     return tenacity.retry(**defaults)(callable_)
 
 
+_retryable_exception = (
+    IOError,
+    HTTPException,
+    HTTPError,
+    TimeoutError,
+)
+
+
 def filter_exception_for_retry(exception):
     from .github import wait_rate_limit_reset
 
@@ -63,7 +72,7 @@ def filter_exception_for_retry(exception):
         logger.debug("Retrying on server disconnect.")
         return True
 
-    if not isinstance(exception, (IOError, HTTPException, HTTPError)):
+    if not isinstance(exception, _retryable_exception):
         return False
 
     if isinstance(exception, HTTPError):

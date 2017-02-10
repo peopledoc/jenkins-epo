@@ -113,15 +113,19 @@ class CommitStatus(dict):
 
 
 class RepositoriesRegistry(dict):
-    def __init__(self):
-        pass
+    def __init__(self, *a, **kw):
+        super(RepositoriesRegistry, self).__init__(*a, **kw)
+        self.settings = list(filter(
+            None, SETTINGS.REPOSITORIES.replace(' ', ',').split(',')
+        ))
+
+    def __contains__(self, item):
+        return str(item) in self.settings + list(self.keys())
 
     def __iter__(self):
         qualnames = list(self.keys())
         if not qualnames:
-            qualnames = filter(
-                None, SETTINGS.REPOSITORIES.replace(' ', ',').split(',')
-            )
+            qualnames = self.settings
         return iter(qualnames)
 
 
@@ -130,10 +134,6 @@ REPOSITORIES = RepositoriesRegistry()
 
 class Repository(object):
     heads_filter = parse_patterns(SETTINGS.HEADS)
-
-    remote_re = re.compile(
-        r'.*github.com[:/](?P<owner>[\w-]+)/(?P<name>[\w-]+).*'
-    )
 
     @classmethod
     @asyncio.coroutine
