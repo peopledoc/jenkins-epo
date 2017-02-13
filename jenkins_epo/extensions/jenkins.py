@@ -140,9 +140,8 @@ class AutoCancelExtension(JenkinsExtension):
             if not is_running:
                 continue
 
-            for build in job.get_builds():
+            for build in reversed(list(job.get_builds())):
                 build.poll()
-
                 seconds = build._data['timestamp'] / 1000.
                 build_date = datetime.fromtimestamp(seconds)
                 build_age = now - build_date
