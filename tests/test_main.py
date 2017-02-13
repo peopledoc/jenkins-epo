@@ -19,10 +19,13 @@ def test_main():
 
 
 def test_main_sync(mocker):
-    command = mocker.patch('jenkins_epo.main.bot')
+    COMMANDS = []
+    mocker.patch('jenkins_epo.main.COMMANDS', COMMANDS)
+    command = Mock()
     command.__name__ = 'bot'
     command.__code__ = Mock(co_varnames=(), co_argcount=0)
     command._is_coroutine = None
+    COMMANDS.append(command)
     from jenkins_epo.main import main
 
     assert not asyncio.iscoroutinefunction(command)
@@ -33,9 +36,12 @@ def test_main_sync(mocker):
 
 
 def test_main_async(mocker, event_loop):
-    command = mocker.patch('jenkins_epo.main.bot', CoroutineMock())
+    COMMANDS = []
+    mocker.patch('jenkins_epo.main.COMMANDS', COMMANDS)
+    command = CoroutineMock()
     command.__name__ = 'bot'
     command.__code__ = Mock(co_varnames=(), co_argcount=0)
+    COMMANDS.append(command)
     from jenkins_epo.main import main
 
     main(argv=['bot'], loop=event_loop)
@@ -44,10 +50,14 @@ def test_main_async(mocker, event_loop):
 
 
 def test_main_async_exception(mocker, event_loop):
-    command = mocker.patch('jenkins_epo.main.bot', CoroutineMock())
+    COMMANDS = []
+    mocker.patch('jenkins_epo.main.COMMANDS', COMMANDS)
+    command = CoroutineMock()
     command.__name__ = 'bot'
     command.__code__ = Mock(co_varnames=(), co_argcount=0)
     command.side_effect = ValueError()
+    COMMANDS.append(command)
+
     from jenkins_epo.main import main
 
     with pytest.raises(ValueError):
