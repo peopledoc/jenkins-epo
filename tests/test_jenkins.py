@@ -34,32 +34,6 @@ def test_lazy_load(mocker):
     assert JENKINS._instance
 
 
-@pytest.mark.asyncio
-@asyncio.coroutine
-def test_job_is_running(mocker):
-    RESTClient = mocker.patch('jenkins_epo.jenkins.RESTClient')
-    from jenkins_epo.jenkins import Job
-
-    api_instance = Mock(_data=dict())
-    xml = api_instance._get_config_element_tree.return_value
-    xml.findall.return_value = []
-    xml.find.return_value = None
-    job = Job(api_instance)
-
-    client = RESTClient.return_value
-    client.aget = CoroutineMock(side_effect=[
-        dict(lastBuild=dict(url='jenkins://job/2')),
-        dict(building=True),
-    ])
-    running = yield from job.is_running_async()
-    assert running is True
-
-    client = RESTClient.return_value
-    client.aget = CoroutineMock(return_value=dict(lastBuild=None))
-    running = yield from job.is_running_async()
-    assert running is False
-
-
 def test_freestyle_build(SETTINGS):
     from jenkins_epo.jenkins import FreestyleJob
 

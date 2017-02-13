@@ -132,17 +132,13 @@ class AutoCancelExtension(JenkinsExtension):
     @asyncio.coroutine
     def run(self):
         now = datetime.now()
-        maxage = timedelta(hours=4)
+        maxage = timedelta(hours=2)
         current_sha = self.current.last_commit.sha
         logger.info("Polling running builds on Jenkins.")
         for name, job in self.current.jobs.items():
-            is_running = yield from job.is_running_async()
-            if not is_running:
-                continue
-
-            for build in job.get_builds():
+            for build in reversed(list(job.get_builds())):
                 build.poll()
-
+                yield from switch_coro()
                 seconds = build._data['timestamp'] / 1000.
                 build_date = datetime.fromtimestamp(seconds)
                 build_age = now - build_date
