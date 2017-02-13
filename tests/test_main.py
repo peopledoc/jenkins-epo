@@ -129,3 +129,22 @@ def test_process(mocker):
 
     assert whoami.mock_calls
     assert process_url.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_register(mocker):
+    register_webhook = mocker.patch(
+        'jenkins_epo.main.register_webhook', CoroutineMock(),
+    )
+    WORKERS = mocker.patch('jenkins_epo.main.WORKERS')
+    WORKERS.start = CoroutineMock()
+    WORKERS.terminate = CoroutineMock()
+
+    from jenkins_epo.main import register
+
+    yield from register()
+
+    assert WORKERS.start.mock_calls
+    assert register_webhook.mock_calls
+    assert WORKERS.terminate.mock_calls

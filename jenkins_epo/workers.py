@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 class Task(object):
     # A priorized task class.
-    def __init__(self, priority):
+    def __init__(self, priority=('50-default',)):
         self.priority = priority
 
     def __lt__(self, other):

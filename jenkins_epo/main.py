@@ -26,7 +26,7 @@ from aiohttp.web import run_app
 from .bot import Bot
 from . import procedures
 from .settings import SETTINGS
-from .web import app as webapp
+from .web import app as webapp, register_webhook
 from .workers import WORKERS
 
 
@@ -85,6 +85,15 @@ def process(url):
     """Process one head"""
     yield from procedures.whoami()
     yield from procedures.process_url(url, throttle=False)
+
+
+@command
+@asyncio.coroutine
+def register():
+    """Register GitHub webhook"""
+    yield from WORKERS.start()
+    yield from register_webhook()
+    yield from WORKERS.terminate()
 
 
 def resolve(func):

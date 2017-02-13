@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from asynctest import CoroutineMock
 import pytest
@@ -109,3 +109,86 @@ def test_from_url_unprotected_branch_no_pr(mocker):
 
     assert from_name.mock_calls
     assert cached_arequest.mock_calls
+
+
+@patch('jenkins_epo.repository.GITHUB')
+def test_delete_branch(GITHUB):
+    from jenkins_epo.repository import PullRequest
+
+    GITHUB.dry = False
+
+    pr = PullRequest(Mock(), payload=dict(head=dict(ref='x', sha='x')))
+    pr.delete_branch()
+    assert GITHUB.repos.mock_calls
+
+
+@patch('jenkins_epo.repository.GITHUB')
+def test_delete_branch_dry(GITHUB):
+    from jenkins_epo.repository import PullRequest
+
+    pr = PullRequest(Mock(), payload=dict(head=dict(ref='x', sha='x')))
+    pr.delete_branch()
+    assert not GITHUB.repos.mock_calls
+
+
+def test_sort_heads():
+    from jenkins_epo.repository import Branch, PullRequest
+
+    master = Branch(Mock(), dict(name='master', commit=dict(sha='d0d0')))
+    pr = PullRequest(Mock(), dict(
+        head=dict(ref='pr', sha='d0d0'), number=1, html_url='pr',
+    ))
+    urgent_pr = PullRequest(Mock(), dict(
+        head=dict(ref='urgent_pr', sha='d0d0'), number=2, html_url='urgent_pr',
+    ))
+    urgent_pr.urgent = True
+
+    assert master < pr
+    assert urgent_pr < pr
+    assert master != pr
+
+    heads = [master, pr, urgent_pr]
+
+    computed = list(sorted(heads, key=lambda h: h.sort_key()))
+    wanted = [urgent_pr, master, pr]
+
+    assert wanted == computed
+
+
+@patch('jenkins_epo.repository.cached_request')
+def test_branch_fetch_previous_commits(cached_request):
+    cached_request.side_effect = [
+        dict(parents=[dict(sha='d0d0cafe')]),
+        dict()
+    ]
+    from jenkins_epo.repository import Branch
+
+    head = Branch(Mock(), dict(name='branch', commit=dict(sha='d0d0cafe')))
+    assert list(head.fetch_previous_commits())
+    assert cached_request.mock_calls
+
+
+@patch('jenkins_epo.repository.cached_request')
+def test_pr_fetch_previous_commits(cached_request):
+    from jenkins_epo.repository import PullRequest
+    cached_request.return_value = dict(commits=['previous', 'last'])
+    head = PullRequest(Mock(), dict(
+        head=dict(ref='pr', sha='d0d0cafe', label='owner:pr'),
+        base=dict(label='owner:base'),
+    ))
+    commits = list(head.fetch_previous_commits())
+    assert ['last', 'previous'] == commits
+
+
+@patch('jenkins_epo.repository.cached_request')
+def test_pr_list_comments(cached_request):
+    from jenkins_epo.repository import PullRequest
+
+    cached_request.return_value = []
+    pr = PullRequest(Mock(), dict(
+        created_at='2017-01-20 11:08:43Z',
+        number=204,
+        head=dict(ref='pr', sha='d0d0cafe', label='owner:pr'),
+    ))
+    comments = pr.list_comments()
+    assert 1 == len(comments)
