@@ -136,10 +136,6 @@ class AutoCancelExtension(JenkinsExtension):
         current_sha = self.current.last_commit.sha
         logger.info("Polling running builds on Jenkins.")
         for name, job in self.current.jobs.items():
-            is_running = yield from job.is_running_async()
-            if not is_running:
-                continue
-
             for build in reversed(list(job.get_builds())):
                 build.poll()
                 yield from switch_coro()

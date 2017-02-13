@@ -283,17 +283,6 @@ class Job(object):
         client = RESTClient(self._instance.baseurl)
         self._instance._data = yield from client.aget()
 
-    @asyncio.coroutine
-    def is_running_async(self):
-        yield from self.update_data_async()
-        try:
-            url = self._instance._data['lastBuild']['url']
-        except (TypeError, KeyError):
-            return False
-        client = RESTClient(url)
-        payload = yield from client.aget()
-        return payload['building']
-
     def get_builds(self):
         for number, url in self.get_build_dict().items():
             yield Build(url, number, self._instance)
