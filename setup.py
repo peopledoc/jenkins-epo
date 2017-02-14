@@ -69,6 +69,7 @@ if __name__ == '__main__':
                 'outdated = jenkins_epo.extensions.core:OutdatedExtension',
                 'report = jenkins_epo.extensions.core:ReportExtension',
                 'skip = jenkins_epo.extensions.core:SkipExtension',
+                'unskip = jenkins_epo.extensions.core:UnskipExtension',
                 'yaml = jenkins_epo.extensions.core:YamlExtension'
             ],
         },

@@ -80,6 +80,13 @@ class CommitStatus(dict):
         return False
 
     @property
+    def is_skipped(self):
+        return (
+            self.get('state') == 'success' and
+            'Skipped' in self.get('description', '')
+        )
+
+    @property
     def is_rebuildable(self):
         if self.get('state') in {'error', 'failure'}:
             return True
