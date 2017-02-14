@@ -273,3 +273,34 @@ def test_skip_run():
     assert 'null' in pushed_contextes
     assert 'queued' in pushed_contextes
     assert 'running' in pushed_contextes
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_unskip():
+    from jenkins_epo.extensions.core import CommitStatus, UnskipExtension
+
+    ext = UnskipExtension('ext', Mock())
+    ext.current = ext.bot.current
+    ext.current.jobs_match = ['m-*']
+    ext.current.all_job_specs = dict(job=Mock())
+    ext.current.jobs = {}
+    ext.current.jobs['job'] = job = Mock()
+    job.list_contexts.return_value = ['m-nostatus', 'm-unskip', 'skipped']
+    ext.current.statuses = statuses = {}
+    statuses['m-unskip'] = CommitStatus(
+        context='m-unskip', state='success', description='Skipped',
+    )
+    statuses['skipped'] = CommitStatus(
+        context='skipped', state='success', description='Skipped',
+    )
+
+    yield from ext.run()
+
+    pushed_contextes = [
+        c[1][0]['context']
+        for c in ext.current.last_commit.maybe_update_status.mock_calls
+    ]
+    assert 'm-unskip' in pushed_contextes
+    assert 'm-nostatus' not in pushed_contextes
+    assert 'skipped' not in pushed_contextes

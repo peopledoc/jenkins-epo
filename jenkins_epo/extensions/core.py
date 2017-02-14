@@ -453,7 +453,6 @@ class SkipExtension(Extension):
     DEFAULTS = {
         'jobs_match': [],
     }
-    BUILD_ALL = ['*']
 
     def process_instruction(self, instruction):
         if instruction == 'skip':
@@ -485,6 +484,31 @@ class SkipExtension(Extension):
                 self.current.last_commit.maybe_update_status(CommitStatus(
                     context=context, target_url=job.baseurl,
                     state='success', description='Skipped!',
+                ))
+
+
+class UnskipExtension(Extension):
+    stage = '09'
+
+    DEFAULTS = {
+        'jobs_match': [],
+    }
+
+    @asyncio.coroutine
+    def run(self):
+        for name, spec in self.current.all_job_specs.items():
+            job = self.current.jobs[name]
+            for context in job.list_contexts(spec):
+                if not match(context, self.current.jobs_match):
+                    continue
+
+                status = self.current.statuses.get(context, CommitStatus())
+                if not status.is_skipped:
+                    continue
+
+                logger.info("Unskipping %s.", context)
+                self.current.last_commit.maybe_update_status(CommitStatus(
+                    status, state='pending', description='Backed!',
                 ))
 
 
@@ -564,6 +588,7 @@ class YamlExtension(Extension):
             ))
             return
 
+        self.current.all_job_specs = self.current.job_specs
         self.current.jobs = head.repository.jobs
 
         for name, args in self.current.yaml.items():
