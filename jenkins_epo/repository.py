@@ -173,6 +173,11 @@ class Repository(object):
         return payload
 
     @asyncio.coroutine
+    def fetch_hooks(self):
+        payload = yield from cached_arequest(GITHUB.repos(self).hooks)
+        return payload
+
+    @asyncio.coroutine
     def fetch_protected_branches(self):
         logger.debug("Querying GitHub for %s protected branches.", self)
         payload = yield from cached_arequest(
@@ -185,6 +190,14 @@ class Repository(object):
         logger.debug("Querying GitHub for %s PR.", self)
         payload = yield from cached_arequest(GITHUB.repos(self).pulls)
         return payload
+
+    def process_hooks(self, payload, webhook_url):
+        for hook in payload:
+            if hook['name'] != 'web':
+                continue
+            if hook['config']['url'] != webhook_url:
+                continue
+            yield WebHook(hook)
 
     def process_protected_branches(self, branches):
         for branch in branches:
@@ -289,6 +302,15 @@ class Repository(object):
         return GITHUB.repos(self).issues.post(
             title=title, body=body,
         )
+
+    @retry
+    def set_hook(self, payload, hookid=None):  # hookaïda !
+        if hookid:
+            logger.info("Updating webhook for %s.", self)
+            return GITHUB.repos(self).hooks(hookid).patch(**payload)
+        else:
+            logger.info("Registering webhook for %s.", self)
+            return GITHUB.repos(self).hooks.post(**payload)
 
 
 class Commit(object):
@@ -616,4 +638,20 @@ class PullRequest(Head):
         (
             GITHUB.repos(self.repository).pulls(self.payload['number']).merge
             .put(body=body)
+        )
+
+
+class WebHook(dict):
+    def __eq__(self, other):
+        selfconfig = {
+            k: v for k, v in self['config'].items() if k != 'secret'
+        }
+        otherconfig = {
+            k: v for k, v in other['config'].items() if k != 'secret'
+        }
+        return (
+            self['name'] == other['name'] and
+            self['active'] == other['active'] and
+            selfconfig == otherconfig and
+            self["events"] == other["events"]
         )

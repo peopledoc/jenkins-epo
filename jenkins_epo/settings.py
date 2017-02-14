@@ -58,6 +58,9 @@ DEFAULTS = {
     'EXTENSIONS': '*',
     # Whether to touch GitHub statuses or not
     'GITHUB_RO': False,
+    # Webhook HMAC secret
+    'GITHUB_SECRET': None,
+    'GITHUB_TOKEN': None,
     'HEADS': '*',
     'HOST': '0.0.0.0',
     'IGNORE_STATUSES': '',
@@ -72,7 +75,6 @@ DEFAULTS = {
     'SERVER_URL': 'http://localhost:2819',
     'URGENT': '[urgent*,[hotfix*,hotfix*',
     'VERBOSE': '',
-    'GITHUB_TOKEN': None,
     # Jenkins baseurl, like http://jenkins.lan:8080/.
     'JENKINS_URL': '',
     'JENKINS_QUEUE': '*',

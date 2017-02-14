@@ -38,6 +38,17 @@ def test_registry(SETTINGS):
 
 @pytest.mark.asyncio
 @asyncio.coroutine
+def test_fetch_hooks(mocker):
+    cached_arequest = mocker.patch('jenkins_epo.repository.cached_arequest')
+    from jenkins_epo.repository import Repository
+
+    yield from Repository('owner', 'name').fetch_hooks()
+
+    assert cached_arequest.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_fetch_protected_branches(mocker):
     cached_arequest = mocker.patch('jenkins_epo.repository.cached_arequest')
     from jenkins_epo.repository import Repository
@@ -56,6 +67,19 @@ def test_fetch_commit(mocker):
     cached_arequest.return_value = []
 
     yield from Repository('owner', 'name').fetch_commit('cafedodo')
+
+
+def test_process_hooks():
+    from jenkins_epo.repository import Repository
+
+    repo = Repository('owner', 'name')
+    hooks = list(repo.process_hooks([
+        dict(name='jenkins'),
+        dict(name='web', config=dict(url='http://other')),
+        dict(name='web', config=dict(url='http://me')),
+    ], webhook_url='http://me'))
+
+    assert 1 == len(hooks)
 
 
 def test_process_protected_branches():
@@ -243,89 +267,6 @@ def test_collaborators():
     assert 'owner' in collaborators
 
 
-@patch('jenkins_epo.repository.GITHUB')
-def test_delete_branch(GITHUB):
-    from jenkins_epo.repository import PullRequest
-
-    GITHUB.dry = False
-
-    pr = PullRequest(Mock(), payload=dict(head=dict(ref='x', sha='x')))
-    pr.delete_branch()
-    assert GITHUB.repos.mock_calls
-
-
-@patch('jenkins_epo.repository.GITHUB')
-def test_delete_branch_dry(GITHUB):
-    from jenkins_epo.repository import PullRequest
-
-    pr = PullRequest(Mock(), payload=dict(head=dict(ref='x', sha='x')))
-    pr.delete_branch()
-    assert not GITHUB.repos.mock_calls
-
-
-def test_sort_heads():
-    from jenkins_epo.repository import Branch, PullRequest
-
-    master = Branch(Mock(), dict(name='master', commit=dict(sha='d0d0')))
-    pr = PullRequest(Mock(), dict(
-        head=dict(ref='pr', sha='d0d0'), number=1, html_url='pr',
-    ))
-    urgent_pr = PullRequest(Mock(), dict(
-        head=dict(ref='urgent_pr', sha='d0d0'), number=2, html_url='urgent_pr',
-    ))
-    urgent_pr.urgent = True
-
-    assert master < pr
-    assert urgent_pr < pr
-    assert master != pr
-
-    heads = [master, pr, urgent_pr]
-
-    computed = list(sorted(heads, key=lambda h: h.sort_key()))
-    wanted = [urgent_pr, master, pr]
-
-    assert wanted == computed
-
-
-@patch('jenkins_epo.repository.cached_request')
-def test_branch_fetch_previous_commits(cached_request):
-    cached_request.side_effect = [
-        dict(parents=[dict(sha='d0d0cafe')]),
-        dict()
-    ]
-    from jenkins_epo.repository import Branch
-
-    head = Branch(Mock(), dict(name='branch', commit=dict(sha='d0d0cafe')))
-    assert list(head.fetch_previous_commits())
-    assert cached_request.mock_calls
-
-
-@patch('jenkins_epo.repository.cached_request')
-def test_pr_fetch_previous_commits(cached_request):
-    from jenkins_epo.repository import PullRequest
-    cached_request.return_value = dict(commits=['previous', 'last'])
-    head = PullRequest(Mock(), dict(
-        head=dict(ref='pr', sha='d0d0cafe', label='owner:pr'),
-        base=dict(label='owner:base'),
-    ))
-    commits = list(head.fetch_previous_commits())
-    assert ['last', 'previous'] == commits
-
-
-@patch('jenkins_epo.repository.cached_request')
-def test_pr_list_comments(cached_request):
-    from jenkins_epo.repository import PullRequest
-
-    cached_request.return_value = []
-    pr = PullRequest(Mock(), dict(
-        created_at='2017-01-20 11:08:43Z',
-        number=204,
-        head=dict(ref='pr', sha='d0d0cafe', label='owner:pr'),
-    ))
-    comments = pr.list_comments()
-    assert 1 == len(comments)
-
-
 @patch('jenkins_epo.repository.cached_request')
 def test_process_commits(cached_request):
     from jenkins_epo.repository import Repository
@@ -333,6 +274,20 @@ def test_process_commits(cached_request):
     repo = Repository('owner', 'name')
     items = list(repo.process_commits([dict(sha='cafed0d0')]))
     assert 1 == len(items)
+
+
+def test_set_hook(mocker):
+    GITHUB = mocker.patch('jenkins_epo.repository.GITHUB')
+
+    from jenkins_epo.repository import Repository
+
+    repo = Repository('owner', 'name')
+
+    repo.set_hook(dict())
+    assert GITHUB.repos.return_value.hooks.post.mock_calls
+
+    repo.set_hook(dict(), hookid='1231')
+    assert GITHUB.repos.return_value.hooks.return_value.patch.mock_calls
 
 
 @pytest.mark.asyncio
@@ -529,3 +484,12 @@ def test_commit_date(cached_request):
     commit.payload = dict(commit=commit.payload)
 
     assert 2016 == commit.date.year
+
+
+def test_webhook():
+    from jenkins_epo.repository import WebHook
+
+    a = WebHook(dict(name='web', active=True, config=dict(), events=[]))
+    b = WebHook(dict(a, test_url='http://..'))
+
+    assert a == b
