@@ -386,6 +386,15 @@ class SecurityExtension(Extension):
     FEEDBACK_TEMPLATE = """
 Sorry %(mention)s, I'm not allowed to test your code! %(emoji)s
 
+Please note that %(mention)s instructions before `jenkins: allow` wont be ever
+interpreted! *Please repost them along allow*:
+
+> ``` yaml
+> jenkins:
+>   allow:
+>   jobs: app-units
+> ```
+
 <!--
 jenkins: security-feedback-processed
 -->
