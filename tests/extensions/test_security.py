@@ -27,12 +27,16 @@ def test_process_allow():
     ext.current.head.author = 'contributor'
     ext.current.security_feedback_processed = None
     ext.current.SETTINGS.COLLABORATORS = ['owner']
+    ext.current.denied_instructions = [
+        Instruction(author='contributor', name='skip')
+    ]
 
     ext.process_instruction(Instruction(
         author='owner', name='allow'
     ))
 
     assert 'contributor' in ext.current.SETTINGS.COLLABORATORS
+    assert not ext.current.denied_instructions
 
 
 @pytest.mark.asyncio
