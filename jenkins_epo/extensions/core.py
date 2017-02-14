@@ -399,6 +399,10 @@ jenkins: security-feedback-processed
             if author:
                 logger.warn("Allowing EPO to test @%s's code.", author)
                 self.current.SETTINGS.COLLABORATORS.append(author)
+            self.current.denied_instructions[:] = [
+                i for i in self.current.denied_instructions
+                if i.author != author
+            ]
 
     @asyncio.coroutine
     def run(self):
