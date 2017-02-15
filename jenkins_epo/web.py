@@ -166,7 +166,6 @@ class RegisterTask(Task):
             "name": "web",
             "active": True,
             "events": [
-                "commit_comment",
                 "issue_comment",
                 "pull_request",
                 "push",

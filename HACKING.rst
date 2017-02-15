@@ -60,7 +60,7 @@ Feel free to contribute :)
 - Aggregate error comment.
 - Comment *still broken* on previous *master is broken* rather than opening a
   new issue.
-- Manage GitHub webhook event.
+- Detect branch from commit_comment event.
 - Test GraphQL.
 - Add ``clean-job`` command to drop jobs undefined un protected branches.
 - Comment old PR with «push a new commit».

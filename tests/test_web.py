@@ -237,7 +237,7 @@ def test_register_task_update(SETTINGS, mocker):
                 url=fullurl(route='github-webhook'),
                 insecure_ssl="0", content_type="json",
             ),
-            events=["commit_comment", "issue_comment", "pull_request"]
+            events=["issue_comment", "pull_request"]
         )),
     ])
 
@@ -270,7 +270,7 @@ def test_register_task_noop(SETTINGS, mocker):
                 url=fullurl(route='github-webhook'),
                 insecure_ssl="0", content_type="json",
             ),
-            events=["commit_comment", "issue_comment", "pull_request", "push"],
+            events=["issue_comment", "pull_request", "push"],
         )),
     ])
 
