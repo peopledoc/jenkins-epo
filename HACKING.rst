@@ -62,6 +62,7 @@ Feel free to contribute :)
   new issue.
 - Detect branch from commit_comment event.
 - Cancel job on PR close.
+- Skip event on comments not containing ``jenkins:``
 - Test GraphQL.
 - Add ``clean-job`` command to drop jobs undefined un protected branches.
 - Comment old PR with «push a new commit».
