@@ -45,7 +45,8 @@ def bot():
     """Poll GitHub to build heads"""
     loop = asyncio.get_event_loop()
     loop.create_task(WORKERS.start())
-    loop.create_task(procedures.poll())
+    if SETTINGS.POLL_INTERVAL:
+        loop.create_task(procedures.poll())
 
     run_app(
         webapp,
