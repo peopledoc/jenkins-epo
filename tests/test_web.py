@@ -49,6 +49,28 @@ def test_github_webhook_ok(mocker, SETTINGS, WORKERS):
 
 @pytest.mark.asyncio
 @asyncio.coroutine
+def test_github_webhook_ping(mocker, SETTINGS, WORKERS):
+    SETTINGS.GITHUB_SECRET = 'notasecret'
+    validate = mocker.patch('jenkins_epo.web.validate_signature')
+    infer = mocker.patch('jenkins_epo.web.infer_url_from_event')
+    mocker.patch('jenkins_epo.web.WORKERS', WORKERS)
+
+    from jenkins_epo.web import github_webhook
+
+    req = Mock()
+    req.read = CoroutineMock(return_value=b'''{"hook_id": null}''')
+    req.release = CoroutineMock()
+
+    res = yield from github_webhook(req)
+
+    assert validate.mock_calls
+    assert not infer.mock_calls
+    assert not WORKERS.enqueue.mock_calls
+    assert 200 == res.status
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_github_webhook_deny(mocker, SETTINGS, WORKERS):
     SETTINGS.GITHUB_SECRET = 'notasecret'
     validate = mocker.patch('jenkins_epo.web.validate_signature')

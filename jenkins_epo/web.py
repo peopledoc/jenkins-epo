@@ -130,6 +130,10 @@ def github_webhook(request):
         return web.json_response({'message': 'Invalid signature.'}, status=403)
 
     payload = json.loads(payload.decode('utf-8'))
+    if 'hook_id' in payload:
+        logger.debug("Ping from GitHub.")
+        return web.json_response({'message': 'Hookaïda !'}, status=200)
+
     try:
         url = infer_url_from_event(payload)
     except SkipEvent:
