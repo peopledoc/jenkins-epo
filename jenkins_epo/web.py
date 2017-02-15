@@ -15,6 +15,7 @@
 import asyncio
 import hmac
 import hashlib
+import json
 import logging
 
 from aiohttp import web
@@ -50,16 +51,96 @@ def compute_signature(payload, secret):
     )
 
 
+class DenySignature(Exception):
+    pass
+
+
+class SkipEvent(Exception):
+    pass
+
+
+def validate_signature(headers, payload):
+    try:
+        key = SETTINGS.GITHUB_SECRET.encode('ascii')
+    except Exception as e:
+        logger.error("Failed to get GITHUB_SECRET: %s", e)
+        raise DenySignature()
+
+    try:
+        github_signature = headers['X-Hub-Signature']
+        logger.debug("Got signature %r", github_signature)
+    except KeyError:
+        logger.warn('No Hub signature. Denying.')
+        raise DenySignature()
+
+    my_signature = compute_signature(payload, key)
+    logger.debug("Wants signature %r", my_signature)
+    if github_signature != my_signature:
+        logger.warn('Invalid Hub signature. Denying.')
+        raise DenySignature()
+
+    return True
+
+
+_ignored_action = {
+    'assigned',
+    'unassigned',
+    'review_requested',
+    'review_requested_removed',
+    'labeled',
+    'unlabeled',
+    'closed',
+    'synchronized',
+}
+
+
+def infer_url_from_event(payload):
+    if 'pull_request' in payload:
+        logger.debug("Detected pull_request event.")
+        if payload['action'] in _ignored_action:
+            logger.info("Skipping event %s.", payload['action'])
+            raise SkipEvent()
+        return payload['pull_request']['html_url']
+    elif 'ref' in payload:
+        logger.debug("Detected branch event.")
+        ref = payload['ref'][len('refs/heads/'):]
+        return payload['repository']['html_url'] + '/tree/' + ref
+    elif 'issue' in payload:
+        if 'pull_request' in payload['issue']:
+            logger.debug("Detected issue event.")
+            return payload['issue']['pull_request']['html_url']
+        else:
+            logger.debug("Skipping event on literal issue.")
+            raise SkipEvent()
+    else:
+        logger.error("Can't infer HEAD from payload.")
+        logger.debug("payload=%r", payload)
+        raise SkipEvent()
+
+
 @asyncio.coroutine
 def github_webhook(request):
     logger.info("Processing GitHub webhook event.")
-    github_signature = request.headers['X-Hub-Signature']
     payload = yield from request.read()
     yield from request.release()
-    key = SETTINGS.GITHUB_SECRET.encode('ascii')
-    my_signature = compute_signature(payload, key)
-    if github_signature != my_signature:
+
+    try:
+        validate_signature(request.headers, payload)
+    except DenySignature:
         return web.json_response({'message': 'Invalid signature.'}, status=403)
+
+    payload = json.loads(payload.decode('utf-8'))
+    try:
+        url = infer_url_from_event(payload)
+    except SkipEvent:
+        return web.json_response({'message': 'Event processed.'})
+
+    priority = ('10-webhook', url)
+    logger.info("Queuing %s.", url)
+    yield from WORKERS.enqueue(
+        ProcessUrlTask(priority, url, callable_=process_url)
+    )
+
     return web.json_response({'message': 'Event processing in progress.'})
 
 
