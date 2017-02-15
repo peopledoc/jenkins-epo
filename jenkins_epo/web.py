@@ -90,7 +90,7 @@ _ignored_action = {
     'labeled',
     'unlabeled',
     'closed',
-    'synchronized',
+    'synchronize',
 }
 
 
