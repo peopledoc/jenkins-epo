@@ -61,6 +61,7 @@ Feel free to contribute :)
 - Comment *still broken* on previous *master is broken* rather than opening a
   new issue.
 - Detect branch from commit_comment event.
+- Cancel job on PR close.
 - Test GraphQL.
 - Add ``clean-job`` command to drop jobs undefined un protected branches.
 - Comment old PR with «push a new commit».
