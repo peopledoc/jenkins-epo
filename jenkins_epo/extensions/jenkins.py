@@ -70,7 +70,7 @@ class BuilderExtension(JenkinsExtension):
 
     def is_queue_empty(self):
         if self.current.SETTINGS.ALWAYS_QUEUE:
-            logger.info("Ignoring queue status. New jobs will be queued.")
+            logger.debug("Ignoring queue status. New jobs will be queued.")
             return True
 
         return JENKINS.is_queue_empty()
