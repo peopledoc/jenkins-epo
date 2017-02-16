@@ -248,10 +248,11 @@ def test_matrix_build(post, SETTINGS):
     job = MatrixJob(api_instance)
     job._node_axis = job._revision_param = None
     job._combination_param = 'C'
+    job._revision_param = 'R'
 
     post.return_value.status_code = 200
 
-    job.build(Mock(url='url://'), spec, 'matrix')
+    job.build(Mock(url='url://', fullref='refs/heads/master'), spec, 'matrix')
 
     assert post.mock_calls
 

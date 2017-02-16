@@ -16,6 +16,7 @@ import asyncio
 from collections import OrderedDict
 from datetime import datetime, timedelta
 import logging
+import re
 
 from jenkinsapi.custom_exceptions import UnknownJob
 
@@ -129,6 +130,8 @@ class BuilderExtension(JenkinsExtension):
 class AutoCancelExtension(JenkinsExtension):
     stage = '30'
 
+    ref_re = re.compile(r'.*origin/(?P<ref>.*)')
+
     @asyncio.coroutine
     def run(self):
         now = datetime.now()
@@ -154,14 +157,17 @@ class AutoCancelExtension(JenkinsExtension):
                     continue
 
                 try:
-                    branch = (
-                        build.get_revision_branch()[0]['name']
-                        .replace('origin/', '')
-                    )
+                    jenkins_fullref = build.get_revision_branch()[0]['name']
                 except IndexError:
+                    logger.warn("Can't get revision of build %s.", build)
                     continue
 
-                if branch != self.current.head.ref:
+                match = self.ref_re.match(jenkins_fullref)
+                if not match:
+                    logger.warn("Can't infer ref from %s.", jenkins_fullref)
+                    continue
+                jenkins_ref = match.group('ref')
+                if jenkins_ref != self.current.head.ref:
                     continue
 
                 building_sha = build.get_revision()
