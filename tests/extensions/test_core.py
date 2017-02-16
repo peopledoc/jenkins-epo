@@ -130,8 +130,8 @@ def test_report():
     ext.current = Mock()
     ext.current.head = Mock(spec=Branch)
     ext.current.head.sha = 'c0defada'
-    ext.current.head.ref = 'refs/heads/branch'
-    ext.current.head.shortref = 'branch'
+    ext.current.head.fullref = 'refs/heads/branch'
+    ext.current.head.ref = 'branch'
     ext.current.head.repository = Mock()
     ext.current.head.repository.report_issue.return_value = {
         'number': '1',

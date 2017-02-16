@@ -353,7 +353,7 @@ jenkins: report-done
         if not errored:
             return
 
-        branch_name = self.current.head.shortref
+        branch_name = self.current.head.ref
         build_urls = [s['target_url'] for s in errored if s['target_url']]
         builds = '- ' + '\n- '.join(build_urls)
         issue = self.current.head.repository.report_issue(
@@ -572,7 +572,7 @@ class YamlExtension(Extension):
 
         try:
             jenkins_yml = yield from GITHUB.fetch_file_contents(
-                head.repository, 'jenkins.yml', ref=head.ref,
+                head.repository, 'jenkins.yml', ref=head.fullref,
             )
             logger.info("Loading jenkins.yml.")
         except ApiNotFoundError:
