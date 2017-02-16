@@ -296,7 +296,7 @@ class FreestyleJob(Job):
         log = str(self)
         params = spec.config.get('parameters', {}).copy()
         if self.revision_param:
-            params[self.revision_param] = pr.ref
+            params[self.revision_param] = pr.fullref
             log += ' for %s' % pr.ref
 
         if 'node' in spec.config:
@@ -390,7 +390,7 @@ class MatrixJob(Job):
         if self.revision_param:
             data['parameter'].append({
                 'name': self.revision_param,
-                'value': pr.ref,
+                'value': pr.fullref,
             })
 
         if self.combination_param:

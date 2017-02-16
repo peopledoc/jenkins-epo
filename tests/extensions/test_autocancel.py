@@ -81,7 +81,33 @@ def test_jenkins_skip_other_branch():
     job.get_builds.return_value = builds = [Mock()]
     build = builds[0]
     build._data = {'timestamp': time() * 1000, 'building': True}
-    build.get_revision_branch.return_value = [{'name': 'origin/other'}]
+    build.get_revision_branch.return_value = [
+        {'name': 'refs/remote/origin/other'}
+    ]
+
+    yield from ext.run()
+
+    assert build.get_revision_branch.mock_calls
+    assert 0 == len(ext.current.cancel_queue)
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_jenkins_skip_unknown_branch():
+    from time import time
+    from jenkins_epo.extensions.jenkins import AutoCancelExtension
+
+    ext = AutoCancelExtension('test', Mock())
+    ext.current = ext.bot.current
+    ext.current.cancel_queue = []
+    ext.current.jobs = {}
+    ext.current.head.ref = 'branch'
+
+    ext.current.jobs['job'] = job = Mock()
+    job.get_builds.return_value = builds = [Mock()]
+    build = builds[0]
+    build._data = {'timestamp': time() * 1000, 'building': True}
+    build.get_revision_branch.return_value = [{'name': 'otherremote/other'}]
 
     yield from ext.run()
 
