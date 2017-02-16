@@ -61,6 +61,8 @@ Feel free to contribute :)
 - Comment *still broken* on previous *master is broken* rather than opening a
   new issue.
 - Detect branch from commit_comment event.
+- Set custom status context. Create job name with <owner>_<project>_<job>.
+  Context with only <job>.
 - Cancel job on PR close.
 - Skip event on comments not containing ``jenkins:``
 - Test GraphQL.
