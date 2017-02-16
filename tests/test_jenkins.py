@@ -230,8 +230,7 @@ def test_matrix_list_context_superset(JobSpec):
     assert 2 == len(contexts)
 
 
-@patch('jenkins_epo.jenkins.requests.post')
-def test_matrix_build(post, SETTINGS):
+def test_matrix_build(SETTINGS):
     from jenkins_epo.jenkins import MatrixJob, JobSpec
 
     SETTINGS.DRY_RUN = 0
@@ -244,17 +243,16 @@ def test_matrix_build(post, SETTINGS):
     xml.find.return_value = None
 
     spec = JobSpec(api_instance.name)
+    spec.config['parameters'] = {'PARAM': 1}
 
     job = MatrixJob(api_instance)
     job._node_axis = job._revision_param = None
     job._combination_param = 'C'
     job._revision_param = 'R'
 
-    post.return_value.status_code = 200
-
     job.build(Mock(url='url://', fullref='refs/heads/master'), spec, 'matrix')
 
-    assert post.mock_calls
+    assert api_instance.invoke.mock_calls
 
 
 @patch('jenkins_epo.jenkins.requests.post')
