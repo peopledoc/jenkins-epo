@@ -100,7 +100,8 @@ def test_process_protected_branches():
 
     assert 1 == len(branches)
     head = branches[0]
-    assert 'refs/heads/master' == head.ref
+    assert 'refs/heads/master' == head.fullref
+    assert 'master' == head.ref
     assert head.url.startswith('https://github.com')
 
 
@@ -142,6 +143,7 @@ def test_process_pulls():
 
     assert 1 == len(heads)
     head = heads[0]
+    assert 'refs/heads/feature' == head.fullref
     assert 'feature' == head.ref
     assert head.url.startswith('https://github.com')
 

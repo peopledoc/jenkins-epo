@@ -497,7 +497,7 @@ class Head(object):
         self.repository = repository
         self.sha = sha
         self.ref = ref
-        self.shortref = ref[len('refs/heads/'):]
+        self.fullref = 'refs/heads/' + ref
 
     def __lt__(self, other):
         return self.sort_key() < other.sort_key()
@@ -510,7 +510,7 @@ class Branch(Head):
     def __init__(self, repository, payload):
         super(Branch, self).__init__(
             repository=repository,
-            ref='refs/heads/' + payload['name'],
+            ref=payload['name'],
             sha=payload['commit']['sha'],
         )
         self.payload = payload
@@ -533,9 +533,7 @@ class Branch(Head):
 
     @property
     def url(self):
-        return 'https://github.com/%s/tree/%s' % (
-            self.repository, self.shortref,
-        )
+        return 'https://github.com/%s/tree/%s' % (self.repository, self.ref)
 
     def fetch_previous_commits(self, last_date=None):
         head = cached_request(
