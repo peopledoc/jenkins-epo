@@ -236,11 +236,6 @@ class CancellerExtension(JenkinsExtension):
 
             commit.maybe_update_status(new_status)
 
-        payload = yield from self.current.last_commit.fetch_statuses()
-        self.current.statuses = (
-            self.current.last_commit.process_statuses(payload)
-        )
-
 
 class CreateJobsExtension(JenkinsExtension):
     """
