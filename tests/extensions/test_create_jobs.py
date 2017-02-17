@@ -66,15 +66,19 @@ def test_yml_invalid(mocker, SETTINGS):
 @asyncio.coroutine
 def test_yml_found(mocker, SETTINGS):
     GITHUB = mocker.patch('jenkins_epo.extensions.core.GITHUB')
+    Job = mocker.patch('jenkins_epo.extensions.core.Job')
     from jenkins_epo.extensions.core import YamlExtension
 
+    Job.jobs_filter = ['*', '-skip']
     SETTINGS.update(YamlExtension.SETTINGS)
 
     ext = YamlExtension('ext', Mock())
     ext.current = ext.bot.current
     ext.current.yaml = {'job': dict()}
 
-    GITHUB.fetch_file_contents = CoroutineMock(return_value="job: command")
+    GITHUB.fetch_file_contents = CoroutineMock(
+        return_value="job: command\nskip: command",
+    )
 
     head = ext.current.head
     head.repository.url = 'https://github.com/owner/repo.git'
@@ -84,6 +88,7 @@ def test_yml_found(mocker, SETTINGS):
 
     assert GITHUB.fetch_file_contents.mock_calls
     assert 'job' in ext.current.job_specs
+    assert 'skip' not in ext.current.job_specs
 
 
 def test_yml_comment_dict():

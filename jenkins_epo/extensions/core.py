@@ -25,6 +25,7 @@ from jenkins_yml.job import Job as JobSpec
 
 from ..bot import Extension, Error, SkipHead
 from ..github import GITHUB, ApiError, ApiNotFoundError
+from ..jenkins import Job
 from ..repository import Branch, CommitStatus
 from ..settings import SETTINGS
 from ..utils import deepupdate, match, parse_patterns
@@ -561,6 +562,9 @@ class YamlExtension(Extension):
         jenkins_yml = jenkins_yml or '{}'
         jobs = {}
         for job in JobSpec.parse_all(jenkins_yml, defaults=defaults):
+            if not match(job.name, Job.jobs_filter):
+                logger.debug("Skipping %s. Filtered.", job)
+                continue
             job.repository = self.current.head.repository
             jobs[job.name] = job
 
@@ -582,6 +586,7 @@ class YamlExtension(Extension):
         try:
             self.current.job_specs = self.list_job_specs(jenkins_yml)
         except Exception as e:
+            logger.warn("Failed to list jobs: %s", e)
             self.current.errors.append(Error(
                 "Failed to load `jenkins.yml`:\n\n```\n%s\n```" % (e,),
                 self.current.last_commit.date
