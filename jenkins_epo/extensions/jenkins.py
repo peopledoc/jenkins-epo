@@ -159,7 +159,7 @@ class AutoCancelExtension(JenkinsExtension):
                 try:
                     jenkins_fullref = build.get_revision_branch()[0]['name']
                 except IndexError:
-                    logger.warn("Can't get revision of build %s.", build)
+                    logger.debug("Can't get revision of build %s yet.", build)
                     continue
 
                 match = self.ref_re.match(jenkins_fullref)
