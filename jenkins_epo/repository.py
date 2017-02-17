@@ -100,13 +100,14 @@ class CommitStatus(dict):
         'FAILURE': ('failure', 'Build %(name)s failed in %(duration)s!'),
         'UNSTABLE': ('failure', 'Build %(name)s failed in %(duration)s!'),
         'SUCCESS': ('success', 'Build %(name)s succeeded in %(duration)s!'),
+        None: ('pending', 'Build %(name)s in progress...'),
     }
 
     def from_build(self, build=None):
         # If no build found, this may be an old CI build, or any other
         # unconfirmed build. Retrigger.
         jenkins_status = build.get_status() if build else 'ABORTED'
-        if build and jenkins_status:
+        if build and jenkins_status in self.jenkins_status_map:
             state, description = self.jenkins_status_map[jenkins_status]
             if description != 'Backed':
                 description = description % dict(

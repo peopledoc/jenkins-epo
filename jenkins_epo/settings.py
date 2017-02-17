@@ -46,7 +46,8 @@ class EnvironmentSettings(Bunch):
 
 
 DEFAULTS = {
-    'ALWAYS_QUEUE': False,
+    # Max item count in queue to enqueue new.
+    'QUEUE_MAX': 0,
     'CACHE_PATH': '.epo-cache',
     'CACHE_LIFE': 30,
     # Size of worker pool

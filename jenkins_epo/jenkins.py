@@ -116,7 +116,7 @@ class LazyJenkins(object):
             i for i in data['items']
             if not i['stuck'] and match(i['task']['name'], self.queue_patterns)
         ]
-        return len(items) == 0
+        return len(items) <= SETTINGS.QUEUE_MAX
 
     @retry
     def get_job(self, name):
