@@ -132,24 +132,69 @@ class AutoCancelExtension(JenkinsExtension):
 
     ref_re = re.compile(r'.*origin/(?P<ref>.*)')
 
+    def compute_build_ref_and_sha(self, job, build):
+        try:
+            jenkins_fullref = build.get_revision_branch()[0]['name']
+        except IndexError:
+            for action in build._data['actions']:
+                if 'parameters' in action:
+                    break
+            else:
+                return
+            for parameter in action['parameters']:
+                if parameter['name'] == job.revision_param:
+                    break
+            else:
+                return
+            return (
+                parameter['value'][len('refs/heads/'):],
+                self.current.last_commit.sha
+            )
+        else:
+            match = self.ref_re.match(jenkins_fullref)
+            if not match:
+                return
+            return (
+                match.group('ref'),
+                build.get_revision()
+            )
+
+    def iter_preset_statuses(self, contextes, build):
+        for context in contextes:
+            default_status = CommitStatus(
+                context=context, state='pending', description='Backed',
+            )
+            status = self.current.statuses.get(
+                context, default_status,
+            )
+            if status.is_queueable:
+                status = status.from_build(build)
+                yield status
+
+    def is_build_old(self, build, now, maxage):
+        seconds = build._data['timestamp'] / 1000.
+        build_date = datetime.fromtimestamp(seconds)
+        build_age = now - build_date
+        if build_date > now:
+            logger.warning(
+                "Build %s in the future. Is timezone correct?", build
+            )
+            return False
+        return build_age > maxage
+
     @asyncio.coroutine
     def run(self):
         now = datetime.now()
         maxage = timedelta(hours=2)
         current_sha = self.current.last_commit.sha
         logger.info("Polling running builds on Jenkins.")
-        for name, job in self.current.jobs.items():
+        for name, spec in self.current.job_specs.items():
+            job = self.current.jobs[name]
+            contextes = job.list_contexts(spec)
             for build in reversed(list(job.get_builds())):
                 build.poll()
                 yield from switch_coro()
-                seconds = build._data['timestamp'] / 1000.
-                build_date = datetime.fromtimestamp(seconds)
-                build_age = now - build_date
-                if build_date > now:
-                    logger.warning(
-                        "Build %s in the future. Is timezone correct?", build
-                    )
-                elif build_age > maxage:
+                if self.is_build_old(build, now, maxage):
                     logger.debug("Stopping build iteration for older builds.")
                     break
 
@@ -157,32 +202,33 @@ class AutoCancelExtension(JenkinsExtension):
                     continue
 
                 try:
-                    jenkins_fullref = build.get_revision_branch()[0]['name']
-                except IndexError:
-                    logger.debug("Can't get revision of build %s yet.", build)
+                    build_ref, build_sha = (
+                        self.compute_build_ref_and_sha(job, build)
+                    )
+                except TypeError:
+                    logger.debug(
+                        "Can't infer build ref and sha for %s.", build,
+                    )
                     continue
 
-                match = self.ref_re.match(jenkins_fullref)
-                if not match:
-                    logger.warn("Can't infer ref from %s.", jenkins_fullref)
-                    continue
-                jenkins_ref = match.group('ref')
-                if jenkins_ref != self.current.head.ref:
+                if build_ref != self.current.head.ref:
                     continue
 
-                building_sha = build.get_revision()
-                if building_sha == current_sha:
+                if build_sha == current_sha:
+                    commit = self.current.last_commit
+                    preset_statuses = self.iter_preset_statuses(
+                        contextes, build,
+                    )
+                    for status in preset_statuses:
+                        logger.info(
+                            "Preset pending status for %s.", status['context'],
+                        )
+                        commit.maybe_update_status(status)
+                        yield from switch_coro()
                     continue
 
-                commit = Commit(
-                    self.current.head.repository,
-                    building_sha,
-                )
-                status = CommitStatus(
-                    context=job.name,
-                    target_url=build._data['url'],
-                    state='pending',
-                )
+                commit = Commit(self.current.head.repository, build_sha)
+                status = CommitStatus(context=job.name).from_build(build)
                 logger.info("Queuing %s for cancel.", build)
                 self.current.cancel_queue.append((commit, status))
 
