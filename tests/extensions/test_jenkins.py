@@ -45,7 +45,6 @@ def test_build_queue_full(mocker):
     job = Mock()
     spec = Mock(config=dict())
     spec.name = 'job'
-    ext.current.SETTINGS.ALWAYS_QUEUE = False
     ext.current.head.ref = 'refs/heads/pr'
     ext.current.last_commit.filter_not_built_contexts.return_value = ['job']
     ext.current.jobs_match = []
@@ -72,7 +71,6 @@ def test_build_queue_empty(mocker):
     job = Mock()
     spec = Mock(config=dict())
     spec.name = 'job'
-    ext.current.SETTINGS.ALWAYS_QUEUE = False
     ext.current.head.ref = 'refs/heads/pr'
     ext.current.last_commit.filter_not_built_contexts.return_value = ['job']
     ext.current.last_commit.maybe_update_status.return_value = {

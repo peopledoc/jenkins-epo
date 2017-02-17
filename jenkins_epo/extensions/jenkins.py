@@ -69,13 +69,6 @@ class BuilderExtension(JenkinsExtension):
             logger.info("Retrying jobs failed before %s.", instruction.date)
             self.current.rebuild_failed = instruction.date
 
-    def is_queue_empty(self):
-        if self.current.SETTINGS.ALWAYS_QUEUE:
-            logger.debug("Ignoring queue status. New jobs will be queued.")
-            return True
-
-        return JENKINS.is_queue_empty()
-
     @asyncio.coroutine
     def run(self):
         for spec in self.current.job_specs.values():
@@ -85,7 +78,7 @@ class BuilderExtension(JenkinsExtension):
                 job.list_contexts(spec),
                 rebuild_failed=self.current.rebuild_failed
             )
-            queue_empty = self.is_queue_empty()
+            queue_empty = JENKINS.is_queue_empty()
             toqueue_contexts = []
             for context in not_built:
                 logger.debug("Computing new status for %s.", spec)
