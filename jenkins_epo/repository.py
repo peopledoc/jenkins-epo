@@ -114,7 +114,10 @@ class CommitStatus(dict):
                     name=build._data['displayName'],
                     duration=format_duration(build._data['duration']),
                 )
-            return self.__class__(self, description=description, state=state)
+            return self.__class__(
+                self, description=description, state=state,
+                target_url=build._data['url'],
+            )
         else:
             # Don't touch
             return self.__class__(self)

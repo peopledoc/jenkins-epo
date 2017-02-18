@@ -188,7 +188,9 @@ def test_poll_build_running(mocker):
 
     build = JENKINS.get_build_from_url.return_value
     build.get_status.return_value = None
-    build._data = {'duration': 0, 'displayName': '#6'}
+    build._data = {
+        'duration': 0, 'displayName': '#6', 'url': 'jenkins://job/1',
+    }
 
     yield from ext.run()
 

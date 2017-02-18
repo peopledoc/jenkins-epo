@@ -452,7 +452,7 @@ def test_commit_status_from_build():
     from jenkins_epo.repository import CommitStatus
 
     status = CommitStatus(context='job', state='pending')
-    build = Mock(_data=dict(duration=5, displayName='job'))
+    build = Mock(_data=dict(duration=5, displayName='job', url='X'))
 
     build.get_status.return_value = None
     new_status = status.from_build(build)
