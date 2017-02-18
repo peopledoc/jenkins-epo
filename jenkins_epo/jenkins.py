@@ -17,7 +17,6 @@ import asyncio
 from datetime import datetime
 from itertools import product
 import logging
-import json
 import re
 
 import aiohttp
@@ -382,49 +381,35 @@ class MatrixJob(Job):
             yield '%s/%s' % (self._instance.name, name)
 
     def build(self, pr, spec, contexts):
-        data = {'parameter': [], 'statusCode': '303', 'redirectTo': '.'}
+        build_params = {'YML_NOTIFY_URL': fullurl(head=pr.url)}
 
         for name, value in spec.config.get('parameters', {}).items():
-            data['parameter'].append({'name': name, 'value': value})
+            build_params[name] = value
 
         if self.revision_param:
-            data['parameter'].append({
-                'name': self.revision_param,
-                'value': pr.fullref,
-            })
+            build_params[self.revision_param] = pr.fullref
 
         if self.combination_param:
             conf_index = len(str(self))+1
-            confs = [
-                c['name']
-                for c in self._instance._data.get('activeConfigurations', [])
-            ]
+            conditions = []
             not_built = [c[conf_index:] for c in contexts]
-            data['parameter'].append({
-                'name': self.combination_param,
-                'values': [
-                    'true' if c in not_built else 'false'
-                    for c in confs
-                ],
-                'confs': confs,
-            })
+            for name in not_built:
+                condition = (
+                    name
+                    .replace('=', ' == "')
+                    .replace(',', '" && ')
+                    + '"'
+                )
+                conditions.append('(%s)' % condition)
 
-        data['parameter'].append({
-            'name': 'YML_NOTIFY_URL',
-            'value': fullurl(head=pr.url),
-        })
+            build_params[self.combination_param] = ' || '.join(conditions)
 
         if SETTINGS.DRY_RUN:
             for context in contexts:
                 logger.info("Would trigger %s for %s", context, pr.ref)
             return
 
-        res = requests.post(
-            self._instance._data['url'] + '/build?delay=0sec&cause=Bot',
-            data={'json': json.dumps(data)}
-        )
-        if res.status_code != 200:
-            raise Exception('Failed to trigger build.', res)
+        self._instance.invoke(build_params=build_params, delay=0, cause='EPO')
 
         for context in contexts:
             log = '%s/%s' % (self, context)
