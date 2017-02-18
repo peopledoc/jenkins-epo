@@ -68,6 +68,8 @@ Feel free to contribute :)
 - Test GraphQL.
 - Add ``clean-job`` command to drop jobs undefined un protected branches.
 - Comment old PR with «push a new commit».
+- Gather task for get job
+- Gather task for get build
 - Switch to full AsyncIO
   - drop cached_request
   - drop jenkinsapi
