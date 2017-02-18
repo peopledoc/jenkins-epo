@@ -160,7 +160,8 @@ class AutoCancelExtension(JenkinsExtension):
             status = self.current.statuses.get(
                 context, default_status,
             )
-            if status.is_queueable:
+            new_url = status.get('target_url') == build.baseurl
+            if status.is_queueable or new_url:
                 status = status.from_build(build)
                 yield status
 
