@@ -184,7 +184,12 @@ class AutoCancelExtension(JenkinsExtension):
         for name, spec in self.current.job_specs.items():
             job = self.current.jobs[name]
             contextes = job.list_contexts(spec)
-            for build in reversed(list(job.get_builds())):
+            builds = reversed(sorted(
+                job.get_builds(),
+                key=lambda b: b.baseurl,
+            ))
+
+            for build in builds:
                 build.poll()
                 yield from switch_coro()
                 if self.is_build_old(build, now, maxage):
