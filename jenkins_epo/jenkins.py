@@ -46,6 +46,8 @@ class RESTClient(object):
     def __getattr__(self, name):
         return self(name)
 
+    @retry
+    @asyncio.coroutine
     def aget(self, **kw):
         session = aiohttp.ClientSession()
         url = URL('%s/api/json' % (self.path))
@@ -55,6 +57,9 @@ class RESTClient(object):
         try:
             response = yield from session.get(url, timeout=10)
             payload = yield from response.json()
+        except TimeoutError:
+            logger.debug("Timeout on %s.", url)
+            raise
         finally:
             yield from session.close()
         return payload

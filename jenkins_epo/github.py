@@ -16,6 +16,7 @@ from __future__ import absolute_import
 
 import asyncio
 import base64
+from concurrent.futures import TimeoutError
 from datetime import datetime, timezone
 import logging
 import os.path
@@ -221,6 +222,9 @@ class CustomGitHub(GitHub):
             else:
                 logger.debug("Fetching raw payload")
                 payload = yield from response.read()
+        except TimeoutError:
+            logger.debug("Timeout on %s.", url)
+            raise
         finally:
             if not asyncio.get_event_loop().is_closed():
                 logger.debug("Closing HTTP session.")
@@ -296,6 +300,9 @@ class CustomGitHub(GitHub):
                     resp = GHList(resp)
                 resp.__dict__['_headers'] = dict(response.headers.items())
                 return resp
+        except TimeoutError:
+            logger.debug("Timeout on %s.", url)
+            raise
         except HTTPError as e:
             is_json = self._process_resp(e.headers)
             if is_json:
