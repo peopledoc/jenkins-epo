@@ -47,9 +47,9 @@ class RESTClient(object):
     def __getattr__(self, name):
         return self(name)
 
-    def aget(self, **kw):
+    def afetch(self, **kw):
         session = aiohttp.ClientSession()
-        url = URL('%s/api/python' % (self.path))
+        url = URL(self.path)
         if kw:
             url = url.with_query(**kw)
         logger.debug("GET %s", url)
@@ -58,7 +58,11 @@ class RESTClient(object):
             payload = yield from response.read()
         finally:
             yield from session.close()
-        return ast.literal_eval(payload.decode('utf-8'))
+        return payload.decode('utf-8')
+
+    def aget(self, **kw):
+        payload = yield from self.api.python.afetch(**kw)
+        return ast.literal_eval(payload)
 
 
 class VerboseRequester(Requester):
@@ -133,8 +137,9 @@ class LazyJenkins(object):
     def aget_job(self, name):
         self.load()
         instance = self._instance.get_job(name)
-        data = yield from RESTClient(instance.baseurl).aget()
-        instance._data = data
+        client = RESTClient(instance.baseurl)
+        instance._data = yield from client.aget()
+        instance._config = yield from client('config.xml').afetch()
         return Job.factory(instance)
 
     DESCRIPTION_TMPL = """\
