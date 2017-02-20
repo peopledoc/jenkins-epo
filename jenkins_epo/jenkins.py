@@ -21,7 +21,7 @@ import re
 
 import aiohttp
 from jenkinsapi.jenkinsbase import JenkinsBase
-from jenkinsapi.build import Build
+from jenkinsapi.build import Build as JenkinsBuild
 from jenkinsapi.jenkins import Jenkins, Requester
 from jenkins_yml import Job as JobSpec
 import requests
@@ -188,6 +188,16 @@ class LazyJenkins(object):
 JENKINS = LazyJenkins()
 
 
+class Build(object):
+    def __init__(self, job, payload, api_instance):
+        self.job = job
+        self.payload = payload
+        self._instance = api_instance
+
+    def __getattr__(self, name):
+        return getattr(self._instance, name)
+
+
 class Job(object):
     jobs_filter = parse_patterns(SETTINGS.JOBS)
     embedded_data_re = re.compile(
@@ -284,6 +294,26 @@ class Job(object):
     def update_data_async(self):
         client = RESTClient(self._instance.baseurl)
         self._instance._data = yield from client.aget()
+
+    @asyncio.coroutine
+    def fetch_builds(self):
+        tree = "builds[" + (
+            "actions[parameters[name,value]],"
+            "building,duration,number,result,timestamp,url"
+        ) + "]"
+        payload = yield from RESTClient(self.baseurl).aget(tree=tree)
+        return payload['builds']
+
+    def process_builds(self, payload):
+        payload = reversed(sorted(payload, key=lambda b: b['number']))
+        for entry in payload:
+            api_instance = JenkinsBuild(
+                url=entry['url'],
+                buildno=entry['number'],
+                job=self._instance
+            )
+            api_instance._data = entry
+            yield Build(self, entry, api_instance)
 
     def get_builds(self):
         for number, url in self.get_build_dict().items():

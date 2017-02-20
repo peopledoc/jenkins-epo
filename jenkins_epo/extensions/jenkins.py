@@ -21,7 +21,7 @@ import re
 from jenkinsapi.custom_exceptions import UnknownJob
 
 from ..bot import Extension, Error, SkipHead
-from ..jenkins import JENKINS, RESTClient
+from ..jenkins import JENKINS
 from ..repository import Commit, CommitStatus
 from ..utils import match, switch_coro
 
@@ -218,15 +218,23 @@ Failed to create or update Jenkins job `%(name)s`.
                 yield JENKINS.update_job, spec
 
     @asyncio.coroutine
+    def fetch_job(self, name):
+        if name in self.current.jobs:
+            return
+        try:
+            self.current.jobs[name] = yield from JENKINS.aget_job(name)
+        except UnknownJob:
+            pass
+
+    @asyncio.coroutine
     def run(self):
         logger.info("Fetching jobs from Jenkins.")
-        for name in self.current.job_specs:
-            if name in self.current.jobs:
-                continue
-            try:
-                self.current.jobs[name] = yield from JENKINS.aget_job(name)
-            except UnknownJob:
-                pass
+        loop = asyncio.get_event_loop()
+        tasks = [
+            loop.create_task(self.fetch_job(name))
+            for name in self.current.job_specs
+        ]
+        yield from asyncio.gather(*tasks)
 
         for action, spec in self.process_job_specs():
             job = None
@@ -324,19 +332,10 @@ class PollExtension(JenkinsExtension):
     @asyncio.coroutine
     def poll_job(self, spec):
         job = self.current.jobs[spec.name]
+        payload = yield from job.fetch_builds()
         contextes = job.list_contexts(spec)
-        builds = reversed(sorted(
-            job.get_builds(),
-            key=lambda b: b.baseurl,
-        ))
-        for build in builds:
-            build._data = yield from (
-                RESTClient(build.baseurl)
-                .aget(depth=build.depth)
-            )
-            yield from switch_coro()
+        for build in job.process_builds(payload):
             if self.is_build_old(build):
-                logger.debug("Stop polling %s for older builds.", spec.name)
                 break
 
             if not build._data['building']:
@@ -372,6 +371,7 @@ class PollExtension(JenkinsExtension):
             status = CommitStatus(context=job.name).from_build(build)
             logger.info("Queuing %s for cancel.", build)
             self.current.cancel_queue.append((commit, status))
+        logger.debug("Polling %s done.", spec.name)
 
     @asyncio.coroutine
     def run(self):
