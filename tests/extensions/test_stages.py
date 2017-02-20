@@ -159,7 +159,7 @@ def test_branches_limit():
     ext.current.head.ref = 'pr'
     ext.current.SETTINGS.STAGES = ['test']
     ext.current.job_specs = specs = {
-        'job': Mock(config=dict(branches=['master'])),
+        'job': Mock(config=dict(branches='master')),
     }
     specs['job'].name = 'job'
 

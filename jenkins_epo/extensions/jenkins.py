@@ -453,17 +453,19 @@ class StagesExtension(JenkinsExtension):
         # Filter job specs to the current stage ones.
         current_ref = self.current.head.ref
         self.current.job_specs = {}
-        for job in stage.job_specs:
-            branches = list(job.config.get('branches', '*'))
+        for spec in stage.job_specs:
+            branches = spec.config.get('branches', ['*'])
+            if not isinstance(branches, list):
+                branches = [branches]
             if not match(current_ref, branches):
-                logger.debug("Ignore job %s on this branch.", job)
+                logger.debug("Ignore job %s on this branch.", spec)
                 continue
 
-            if job.config.get('periodic'):
-                logger.debug("Ignore periodic job %s.", job)
+            if spec.config.get('periodic'):
+                logger.debug("Ignore periodic job %s.", spec)
                 continue
 
-            self.current.job_specs[job.name] = job
+            self.current.job_specs[spec.name] = spec
 
         logger.info(
             "Current stage is %s. Completed=%s. Jobs: %s.",
