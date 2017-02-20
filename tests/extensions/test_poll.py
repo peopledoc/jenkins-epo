@@ -8,12 +8,13 @@ import pytest
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_jenkins_skip_outdated():
-    from jenkins_epo.extensions.jenkins import AutoCancelExtension
+    from jenkins_epo.extensions.jenkins import PollExtension
 
-    ext = AutoCancelExtension('test', Mock())
+    ext = PollExtension('test', Mock())
     ext.current = ext.bot.current
     ext.current.cancel_queue = []
     ext.current.job_specs = {'job': Mock()}
+    ext.current.job_specs['job'].name = 'job'
     ext.current.jobs = {}
     ext.current.jobs['job'] = job = Mock()
     job.get_builds.return_value = builds = [Mock()]
@@ -29,12 +30,13 @@ def test_jenkins_skip_outdated():
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_jenkins_wrong_timezone():
-    from jenkins_epo.extensions.jenkins import AutoCancelExtension
+    from jenkins_epo.extensions.jenkins import PollExtension
 
-    ext = AutoCancelExtension('test', Mock())
+    ext = PollExtension('test', Mock())
     ext.current = ext.bot.current
     ext.current.cancel_queue = []
     ext.current.job_specs = {'job': Mock()}
+    ext.current.job_specs['job'].name = 'job'
     ext.current.jobs = {}
     ext.current.jobs['job'] = job = Mock()
     job.get_builds.return_value = builds = [Mock()]
@@ -49,12 +51,13 @@ def test_jenkins_wrong_timezone():
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_jenkins_skip_build_not_running():
-    from jenkins_epo.extensions.jenkins import AutoCancelExtension
+    from jenkins_epo.extensions.jenkins import PollExtension
 
-    ext = AutoCancelExtension('test', Mock())
+    ext = PollExtension('test', Mock())
     ext.current = ext.bot.current
     ext.current.cancel_queue = []
     ext.current.job_specs = {'job': Mock()}
+    ext.current.job_specs['job'].name = 'job'
     ext.current.jobs = {}
     ext.current.jobs['job'] = job = Mock()
     job.get_builds.return_value = builds = [Mock()]
@@ -70,12 +73,13 @@ def test_jenkins_skip_build_not_running():
 @asyncio.coroutine
 def test_jenkins_skip_other_branch():
     from time import time
-    from jenkins_epo.extensions.jenkins import AutoCancelExtension
+    from jenkins_epo.extensions.jenkins import PollExtension
 
-    ext = AutoCancelExtension('test', Mock())
+    ext = PollExtension('test', Mock())
     ext.current = ext.bot.current
     ext.current.cancel_queue = []
     ext.current.job_specs = {'job': Mock()}
+    ext.current.job_specs['job'].name = 'job'
     ext.current.jobs = {}
     ext.current.jobs['job'] = job = Mock()
     job.get_builds.return_value = builds = [Mock()]
@@ -96,13 +100,14 @@ def test_jenkins_skip_other_branch():
 @asyncio.coroutine
 def test_jenkins_skip_unknown_branch():
     from time import time
-    from jenkins_epo.extensions.jenkins import AutoCancelExtension
+    from jenkins_epo.extensions.jenkins import PollExtension
 
-    ext = AutoCancelExtension('test', Mock())
+    ext = PollExtension('test', Mock())
     ext.current = ext.bot.current
     ext.current.cancel_queue = []
     ext.current.head.ref = 'branch'
     ext.current.job_specs = {'job': Mock()}
+    ext.current.job_specs['job'].name = 'job'
     ext.current.jobs = {}
     ext.current.jobs['job'] = job = Mock()
     job.get_builds.return_value = builds = [Mock()]
@@ -120,14 +125,15 @@ def test_jenkins_skip_unknown_branch():
 @asyncio.coroutine
 def test_jenkins_skip_current_sha():
     from time import time
-    from jenkins_epo.extensions.jenkins import AutoCancelExtension
+    from jenkins_epo.extensions.jenkins import PollExtension
 
-    ext = AutoCancelExtension('test', Mock())
+    ext = PollExtension('test', Mock())
     ext.current = ext.bot.current
     ext.current.cancel_queue = []
     ext.current.head.ref = 'branch'
     ext.current.last_commit.sha = 'bab1'
     ext.current.job_specs = {'job': Mock()}
+    ext.current.job_specs['job'].name = 'job'
     ext.current.jobs = {}
     ext.current.jobs['job'] = job = Mock()
     job.list_contexts.return_value = []
@@ -148,15 +154,16 @@ def test_jenkins_preset_status_cloning():
     # When Jenkins is cloning, the build is real, we preset status with latest
     # sha.
     from time import time
-    from jenkins_epo.extensions.jenkins import AutoCancelExtension
+    from jenkins_epo.extensions.jenkins import PollExtension
 
-    ext = AutoCancelExtension('test', Mock())
+    ext = PollExtension('test', Mock())
     ext.current = ext.bot.current
     ext.current.cancel_queue = []
     ext.current.head.ref = 'branch'
     ext.current.last_commit.sha = 'bab1'
     ext.current.statuses = {}
     ext.current.job_specs = {'job': Mock()}
+    ext.current.job_specs['job'].name = 'job'
     ext.current.jobs = {}
     ext.current.jobs['job'] = job = Mock()
     job.list_contexts.return_value = ['job']
@@ -184,15 +191,16 @@ def test_jenkins_preset_status_cloning():
 @asyncio.coroutine
 def test_jenkins_preset_status_fail():
     from time import time
-    from jenkins_epo.extensions.jenkins import AutoCancelExtension
+    from jenkins_epo.extensions.jenkins import PollExtension
 
-    ext = AutoCancelExtension('test', Mock())
+    ext = PollExtension('test', Mock())
     ext.current = ext.bot.current
     ext.current.cancel_queue = []
     ext.current.head.ref = 'branch'
     ext.current.last_commit.sha = 'bab1'
     ext.current.statuses = {}
     ext.current.job_specs = {'job': Mock()}
+    ext.current.job_specs['job'].name = 'job'
     ext.current.jobs = {}
     ext.current.jobs['job'] = job = Mock()
     job.list_contexts.return_value = ['job']
@@ -225,14 +233,15 @@ def test_jenkins_preset_status_fail():
 @asyncio.coroutine
 def test_jenkins_cancel():
     from time import time
-    from jenkins_epo.extensions.jenkins import AutoCancelExtension
+    from jenkins_epo.extensions.jenkins import PollExtension
 
-    ext = AutoCancelExtension('test', Mock())
+    ext = PollExtension('test', Mock())
     ext.current = ext.bot.current
     ext.current.cancel_queue = []
     ext.current.head.ref = 'branch'
     ext.current.last_commit.sha = 'bab1'
     ext.current.job_specs = {'job': Mock()}
+    ext.current.job_specs['job'].name = 'job'
     ext.current.jobs = {}
     ext.current.jobs['job'] = job = Mock()
     job.get_builds.return_value = builds = [Mock()]

@@ -308,7 +308,9 @@ class PollExtension(JenkinsExtension):
                 status = status.from_build(build)
                 yield status
 
-    def is_build_old(self, build, now, maxage):
+    def is_build_old(self, build):
+        now = datetime.now()
+        maxage = timedelta(hours=2)
         seconds = build._data['timestamp'] / 1000.
         build_date = datetime.fromtimestamp(seconds)
         build_age = now - build_date
@@ -320,59 +322,64 @@ class PollExtension(JenkinsExtension):
         return build_age > maxage
 
     @asyncio.coroutine
+    def poll_job(self, spec):
+        job = self.current.jobs[spec.name]
+        contextes = job.list_contexts(spec)
+        builds = reversed(sorted(
+            job.get_builds(),
+            key=lambda b: b.baseurl,
+        ))
+        for build in builds:
+            build.poll()
+            yield from switch_coro()
+            if self.is_build_old(build):
+                logger.debug("Stop polling %s for older builds.", spec.name)
+                break
+
+            if not build._data['building']:
+                continue
+
+            try:
+                build_ref, build_sha = (
+                    self.compute_build_ref_and_sha(job, build)
+                )
+            except TypeError:
+                logger.debug(
+                    "Can't infer build ref and sha for %s.", build,
+                )
+                continue
+
+            if build_ref != self.current.head.ref:
+                continue
+
+            if build_sha == self.current.last_commit.sha:
+                commit = self.current.last_commit
+                preset_statuses = self.iter_preset_statuses(
+                    contextes, build,
+                )
+                for status in preset_statuses:
+                    logger.info(
+                        "Preset pending status for %s.", status['context'],
+                    )
+                    commit.maybe_update_status(status)
+                    yield from switch_coro()
+                continue
+
+            commit = Commit(self.current.head.repository, build_sha)
+            status = CommitStatus(context=job.name).from_build(build)
+            logger.info("Queuing %s for cancel.", build)
+            self.current.cancel_queue.append((commit, status))
+
+    @asyncio.coroutine
     def run(self):
-        now = datetime.now()
-        maxage = timedelta(hours=2)
-        current_sha = self.current.last_commit.sha
         logger.info("Polling running builds on Jenkins.")
+        tasks = []
+        loop = asyncio.get_event_loop()
         for name, spec in self.current.job_specs.items():
-            job = self.current.jobs[name]
-            contextes = job.list_contexts(spec)
-            builds = reversed(sorted(
-                job.get_builds(),
-                key=lambda b: b.baseurl,
-            ))
-
-            for build in builds:
-                build.poll()
-                yield from switch_coro()
-                if self.is_build_old(build, now, maxage):
-                    logger.debug("Stopping build iteration for older builds.")
-                    break
-
-                if not build._data['building']:
-                    continue
-
-                try:
-                    build_ref, build_sha = (
-                        self.compute_build_ref_and_sha(job, build)
-                    )
-                except TypeError:
-                    logger.debug(
-                        "Can't infer build ref and sha for %s.", build,
-                    )
-                    continue
-
-                if build_ref != self.current.head.ref:
-                    continue
-
-                if build_sha == current_sha:
-                    commit = self.current.last_commit
-                    preset_statuses = self.iter_preset_statuses(
-                        contextes, build,
-                    )
-                    for status in preset_statuses:
-                        logger.info(
-                            "Preset pending status for %s.", status['context'],
-                        )
-                        commit.maybe_update_status(status)
-                        yield from switch_coro()
-                    continue
-
-                commit = Commit(self.current.head.repository, build_sha)
-                status = CommitStatus(context=job.name).from_build(build)
-                logger.info("Queuing %s for cancel.", build)
-                self.current.cancel_queue.append((commit, status))
+            tasks.append(
+                loop.create_task(self.poll_job(spec))
+            )
+        yield from asyncio.gather(*tasks)
 
 
 class Stage(object):
