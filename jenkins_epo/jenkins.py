@@ -116,7 +116,6 @@ class LazyJenkins(object):
 
     @retry
     def is_queue_empty(self):
-        logging.debug("GET %s queue.", SETTINGS.JENKINS_URL)
         queue = self.get_queue()
         queue.poll()
         data = queue._data
