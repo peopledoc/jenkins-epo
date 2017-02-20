@@ -469,6 +469,10 @@ def test_commit_status_from_build():
     new_status = status.from_build(build)
     assert 'failure' == new_status['state']
 
+    build.get_status.return_value = 'UNKNOWN'
+    new_status = status.from_build(build)
+    assert status == new_status
+
 
 @patch('jenkins_epo.repository.cached_request')
 def test_commit_date(cached_request):
