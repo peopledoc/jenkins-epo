@@ -2,12 +2,15 @@ import asyncio
 from unittest.mock import Mock
 from time import time
 
+from asynctest import CoroutineMock
 import pytest
 
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_jenkins_skip_outdated():
+def test_jenkins_skip_outdated(mocker):
+    RESTClient = mocker.patch('jenkins_epo.extensions.jenkins.RESTClient')
+    RESTClient().aget = aget = CoroutineMock()
     from jenkins_epo.extensions.jenkins import PollExtension
 
     ext = PollExtension('test', Mock())
@@ -19,7 +22,7 @@ def test_jenkins_skip_outdated():
     ext.current.jobs['job'] = job = Mock()
     job.get_builds.return_value = builds = [Mock()]
     build = builds[0]
-    build._data = {'timestamp': (time() - 7 * 3600) * 1000}
+    aget.return_value = {'timestamp': (time() - 7 * 3600) * 1000}
 
     yield from ext.run()
 
@@ -29,7 +32,9 @@ def test_jenkins_skip_outdated():
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_jenkins_wrong_timezone():
+def test_jenkins_wrong_timezone(mocker):
+    RESTClient = mocker.patch('jenkins_epo.extensions.jenkins.RESTClient')
+    RESTClient().aget = aget = CoroutineMock()
     from jenkins_epo.extensions.jenkins import PollExtension
 
     ext = PollExtension('test', Mock())
@@ -39,9 +44,10 @@ def test_jenkins_wrong_timezone():
     ext.current.job_specs['job'].name = 'job'
     ext.current.jobs = {}
     ext.current.jobs['job'] = job = Mock()
-    job.get_builds.return_value = builds = [Mock()]
-    build = builds[0]
-    build._data = {'timestamp': (time() + 2 * 3600) * 1000, 'building': False}
+    job.get_builds.return_value = [Mock()]
+    aget.return_value = {
+        'timestamp': (time() + 2 * 3600) * 1000, 'building': False,
+    }
 
     yield from ext.run()
 
@@ -50,7 +56,9 @@ def test_jenkins_wrong_timezone():
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_jenkins_skip_build_not_running():
+def test_jenkins_skip_build_not_running(mocker):
+    RESTClient = mocker.patch('jenkins_epo.extensions.jenkins.RESTClient')
+    RESTClient().aget = aget = CoroutineMock()
     from jenkins_epo.extensions.jenkins import PollExtension
 
     ext = PollExtension('test', Mock())
@@ -60,9 +68,10 @@ def test_jenkins_skip_build_not_running():
     ext.current.job_specs['job'].name = 'job'
     ext.current.jobs = {}
     ext.current.jobs['job'] = job = Mock()
-    job.get_builds.return_value = builds = [Mock()]
-    build = builds[0]
-    build._data = {'timestamp': (time() - 7 * 3600) * 1000, 'building': False}
+    job.get_builds.return_value = [Mock()]
+    aget.return_value = {
+        'timestamp': (time() - 7 * 3600) * 1000, 'building': False,
+    }
 
     yield from ext.run()
 
@@ -71,7 +80,9 @@ def test_jenkins_skip_build_not_running():
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_jenkins_skip_other_branch():
+def test_jenkins_skip_other_branch(mocker):
+    RESTClient = mocker.patch('jenkins_epo.extensions.jenkins.RESTClient')
+    RESTClient().aget = aget = CoroutineMock()
     from time import time
     from jenkins_epo.extensions.jenkins import PollExtension
 
@@ -85,7 +96,7 @@ def test_jenkins_skip_other_branch():
     job.get_builds.return_value = builds = [Mock()]
     ext.current.head.ref = 'branch'
     build = builds[0]
-    build._data = {'timestamp': time() * 1000, 'building': True}
+    aget.return_value = {'timestamp': time() * 1000, 'building': True}
     build.get_revision_branch.return_value = [
         {'name': 'refs/remote/origin/other'}
     ]
@@ -98,7 +109,9 @@ def test_jenkins_skip_other_branch():
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_jenkins_skip_unknown_branch():
+def test_jenkins_skip_unknown_branch(mocker):
+    RESTClient = mocker.patch('jenkins_epo.extensions.jenkins.RESTClient')
+    RESTClient().aget = aget = CoroutineMock()
     from time import time
     from jenkins_epo.extensions.jenkins import PollExtension
 
@@ -112,7 +125,7 @@ def test_jenkins_skip_unknown_branch():
     ext.current.jobs['job'] = job = Mock()
     job.get_builds.return_value = builds = [Mock()]
     build = builds[0]
-    build._data = {'timestamp': time() * 1000, 'building': True}
+    aget.return_value = {'timestamp': time() * 1000, 'building': True}
     build.get_revision_branch.return_value = [{'name': 'otherremote/other'}]
 
     yield from ext.run()
@@ -123,7 +136,9 @@ def test_jenkins_skip_unknown_branch():
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_jenkins_skip_current_sha():
+def test_jenkins_skip_current_sha(mocker):
+    RESTClient = mocker.patch('jenkins_epo.extensions.jenkins.RESTClient')
+    RESTClient().aget = aget = CoroutineMock()
     from time import time
     from jenkins_epo.extensions.jenkins import PollExtension
 
@@ -139,7 +154,7 @@ def test_jenkins_skip_current_sha():
     job.list_contexts.return_value = []
     job.get_builds.return_value = builds = [Mock()]
     build = builds[0]
-    build._data = {'timestamp': time() * 1000, 'building': True}
+    aget.return_value = {'timestamp': time() * 1000, 'building': True}
     build.get_revision_branch.return_value = [{'name': 'origin/branch'}]
     build.get_revision.return_value = 'bab1'
 
@@ -150,9 +165,11 @@ def test_jenkins_skip_current_sha():
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_jenkins_preset_status_cloning():
+def test_jenkins_preset_status_cloning(mocker):
     # When Jenkins is cloning, the build is real, we preset status with latest
     # sha.
+    RESTClient = mocker.patch('jenkins_epo.extensions.jenkins.RESTClient')
+    RESTClient().aget = aget = CoroutineMock()
     from time import time
     from jenkins_epo.extensions.jenkins import PollExtension
 
@@ -170,7 +187,7 @@ def test_jenkins_preset_status_cloning():
     job.get_builds.return_value = builds = [Mock()]
     job.revision_param = 'R'
     build = builds[0]
-    build._data = {
+    aget.return_value = {
         'timestamp': time() * 1000, 'building': True,
         'actions': [
             {'parameters': [{
@@ -189,7 +206,9 @@ def test_jenkins_preset_status_cloning():
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_jenkins_preset_status_fail():
+def test_jenkins_preset_status_fail(mocker):
+    RESTClient = mocker.patch('jenkins_epo.extensions.jenkins.RESTClient')
+    RESTClient().aget = aget = CoroutineMock()
     from time import time
     from jenkins_epo.extensions.jenkins import PollExtension
 
@@ -209,7 +228,7 @@ def test_jenkins_preset_status_fail():
     build = builds[0]
     build.get_revision_branch.return_value = []
     # Build with no parameters
-    build._data = {
+    aget.return_value = {
         'timestamp': time() * 1000, 'building': True,
         'actions': [],
     }
@@ -221,7 +240,7 @@ def test_jenkins_preset_status_fail():
 
     # Build with no revision param
     ext.current.last_commit.maybe_update_status.reset_mock()
-    build._data['actions'].append({'parameters': []})
+    aget.return_value['actions'].append({'parameters': []})
 
     yield from ext.run()
 
@@ -231,7 +250,9 @@ def test_jenkins_preset_status_fail():
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_jenkins_cancel():
+def test_jenkins_cancel(mocker):
+    RESTClient = mocker.patch('jenkins_epo.extensions.jenkins.RESTClient')
+    RESTClient().aget = aget = CoroutineMock()
     from time import time
     from jenkins_epo.extensions.jenkins import PollExtension
 
@@ -246,7 +267,7 @@ def test_jenkins_cancel():
     ext.current.jobs['job'] = job = Mock()
     job.get_builds.return_value = builds = [Mock()]
     build = builds[0]
-    build._data = {
+    aget.return_value = {
         'url': 'jenkins://running/1',
         'timestamp': time() * 1000,
         'building': True,

@@ -21,7 +21,7 @@ import re
 from jenkinsapi.custom_exceptions import UnknownJob
 
 from ..bot import Extension, Error, SkipHead
-from ..jenkins import JENKINS
+from ..jenkins import JENKINS, RESTClient
 from ..repository import Commit, CommitStatus
 from ..utils import match, switch_coro
 
@@ -330,7 +330,10 @@ class PollExtension(JenkinsExtension):
             key=lambda b: b.baseurl,
         ))
         for build in builds:
-            build.poll()
+            build._data = yield from (
+                RESTClient(build.baseurl)
+                .aget(depth=build.depth)
+            )
             yield from switch_coro()
             if self.is_build_old(build):
                 logger.debug("Stop polling %s for older builds.", spec.name)
