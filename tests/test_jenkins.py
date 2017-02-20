@@ -19,7 +19,7 @@ def test_rest_client(mocker):
     session.get = CoroutineMock(return_value=response)
     response.json = CoroutineMock(return_value=dict(unittest=True))
 
-    payload = yield from client.aget()
+    payload = yield from client.aget(param=1)
 
     assert payload['unittest']
 

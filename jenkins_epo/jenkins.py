@@ -26,6 +26,7 @@ from jenkinsapi.jenkins import Jenkins, Requester
 from jenkins_yml import Job as JobSpec
 import requests
 import yaml
+from yarl import URL
 
 from .settings import SETTINGS
 from .utils import match, parse_patterns, retry
@@ -45,9 +46,11 @@ class RESTClient(object):
     def __getattr__(self, name):
         return self(name)
 
-    def aget(self):
+    def aget(self, **kw):
         session = aiohttp.ClientSession()
-        url = '%s/api/json' % (self.path)
+        url = URL('%s/api/json' % (self.path))
+        if kw:
+            url = url.with_query(**kw)
         logger.debug("GET %s", url)
         try:
             response = yield from session.get(url, timeout=10)
