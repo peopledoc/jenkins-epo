@@ -1,5 +1,6 @@
 import asyncio
 from asynctest import patch, CoroutineMock, Mock
+from time import time
 
 import pytest
 
@@ -34,6 +35,110 @@ def test_lazy_load(mocker):
 
     assert Jenkins.mock_calls
     assert JENKINS._instance
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_fetch_builds(mocker):
+    RESTClient = mocker.patch('jenkins_epo.jenkins.RESTClient')
+    RESTClient().aget = aget = CoroutineMock(return_value=dict(builds=[]))
+    from jenkins_epo.jenkins import Job
+
+    api_instance = Mock(_data=dict())
+    api_instance.name = 'freestyle'
+    xml = api_instance._get_config_element_tree.return_value
+    xml.findall.return_value = []
+    xml.find.return_value = None
+
+    job = Job(api_instance)
+    yield from job.fetch_builds()
+
+    assert aget.mock_calls
+
+
+def test_process_builds():
+    from jenkins_epo.jenkins import Job
+
+    api_instance = Mock(_data=dict())
+    api_instance.name = 'freestyle'
+    xml = api_instance._get_config_element_tree.return_value
+    xml.findall.return_value = []
+    xml.find.return_value = None
+
+    job = Job(api_instance)
+
+    builds = list(job.process_builds([
+        {'number': 1, 'url': 'url://'},
+        {'number': 2, 'url': 'url://'},
+    ]))
+
+    assert 2 == len(builds)
+    assert 2 == builds[0].buildno
+    assert 1 == builds[1].buildno
+
+
+def test_build_props():
+    from jenkins_epo.jenkins import Build
+
+    build = Build(job=Mock(), payload={
+        'timestamp': 1000 * (time() - 3600 * 4),
+        'building': False,
+    }, api_instance=Mock())
+
+    assert build.is_outdated
+    assert not build.is_running
+    assert str(build)
+
+    with pytest.raises(Exception):
+        build.sha
+
+    build.payload['lastBuiltRevision'] = {'branch': {'SHA1': 'cafed0d0'}}
+    assert build.sha == 'cafed0d0'
+
+
+def test_build_ref():
+    from jenkins_epo.jenkins import Build
+
+    build = Build(job=Mock(), payload={}, api_instance=Mock())
+
+    with pytest.raises(Exception):
+        build.ref
+
+    build.job.revision_param = 'R'
+    build.params['R'] = 'refs/heads/master'
+
+    assert 'master' == build.ref
+
+    build.payload['lastBuiltRevision'] = {
+        'branch': {'name': 'otherremote/master'}
+    }
+
+    with pytest.raises(Exception):
+        build.ref
+
+    build.payload['lastBuiltRevision'] = {
+        'branch': {'name': 'refs/remote/origin/master'}
+    }
+
+    assert 'master' == build.ref
+
+
+def test_build_params():
+    from jenkins_epo.jenkins import Build
+
+    assert 0 == len(Build.process_params({}))
+    assert 0 == len(Build.process_params({'actions': [{'parameters': []}]}))
+    assert 0 == len(Build.process_params({
+        'actions': [{'parameters': [{'name': 'value'}]}]
+    }))
+
+
+def test_build_future():
+    from jenkins_epo.jenkins import Build
+
+    build = Build(job=Mock(), payload={'timestamp': 1000 * (time() + 300)})
+
+    assert not build.is_outdated
 
 
 def test_freestyle_build(SETTINGS):

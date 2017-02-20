@@ -15,7 +15,7 @@
 
 import ast
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from itertools import product
 import logging
 import re
@@ -47,6 +47,7 @@ class RESTClient(object):
     def __getattr__(self, name):
         return self(name)
 
+    @retry
     def afetch(self, **kw):
         session = aiohttp.ClientSession()
         url = URL(self.path)
@@ -195,13 +196,70 @@ JENKINS = LazyJenkins()
 
 
 class Build(object):
-    def __init__(self, job, payload, api_instance):
+    def __init__(self, job, payload, api_instance=None):
         self.job = job
         self.payload = payload
         self._instance = api_instance
+        self.params = self.process_params(payload)
+
+    @staticmethod
+    def process_params(payload):
+        for action in payload.get('actions', []):
+            if 'parameters' in action:
+                break
+        else:
+            return {}
+
+        return {
+            p['name']: p['value']
+            for p in action['parameters']
+            if 'value' in p
+        }
 
     def __getattr__(self, name):
         return getattr(self._instance, name)
+
+    def __str__(self):
+        return str(self._instance)
+
+    @property
+    def is_outdated(self):
+        now = datetime.now()
+        maxage = timedelta(hours=2)
+        seconds = self.payload['timestamp'] / 1000.
+        build_date = datetime.fromtimestamp(seconds)
+        if build_date > now:
+            logger.warning(
+                "Build %s in the future. Is timezone correct?", self
+            )
+            return False
+        build_age = now - build_date
+        return build_age > maxage
+
+    @property
+    def is_running(self):
+        return self.payload['building']
+
+    _ref_re = re.compile(r'.*origin/(?P<ref>.*)')
+
+    @property
+    def ref(self):
+        try:
+            fullref = self.payload['lastBuiltRevision']['branch']['name']
+        except (TypeError, KeyError):
+            return self.params[self.job.revision_param][len('refs/heads/'):]
+        else:
+            match = self._ref_re.match(fullref)
+            if not match:
+                raise Exception("Unknown branch %s" % fullref)
+            return match.group('ref')
+
+    @property
+    def sha(self):
+        try:
+            return self.payload['lastBuiltRevision']['branch']['SHA1']
+        except (TypeError, KeyError):
+            raise Exception("No SHA1 yet.")
 
 
 class Job(object):
@@ -297,14 +355,12 @@ class Job(object):
         return self._node_param
 
     @asyncio.coroutine
-    def update_data_async(self):
-        client = RESTClient(self._instance.baseurl)
-        self._instance._data = yield from client.aget()
-
-    @asyncio.coroutine
     def fetch_builds(self):
         tree = "builds[" + (
-            "actions[parameters[name,value]],"
+            "actions[" + (
+                "parameters[name,value],"
+                "lastBuiltRevision[branch[name,SHA1]]"
+            ) + "],"
             "building,duration,number,result,timestamp,url"
         ) + "]"
         payload = yield from RESTClient(self.baseurl).aget(tree=tree)
@@ -320,10 +376,6 @@ class Job(object):
             )
             api_instance._data = entry
             yield Build(self, entry, api_instance)
-
-    def get_builds(self):
-        for number, url in self.get_build_dict().items():
-            yield Build(url, number, self._instance)
 
 
 class FreestyleJob(Job):

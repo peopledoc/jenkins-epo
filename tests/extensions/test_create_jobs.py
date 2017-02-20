@@ -226,6 +226,7 @@ def test_jenkins_create_success(mocker):
 
     ext = CreateJobsExtension('createjob', Mock())
     ext.current = ext.bot.current
+    ext.current.head.sha = 'cafed0d0'
     ext.current.head.repository.jobs = {}
     ext.current.job_specs = dict(new=JobSpec('new', dict(periodic=True)))
     ext.current.jobs = {}
@@ -254,6 +255,7 @@ def test_jenkins_fails_existing(mocker):
     ext = CreateJobsExtension('createjob', Mock())
     ext.current = ext.bot.current
     ext.current.errors = []
+    ext.current.head.sha = 'cafed0d0'
     ext.current.head.repository.jobs = {'job': Mock()}
     ext.current.job_specs = dict(job=JobSpec.factory('job', 'toto'))
     ext.current.jobs = {'job': Mock()}

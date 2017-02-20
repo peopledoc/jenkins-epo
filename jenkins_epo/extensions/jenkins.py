@@ -14,9 +14,7 @@
 
 import asyncio
 from collections import OrderedDict
-from datetime import datetime, timedelta
 import logging
-import re
 
 from jenkinsapi.custom_exceptions import UnknownJob
 
@@ -275,35 +273,6 @@ Failed to create or update Jenkins job `%(name)s`.
 class PollExtension(JenkinsExtension):
     stage = '30'
 
-    ref_re = re.compile(r'.*origin/(?P<ref>.*)')
-
-    def compute_build_ref_and_sha(self, job, build):
-        try:
-            jenkins_fullref = build.get_revision_branch()[0]['name']
-        except IndexError:
-            for action in build._data['actions']:
-                if 'parameters' in action:
-                    break
-            else:
-                return
-            for parameter in action['parameters']:
-                if parameter['name'] == job.revision_param:
-                    break
-            else:
-                return
-            return (
-                parameter['value'][len('refs/heads/'):],
-                self.current.last_commit.sha
-            )
-        else:
-            match = self.ref_re.match(jenkins_fullref)
-            if not match:
-                return
-            return (
-                match.group('ref'),
-                build.get_revision()
-            )
-
     def iter_preset_statuses(self, contextes, build):
         for context in contextes:
             default_status = CommitStatus(
@@ -317,19 +286,6 @@ class PollExtension(JenkinsExtension):
                 status = status.from_build(build)
                 yield status
 
-    def is_build_old(self, build):
-        now = datetime.now()
-        maxage = timedelta(hours=2)
-        seconds = build._data['timestamp'] / 1000.
-        build_date = datetime.fromtimestamp(seconds)
-        build_age = now - build_date
-        if build_date > now:
-            logger.warning(
-                "Build %s in the future. Is timezone correct?", build
-            )
-            return False
-        return build_age > maxage
-
     @asyncio.coroutine
     def poll_job(self, spec):
         asyncio.Task.current_task().logging_id = self.current.head.sha[:4]
@@ -337,26 +293,19 @@ class PollExtension(JenkinsExtension):
         payload = yield from job.fetch_builds()
         contextes = job.list_contexts(spec)
         for build in job.process_builds(payload):
-            if self.is_build_old(build):
+            if not build.is_running:
+                continue
+
+            if build.is_outdated:
                 break
 
-            if not build._data['building']:
+            if build.ref != self.current.head.ref:
                 continue
 
             try:
-                build_ref, build_sha = (
-                    self.compute_build_ref_and_sha(job, build)
-                )
-            except TypeError:
-                logger.debug(
-                    "Can't infer build ref and sha for %s.", build,
-                )
-                continue
-
-            if build_ref != self.current.head.ref:
-                continue
-
-            if build_sha == self.current.last_commit.sha:
+                if build.sha == self.current.head.sha:
+                    continue
+            except Exception:
                 commit = self.current.last_commit
                 preset_statuses = self.iter_preset_statuses(
                     contextes, build,
@@ -368,11 +317,11 @@ class PollExtension(JenkinsExtension):
                     commit.maybe_update_status(status)
                     yield from switch_coro()
                 continue
-
-            commit = Commit(self.current.head.repository, build_sha)
-            status = CommitStatus(context=job.name).from_build(build)
-            logger.info("Queuing %s for cancel.", build)
-            self.current.cancel_queue.append((commit, status))
+            else:
+                commit = Commit(self.current.head.repository, build.sha)
+                status = CommitStatus(context=job.name).from_build(build)
+                logger.info("Queuing %s for cancel.", build)
+                self.current.cancel_queue.append((commit, status))
         logger.debug("Polling %s done.", spec.name)
 
     @asyncio.coroutine
