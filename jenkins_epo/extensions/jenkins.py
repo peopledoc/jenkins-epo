@@ -77,6 +77,7 @@ class BuilderExtension(JenkinsExtension):
                 rebuild_failed=self.current.rebuild_failed
             )
             queue_empty = JENKINS.is_queue_empty()
+            yield from switch_coro()
             toqueue_contexts = []
             for context in not_built:
                 logger.debug("Computing new status for %s.", spec)
@@ -99,6 +100,7 @@ class BuilderExtension(JenkinsExtension):
                                 target_url=job.baseurl,
                             )
                         )
+                        yield from switch_coro()
 
     def status_for_new_context(self, job, context, queue_empty):
         new_status = CommitStatus(target_url=job.baseurl, context=context)
