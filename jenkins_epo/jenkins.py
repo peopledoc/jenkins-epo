@@ -13,15 +13,16 @@
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import ast
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from itertools import product
 import logging
 import re
 
 import aiohttp
 from jenkinsapi.jenkinsbase import JenkinsBase
-from jenkinsapi.build import Build
+from jenkinsapi.build import Build as JenkinsBuild
 from jenkinsapi.jenkins import Jenkins, Requester
 from jenkins_yml import Job as JobSpec
 import requests
@@ -46,18 +47,23 @@ class RESTClient(object):
     def __getattr__(self, name):
         return self(name)
 
-    def aget(self, **kw):
+    @retry
+    def afetch(self, **kw):
         session = aiohttp.ClientSession()
-        url = URL('%s/api/json' % (self.path))
+        url = URL(self.path)
         if kw:
             url = url.with_query(**kw)
         logger.debug("GET %s", url)
         try:
             response = yield from session.get(url, timeout=10)
-            payload = yield from response.json()
+            payload = yield from response.read()
         finally:
             yield from session.close()
-        return payload
+        return payload.decode('utf-8')
+
+    def aget(self, **kw):
+        payload = yield from self.api.python.afetch(**kw)
+        return ast.literal_eval(payload)
 
 
 class VerboseRequester(Requester):
@@ -110,7 +116,6 @@ class LazyJenkins(object):
 
     @retry
     def is_queue_empty(self):
-        logging.debug("GET %s queue.", SETTINGS.JENKINS_URL)
         queue = self.get_queue()
         queue.poll()
         data = queue._data
@@ -132,8 +137,9 @@ class LazyJenkins(object):
     def aget_job(self, name):
         self.load()
         instance = self._instance.get_job(name)
-        data = yield from RESTClient(instance.baseurl).aget()
-        instance._data = data
+        client = RESTClient(instance.baseurl)
+        instance._data = yield from client.aget()
+        instance._config = yield from client('config.xml').afetch()
         return Job.factory(instance)
 
     DESCRIPTION_TMPL = """\
@@ -186,6 +192,73 @@ class LazyJenkins(object):
 
 
 JENKINS = LazyJenkins()
+
+
+class Build(object):
+    def __init__(self, job, payload, api_instance=None):
+        self.job = job
+        self.payload = payload
+        self._instance = api_instance
+        self.params = self.process_params(payload)
+
+    @staticmethod
+    def process_params(payload):
+        for action in payload.get('actions', []):
+            if 'parameters' in action:
+                break
+        else:
+            return {}
+
+        return {
+            p['name']: p['value']
+            for p in action['parameters']
+            if 'value' in p
+        }
+
+    def __getattr__(self, name):
+        return getattr(self._instance, name)
+
+    def __str__(self):
+        return str(self._instance)
+
+    @property
+    def is_outdated(self):
+        now = datetime.now()
+        maxage = timedelta(hours=2)
+        seconds = self.payload['timestamp'] / 1000.
+        build_date = datetime.fromtimestamp(seconds)
+        if build_date > now:
+            logger.warning(
+                "Build %s in the future. Is timezone correct?", self
+            )
+            return False
+        build_age = now - build_date
+        return build_age > maxage
+
+    @property
+    def is_running(self):
+        return self.payload['building']
+
+    _ref_re = re.compile(r'.*origin/(?P<ref>.*)')
+
+    @property
+    def ref(self):
+        try:
+            fullref = self.payload['lastBuiltRevision']['branch']['name']
+        except (TypeError, KeyError):
+            return self.params[self.job.revision_param][len('refs/heads/'):]
+        else:
+            match = self._ref_re.match(fullref)
+            if not match:
+                raise Exception("Unknown branch %s" % fullref)
+            return match.group('ref')
+
+    @property
+    def sha(self):
+        try:
+            return self.payload['lastBuiltRevision']['branch']['SHA1']
+        except (TypeError, KeyError):
+            raise Exception("No SHA1 yet.")
 
 
 class Job(object):
@@ -281,13 +354,27 @@ class Job(object):
         return self._node_param
 
     @asyncio.coroutine
-    def update_data_async(self):
-        client = RESTClient(self._instance.baseurl)
-        self._instance._data = yield from client.aget()
+    def fetch_builds(self):
+        tree = "builds[" + (
+            "actions[" + (
+                "parameters[name,value],"
+                "lastBuiltRevision[branch[name,SHA1]]"
+            ) + "],"
+            "building,duration,number,result,timestamp,url"
+        ) + "]"
+        payload = yield from RESTClient(self.baseurl).aget(tree=tree)
+        return payload['builds']
 
-    def get_builds(self):
-        for number, url in self.get_build_dict().items():
-            yield Build(url, number, self._instance)
+    def process_builds(self, payload):
+        payload = reversed(sorted(payload, key=lambda b: b['number']))
+        for entry in payload:
+            api_instance = JenkinsBuild(
+                url=entry['url'],
+                buildno=entry['number'],
+                job=self._instance
+            )
+            api_instance._data = entry
+            yield Build(self, entry, api_instance)
 
 
 class FreestyleJob(Job):
