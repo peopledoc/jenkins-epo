@@ -15,9 +15,11 @@ def test_rest_client(mocker):
 
     session = ClientSession.return_value
 
-    response = Mock()
+    response = Mock(name='response')
     session.get = CoroutineMock(return_value=response)
-    response.json = CoroutineMock(return_value=dict(unittest=True))
+    response.read = CoroutineMock(
+        return_value=repr(dict(unittest=True)).encode('utf-8')
+    )
 
     payload = yield from client.aget(param=1)
 

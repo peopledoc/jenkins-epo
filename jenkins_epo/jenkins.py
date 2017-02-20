@@ -13,6 +13,7 @@
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import ast
 import asyncio
 from datetime import datetime
 from itertools import product
@@ -48,16 +49,16 @@ class RESTClient(object):
 
     def aget(self, **kw):
         session = aiohttp.ClientSession()
-        url = URL('%s/api/json' % (self.path))
+        url = URL('%s/api/python' % (self.path))
         if kw:
             url = url.with_query(**kw)
         logger.debug("GET %s", url)
         try:
             response = yield from session.get(url, timeout=10)
-            payload = yield from response.json()
+            payload = yield from response.read()
         finally:
             yield from session.close()
-        return payload
+        return ast.literal_eval(payload.decode('utf-8'))
 
 
 class VerboseRequester(Requester):
