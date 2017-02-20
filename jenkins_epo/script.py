@@ -150,8 +150,9 @@ def entrypoint(argv=None):
         logger.info("Done.")
     except bdb.BdbQuit:
         logger.info('Graceful exit from debugger.')
-    except Exception:
+    except Exception as e:
         if SETTINGS.DEBUG:
+            logger.error("%s: %s", type(e), e)
             post_mortem()
         else:
             logger.exception("Unhandled error:")
