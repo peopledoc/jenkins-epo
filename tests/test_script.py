@@ -105,7 +105,7 @@ def test_entrypoint_interrupt(mocker):
     assert CACHE.close.mock_calls
 
 
-def test_entrypoint_pdb(mocker):
+def test_entrypoint_bdb_quit(mocker):
     mocker.patch('jenkins_epo.script.logging')
     from jenkins_epo.script import entrypoint
     from bdb import BdbQuit
@@ -118,3 +118,20 @@ def test_entrypoint_pdb(mocker):
     with pytest.raises(SystemExit):
         entrypoint()
     assert CACHE.close.mock_calls
+
+
+def test_entrypoint_drop_in_pdb(SETTINGS, mocker):
+    SETTINGS.DEBUG = 1
+
+    mocker.patch('jenkins_epo.cache.CACHE')
+    mocker.patch('jenkins_epo.script.logging')
+    main = mocker.patch('jenkins_epo.main.main')
+    pm = mocker.patch('jenkins_epo.script.post_mortem')
+
+    from jenkins_epo.script import entrypoint
+
+    main.side_effect = Exception()
+    with pytest.raises(SystemExit):
+        entrypoint()
+
+    assert pm.mock_calls
