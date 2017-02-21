@@ -1,6 +1,7 @@
 import asyncio
 from unittest.mock import Mock
 
+from asynctest import CoroutineMock
 import pytest
 
 
@@ -119,24 +120,28 @@ def test_build_failed():
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_cancel_ignore_other(mocker):
-    JENKINS = mocker.patch('jenkins_epo.extensions.jenkins.JENKINS')
-    from jenkins_epo.extensions.jenkins import CancellerExtension, CommitStatus
+    Build = mocker.patch('jenkins_epo.extensions.jenkins.Build')
+    from jenkins_epo.extensions.jenkins import (
+        CancellerExtension, CommitStatus, NotOnJenkins
+    )
 
-    JENKINS.baseurl = 'jenkins://'
+    Build.from_url = CoroutineMock(side_effect=NotOnJenkins())
 
     commit = Mock()
 
     ext = CancellerExtension('test', Mock())
     ext.current = ext.bot.current
+    ext.current.head.sha = 'cafed0d0'
     ext.current.poll_queue = []
     ext.current.cancel_queue = [
-        (commit, CommitStatus(context='ci/...', target_url='circleci://1')),
+        (commit, CommitStatus(
+            context='ci/...', target_url='circleci://1', state='pending',
+        )),
     ]
     ext.current.last_commit.fetch_statuses.return_value = []
 
     yield from ext.run()
 
-    assert not JENKINS.get_build_from_url.mock_calls
     assert not commit.maybe_update_status.mock_calls
 
 
@@ -144,6 +149,7 @@ def test_cancel_ignore_other(mocker):
 @asyncio.coroutine
 def test_cancel_build_running(mocker):
     JENKINS = mocker.patch('jenkins_epo.extensions.jenkins.JENKINS')
+    Build = mocker.patch('jenkins_epo.extensions.jenkins.Build')
     from jenkins_epo.extensions.jenkins import CancellerExtension, CommitStatus
 
     JENKINS.baseurl = 'jenkins://'
@@ -152,6 +158,7 @@ def test_cancel_build_running(mocker):
 
     ext = CancellerExtension('test', Mock())
     ext.current = ext.bot.current
+    ext.current.head.sha = 'cafed0d0'
     ext.current.poll_queue = []
     ext.current.cancel_queue = [
         (commit, CommitStatus(context='job', target_url='jenkins://job/1')),
@@ -159,8 +166,8 @@ def test_cancel_build_running(mocker):
     ext.current.SETTINGS.DRY_RUN = 0
     ext.current.last_commit.fetch_statuses.return_value = []
 
-    build = JENKINS.get_build_from_url.return_value
-    build.get_status.return_value = None
+    Build.from_url = CoroutineMock()
+    build = Build.from_url.return_value
 
     yield from ext.run()
 
@@ -172,6 +179,7 @@ def test_cancel_build_running(mocker):
 @asyncio.coroutine
 def test_poll_build_running(mocker):
     JENKINS = mocker.patch('jenkins_epo.extensions.jenkins.JENKINS')
+    Build = mocker.patch('jenkins_epo.extensions.jenkins.Build')
     from jenkins_epo.extensions.jenkins import CancellerExtension, CommitStatus
 
     JENKINS.baseurl = 'jenkins://'
@@ -180,17 +188,15 @@ def test_poll_build_running(mocker):
 
     ext = CancellerExtension('test', Mock())
     ext.current = ext.bot.current
+    ext.current.head.sha = 'cafed0d0'
     ext.current.cancel_queue = []
     ext.current.poll_queue = [
         (commit, CommitStatus(context='job', target_url='jenkins://job/1')),
     ]
     ext.current.last_commit.fetch_statuses.return_value = []
 
-    build = JENKINS.get_build_from_url.return_value
-    build.get_status.return_value = None
-    build._data = {
-        'duration': 0, 'displayName': '#6', 'url': 'jenkins://job/1',
-    }
+    Build.from_url = CoroutineMock()
+    build = Build.from_url.return_value
 
     yield from ext.run()
 
@@ -202,12 +208,14 @@ def test_poll_build_running(mocker):
 @asyncio.coroutine
 def test_poll_lost_build(mocker):
     JENKINS = mocker.patch('jenkins_epo.extensions.jenkins.JENKINS')
+    Build = mocker.patch('jenkins_epo.extensions.jenkins.Build')
     from jenkins_epo.extensions.jenkins import CancellerExtension, CommitStatus
 
     commit = Mock()
 
     ext = CancellerExtension('test', Mock())
     ext.current = ext.bot.current
+    ext.current.head.sha = 'cafed0d0'
     ext.current.poll_queue = []
     ext.current.cancel_queue = [
         (commit, CommitStatus(context='job', target_url='jenkins://job/1')),
@@ -215,8 +223,9 @@ def test_poll_lost_build(mocker):
     ext.current.last_commit.fetch_statuses.return_value = []
 
     JENKINS.baseurl = 'jenkins://'
-    JENKINS.get_build_from_url.side_effect = Exception('POUET')
+    Build.from_url = CoroutineMock()
 
     yield from ext.run()
 
+    assert Build.from_url.mock_calls
     assert commit.maybe_update_status.mock_calls

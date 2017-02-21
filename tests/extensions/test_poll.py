@@ -7,7 +7,7 @@ import pytest
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_jenkins_skip_outdated():
+def test_skip_outdated():
     from jenkins_epo.extensions.jenkins import PollExtension
 
     ext = PollExtension('test', Mock())
@@ -31,7 +31,7 @@ def test_jenkins_skip_outdated():
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_jenkins_skip_build_not_running():
+def test_skip_build_not_running():
     from jenkins_epo.extensions.jenkins import PollExtension
 
     ext = PollExtension('test', Mock())
@@ -55,7 +55,7 @@ def test_jenkins_skip_build_not_running():
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_jenkins_skip_other_branch():
+def test_skip_other_branch():
     from jenkins_epo.extensions.jenkins import PollExtension
 
     ext = PollExtension('test', Mock())
@@ -81,7 +81,7 @@ def test_jenkins_skip_other_branch():
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_jenkins_skip_current_sha(mocker):
+def test_skip_current_sha(mocker):
     from jenkins_epo.extensions.jenkins import PollExtension
 
     ext = PollExtension('test', Mock())
@@ -109,7 +109,7 @@ def test_jenkins_skip_current_sha(mocker):
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_jenkins_preset_status_cloning(mocker):
+def test_preset_status_cloning(mocker):
     # When Jenkins is cloning, the build is real but no status is reported, we
     # preset status on latest sha.
     from jenkins_epo.extensions.jenkins import PollExtension
@@ -127,14 +127,14 @@ def test_jenkins_preset_status_cloning(mocker):
     job.list_contexts.return_value = ['job']
     job.fetch_builds = CoroutineMock()
     job.process_builds.return_value = builds = [Mock(spec=[
-        '_data', 'is_outdated', 'is_running', 'ref', 'baseurl', 'get_status',
+        'is_outdated', 'is_running', 'ref', 'url'
     ])]
     build = builds[0]
     build.is_outdated = False
     build.is_running = True
     build.ref = 'branch'
-    build.get_status.return_value = None
-    build._data = dict(displayName='#1', duration=1, url='url://')
+    build.commit_status = dict()
+    build.url = 'url://'
 
     yield from ext.run()
 
@@ -144,7 +144,7 @@ def test_jenkins_preset_status_cloning(mocker):
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_jenkins_cancel(mocker):
+def test_cancel(mocker):
     from jenkins_epo.extensions.jenkins import PollExtension
 
     ext = PollExtension('test', Mock())
@@ -163,8 +163,8 @@ def test_jenkins_cancel(mocker):
     build.is_running = True
     build.ref = 'branch'
     build.sha = '01d'
-    build.get_status.return_value = None
-    build._data = dict(displayName='#1', duration=1, url='url://')
+    build.url = 'url://'
+    build.commit_status = dict()
 
     yield from ext.run()
 

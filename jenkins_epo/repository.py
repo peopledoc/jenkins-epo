@@ -28,9 +28,7 @@ from .github import (
     cached_arequest, cached_request, unpaginate, GITHUB, ApiNotFoundError
 )
 from .settings import SETTINGS
-from .utils import (
-    Bunch, format_duration, match, parse_datetime, parse_patterns, retry,
-)
+from .utils import Bunch, match, parse_datetime, parse_patterns, retry
 
 
 logger = logging.getLogger(__name__)
@@ -93,34 +91,6 @@ class CommitStatus(dict):
         if self.get('description') in {'Skipped', 'Disabled on Jenkins.'}:
             return True
         return False
-
-    jenkins_status_map = {
-        # Requeue an aborted job
-        'ABORTED': ('error', 'Aborted!'),
-        'FAILURE': ('failure', 'Build %(name)s failed in %(duration)s!'),
-        'UNSTABLE': ('failure', 'Build %(name)s failed in %(duration)s!'),
-        'SUCCESS': ('success', 'Build %(name)s succeeded in %(duration)s!'),
-        None: ('pending', 'Build %(name)s in progress...'),
-    }
-
-    def from_build(self, build=None):
-        # If no build found, this may be an old CI build, or any other
-        # unconfirmed build. Retrigger.
-        jenkins_status = build.get_status() if build else 'ABORTED'
-        if build and jenkins_status in self.jenkins_status_map:
-            state, description = self.jenkins_status_map[jenkins_status]
-            if description != 'Backed':
-                description = description % dict(
-                    name=build._data['displayName'],
-                    duration=format_duration(build._data['duration']),
-                )
-            return self.__class__(
-                self, description=description, state=state,
-                target_url=build._data['url'],
-            )
-        else:
-            # Don't touch
-            return self.__class__(self)
 
 
 class RepositoriesRegistry(dict):

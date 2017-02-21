@@ -1,30 +1,7 @@
 import asyncio
 from asynctest import patch, CoroutineMock, Mock
-from time import time
 
 import pytest
-
-
-@pytest.mark.asyncio
-@asyncio.coroutine
-def test_rest_client(mocker):
-    ClientSession = mocker.patch('jenkins_epo.jenkins.aiohttp.ClientSession')
-    from jenkins_epo.jenkins import RESTClient
-
-    client = RESTClient()
-    client = client('http://jenkins/path').subpath
-
-    session = ClientSession.return_value
-
-    response = Mock(name='response')
-    session.get = CoroutineMock(return_value=response)
-    response.read = CoroutineMock(
-        return_value=repr(dict(unittest=True)).encode('utf-8')
-    )
-
-    payload = yield from client.aget(param=1)
-
-    assert payload['unittest']
 
 
 def test_lazy_load(mocker):
@@ -73,72 +50,8 @@ def test_process_builds():
     ]))
 
     assert 2 == len(builds)
-    assert 2 == builds[0].buildno
-    assert 1 == builds[1].buildno
-
-
-def test_build_props():
-    from jenkins_epo.jenkins import Build
-
-    build = Build(job=Mock(), payload={
-        'timestamp': 1000 * (time() - 3600 * 4),
-        'building': False,
-    }, api_instance=Mock())
-
-    assert build.is_outdated
-    assert not build.is_running
-    assert str(build)
-
-    with pytest.raises(Exception):
-        build.sha
-
-    build.payload['lastBuiltRevision'] = {'branch': {'SHA1': 'cafed0d0'}}
-    assert build.sha == 'cafed0d0'
-
-
-def test_build_ref():
-    from jenkins_epo.jenkins import Build
-
-    build = Build(job=Mock(), payload={}, api_instance=Mock())
-
-    with pytest.raises(Exception):
-        build.ref
-
-    build.job.revision_param = 'R'
-    build.params['R'] = 'refs/heads/master'
-
-    assert 'master' == build.ref
-
-    build.payload['lastBuiltRevision'] = {
-        'branch': {'name': 'otherremote/master'}
-    }
-
-    with pytest.raises(Exception):
-        build.ref
-
-    build.payload['lastBuiltRevision'] = {
-        'branch': {'name': 'refs/remote/origin/master'}
-    }
-
-    assert 'master' == build.ref
-
-
-def test_build_params():
-    from jenkins_epo.jenkins import Build
-
-    assert 0 == len(Build.process_params({}))
-    assert 0 == len(Build.process_params({'actions': [{'parameters': []}]}))
-    assert 0 == len(Build.process_params({
-        'actions': [{'parameters': [{'name': 'value'}]}]
-    }))
-
-
-def test_build_future():
-    from jenkins_epo.jenkins import Build
-
-    build = Build(job=Mock(), payload={'timestamp': 1000 * (time() + 300)})
-
-    assert not build.is_outdated
+    assert 2 == builds[0].number
+    assert 1 == builds[1].number
 
 
 def test_freestyle_build(SETTINGS):
@@ -362,8 +275,7 @@ def test_matrix_build(SETTINGS):
     assert api_instance.invoke.mock_calls
 
 
-@patch('jenkins_epo.jenkins.requests.post')
-def test_matrix_build_dry(post, SETTINGS):
+def test_matrix_build_dry(mocker, SETTINGS):
     from jenkins_epo.jenkins import MatrixJob, JobSpec
 
     SETTINGS.DRY_RUN = 1
@@ -382,11 +294,9 @@ def test_matrix_build_dry(post, SETTINGS):
     job._node_axis = job._revision_param = None
     job._combination_param = 'C'
 
-    post.return_value.status_code = 200
-
     job.build(Mock(url='url://'), spec, 'matrix')
 
-    assert not post.mock_calls
+    assert not job.api_instance.invoke.mock_calls
 
 
 @patch('jenkins_epo.jenkins.Job.factory')

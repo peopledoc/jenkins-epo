@@ -19,7 +19,7 @@ import logging
 from jenkinsapi.custom_exceptions import UnknownJob
 
 from ..bot import Extension, Error, SkipHead
-from ..jenkins import JENKINS
+from ..jenkins import Build, JENKINS, NotOnJenkins
 from ..repository import Commit, CommitStatus
 from ..utils import match, switch_coro
 
@@ -130,44 +130,42 @@ class CancellerExtension(JenkinsExtension):
             yield commit, status, False
 
     @asyncio.coroutine
+    def poll_build(self, commit, status, cancel):
+        asyncio.Task.current_task().logging_id = self.current.head.sha[:4]
+        logger.debug("Query Jenkins %s status for %s.", status, commit)
+        try:
+            build = yield from Build.from_url(status['target_url'])
+        except NotOnJenkins as e:
+            logger.debug("%s not on this Jenkins", status['target_url'])
+            return
+
+        if cancel and build.is_running:
+            if self.current.SETTINGS.DRY_RUN:
+                logger.warn("Would cancelling %s.", build)
+            else:
+                logger.warn("Cancelling %s.", build)
+                yield from build.stop()
+            new_status = status.__class__(
+                status, state='error', description='Cancelled after push.'
+            )
+        else:
+            new_status = CommitStatus(status, **build.commit_status)
+
+        commit.maybe_update_status(new_status)
+
+    @asyncio.coroutine
     def run(self):
         aggregated_queue = self.aggregate_queues(
             self.current.cancel_queue, self.current.poll_queue
         )
 
         logger.info("Polling job statuses on Jenkins.")
-        for commit, status, cancel in aggregated_queue:
-            if not str(status['target_url']).startswith(JENKINS.baseurl):
-                continue
-
-            logger.debug("Query Jenkins %s status for %s.", status, commit)
-            try:
-                build = JENKINS.get_build_from_url(status['target_url'])
-                build.poll()
-            except Exception as e:
-                logger.debug(
-                    "Failed to get pending build status for contexts: %s: %s",
-                    e.__class__.__name__, e,
-                )
-                build = None
-
-            if not build:
-                new_status = status.__class__(
-                    status, state='error', description="Build not on Jenkins."
-                )
-            elif cancel and build.is_running():
-                if self.current.SETTINGS.DRY_RUN:
-                    logger.warn("Would cancelling %s.", build)
-                else:
-                    logger.warn("Cancelling %s.", build)
-                    build.stop()
-                new_status = status.__class__(
-                    status, state='error', description='Cancelled after push.'
-                )
-            else:
-                new_status = status.from_build(build)
-
-            commit.maybe_update_status(new_status)
+        loop = asyncio.get_event_loop()
+        tasks = [
+            loop.create_task(self.poll_build(*args))
+            for args in aggregated_queue
+        ]
+        yield from asyncio.gather(*tasks)
 
 
 class CreateJobsExtension(JenkinsExtension):
@@ -283,9 +281,9 @@ class PollExtension(JenkinsExtension):
             status = self.current.statuses.get(
                 context, default_status,
             )
-            new_url = status.get('target_url') == build.baseurl
+            new_url = status.get('target_url') == build.url
             if status.is_queueable or new_url:
-                status = status.from_build(build)
+                status = CommitStatus(status, **build.commit_status)
                 yield status
 
     @asyncio.coroutine
@@ -321,7 +319,7 @@ class PollExtension(JenkinsExtension):
                 continue
             else:
                 commit = Commit(self.current.head.repository, build.sha)
-                status = CommitStatus(context=job.name).from_build(build)
+                status = CommitStatus(context=job.name, **build.commit_status)
                 logger.info("Queuing %s for cancel.", build)
                 self.current.cancel_queue.append((commit, status))
         logger.debug("Polling %s done.", spec.name)
