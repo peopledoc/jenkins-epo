@@ -448,32 +448,6 @@ def test_fetch_combined(cached_request):
     assert ret == cached_request.return_value
 
 
-def test_commit_status_from_build():
-    from jenkins_epo.repository import CommitStatus
-
-    status = CommitStatus(context='job', state='pending')
-    build = Mock(_data=dict(duration=5, displayName='job', url='X'))
-
-    build.get_status.return_value = None
-    new_status = status.from_build(build)
-
-    build.get_status.return_value = 'ABORTED'
-    new_status = status.from_build(build)
-    assert 'error' == new_status['state']
-
-    build.get_status.return_value = 'SUCCESS'
-    new_status = status.from_build(build)
-    assert 'success' == new_status['state']
-
-    build.get_status.return_value = 'FAILURE'
-    new_status = status.from_build(build)
-    assert 'failure' == new_status['state']
-
-    build.get_status.return_value = 'UNKNOWN'
-    new_status = status.from_build(build)
-    assert status == new_status
-
-
 @patch('jenkins_epo.repository.cached_request')
 def test_commit_date(cached_request):
     from jenkins_epo.repository import Commit

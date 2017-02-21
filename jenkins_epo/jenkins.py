@@ -22,19 +22,21 @@ import re
 
 import aiohttp
 from jenkinsapi.jenkinsbase import JenkinsBase
-from jenkinsapi.build import Build as JenkinsBuild
 from jenkinsapi.jenkins import Jenkins, Requester
 from jenkins_yml import Job as JobSpec
-import requests
 import yaml
 from yarl import URL
 
 from .settings import SETTINGS
-from .utils import match, parse_patterns, retry
+from .utils import format_duration, match, parse_patterns, retry
 from .web import fullurl
 
 
 logger = logging.getLogger(__name__)
+
+
+class NotOnJenkins(Exception):
+    pass
 
 
 class RESTClient(object):
@@ -42,7 +44,7 @@ class RESTClient(object):
         self.path = path
 
     def __call__(self, arg):
-        return self.__class__(self.path + '/' + str(arg))
+        return self.__class__(self.path.lstrip('/') + '/' + str(arg))
 
     def __getattr__(self, name):
         return self(name)
@@ -59,11 +61,27 @@ class RESTClient(object):
             payload = yield from response.read()
         finally:
             yield from session.close()
+        response.raise_for_status()
         return payload.decode('utf-8')
 
     def aget(self, **kw):
         payload = yield from self.api.python.afetch(**kw)
         return ast.literal_eval(payload)
+
+    @retry
+    def apost(self, **kw):
+        session = aiohttp.ClientSession()
+        url = URL(self.path)
+        if kw:
+            url = url.with_query(**kw)
+        logger.debug("POST %s", url)
+        try:
+            response = yield from session.post(url, timeout=10)
+            payload = yield from response.read()
+        finally:
+            yield from session.close()
+        response.raise_for_status()
+        return payload.decode('utf-8')
 
 
 class VerboseRequester(Requester):
@@ -77,7 +95,6 @@ JenkinsBase.__init__.__defaults__ = (False,)
 
 
 class LazyJenkins(object):
-    build_url_re = re.compile(r'.*/job/(?P<job>.*?)/.*(?P<buildno>\d+)/?')
     queue_patterns = parse_patterns(SETTINGS.JENKINS_QUEUE)
 
     def __init__(self, instance=None):
@@ -86,23 +103,6 @@ class LazyJenkins(object):
     def __getattr__(self, name):
         self.load()
         return getattr(self._instance, name)
-
-    @retry
-    def get_build_from_url(self, url):
-        if not url.startswith(self.baseurl):
-            raise Exception("%s is not on this Jenkins" % url)
-        match = self.build_url_re.match(url)
-        if not match:
-            raise Exception("Failed to parse build URL %s" % url)
-        job_name = match.group('job')
-        job = self.get_job(job_name)
-        buildno = int(match.group('buildno'))
-        try:
-            return Build(url, buildno, job)
-        except requests.exceptions.HTTPError as e:
-            if 404 == e.response.status_code:
-                raise Exception("Build %s not found. Lost ?" % url)
-            raise
 
     @retry
     def load(self):
@@ -195,31 +195,79 @@ JENKINS = LazyJenkins()
 
 
 class Build(object):
-    def __init__(self, job, payload, api_instance=None):
+    def __init__(self, job, payload):
         self.job = job
         self.payload = payload
-        self._instance = api_instance
-        self.params = self.process_params(payload)
+        self.actions = self.process_actions(payload)
+        self.params = self.process_params(self.actions)
 
     @staticmethod
-    def process_params(payload):
+    def process_actions(payload):
+        known_actions = {'lastBuiltRevision', 'parameters'}
+        actions = {}
         for action in payload.get('actions', []):
-            if 'parameters' in action:
-                break
-        else:
-            return {}
+            for known in known_actions:
+                if known in action:
+                    actions[known] = action[known]
+        return actions
 
+    @staticmethod
+    def process_params(actions):
         return {
             p['name']: p['value']
-            for p in action['parameters']
+            for p in actions.get('parameters', [])
             if 'value' in p
         }
 
+    jenkins_tree = (
+        "actions[" + (
+            "parameters[name,value],"
+            "lastBuiltRevision[branch[name,SHA1]]"
+        ) + "],"
+        "building,displayName,duration,fullDisplayName,"
+        "number,result,timestamp,url"
+    )
+
+    @classmethod
+    @asyncio.coroutine
+    def from_url(cls, url):
+        if not url.startswith(SETTINGS.JENKINS_URL):
+            raise NotOnJenkins("%s is not on this Jenkins." % url)
+
+        payload = yield from RESTClient(url).aget(tree=cls.jenkins_tree)
+        return Build(None, payload)
+
     def __getattr__(self, name):
-        return getattr(self._instance, name)
+        return self.payload[name]
+
+    def __repr__(self):
+        return '<%s %s>' % (
+            self.__class__.__name__, self.payload['fullDisplayName']
+        )
 
     def __str__(self):
-        return str(self._instance)
+        return str(self.payload['fullDisplayName'])
+
+    _status_map = {
+        # Requeue an aborted job
+        'ABORTED': ('error', 'Aborted!'),
+        'FAILURE': ('failure', 'Build %(name)s failed in %(duration)s!'),
+        'UNSTABLE': ('failure', 'Build %(name)s failed in %(duration)s!'),
+        'SUCCESS': ('success', 'Build %(name)s succeeded in %(duration)s!'),
+        None: ('pending', 'Build %(name)s in progress...'),
+    }
+
+    @property
+    def commit_status(self):
+        state, description = self._status_map[self.payload['result']]
+        description = description % dict(
+            name=self.payload['displayName'],
+            duration=format_duration(self.payload['duration']),
+        )
+        return dict(
+            description=description, state=state,
+            target_url=self.payload['url'],
+        )
 
     @property
     def is_outdated(self):
@@ -244,8 +292,8 @@ class Build(object):
     @property
     def ref(self):
         try:
-            fullref = self.payload['lastBuiltRevision']['branch']['name']
-        except (TypeError, KeyError):
+            fullref = self.actions['lastBuiltRevision']['branch'][0]['name']
+        except (IndexError, KeyError, TypeError):
             return self.params[self.job.revision_param][len('refs/heads/'):]
         else:
             match = self._ref_re.match(fullref)
@@ -256,9 +304,14 @@ class Build(object):
     @property
     def sha(self):
         try:
-            return self.payload['lastBuiltRevision']['branch']['SHA1']
-        except (TypeError, KeyError):
-            raise Exception("No SHA1 yet.")
+            return self.actions['lastBuiltRevision']['branch'][0]['SHA1']
+        except (IndexError, KeyError, TypeError) as e:
+            raise Exception("No SHA1 yet.") from e
+
+    @asyncio.coroutine
+    def stop(self):
+        payload = yield from RESTClient(self.payload['url']).stop.apost()
+        return payload
 
 
 class Job(object):
@@ -355,26 +408,13 @@ class Job(object):
 
     @asyncio.coroutine
     def fetch_builds(self):
-        tree = "builds[" + (
-            "actions[" + (
-                "parameters[name,value],"
-                "lastBuiltRevision[branch[name,SHA1]]"
-            ) + "],"
-            "building,duration,number,result,timestamp,url"
-        ) + "]"
+        tree = "builds[" + Build.jenkins_tree + "]"
         payload = yield from RESTClient(self.baseurl).aget(tree=tree)
         return payload['builds']
 
     def process_builds(self, payload):
         payload = reversed(sorted(payload, key=lambda b: b['number']))
-        for entry in payload:
-            api_instance = JenkinsBuild(
-                url=entry['url'],
-                buildno=entry['number'],
-                job=self._instance
-            )
-            api_instance._data = entry
-            yield Build(self, entry, api_instance)
+        return (Build(self, entry) for entry in payload)
 
 
 class FreestyleJob(Job):
