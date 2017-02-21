@@ -10,6 +10,12 @@ def test_duration_format():
     assert '2 h 5 min 4.2 sec' == format_duration(7504200)
 
 
+def test_log_context():
+    from jenkins_epo.utils import log_context
+
+    log_context(None)
+
+
 def test_match():
     from jenkins_epo.utils import match
 

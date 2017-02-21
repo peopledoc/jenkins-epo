@@ -21,7 +21,7 @@ from jenkinsapi.custom_exceptions import UnknownJob
 from ..bot import Extension, Error, SkipHead
 from ..jenkins import Build, JENKINS, NotOnJenkins
 from ..repository import Commit, CommitStatus
-from ..utils import match, switch_coro
+from ..utils import log_context, match, switch_coro
 
 
 logger = logging.getLogger(__name__)
@@ -131,7 +131,7 @@ class CancellerExtension(JenkinsExtension):
 
     @asyncio.coroutine
     def poll_build(self, commit, status, cancel):
-        asyncio.Task.current_task().logging_id = self.current.head.sha[:4]
+        log_context(self.current.head)
         logger.debug("Query Jenkins %s status for %s.", status, commit)
         try:
             build = yield from Build.from_url(status['target_url'])
@@ -221,7 +221,7 @@ Failed to create or update Jenkins job `%(name)s`.
 
     @asyncio.coroutine
     def fetch_job(self, name):
-        asyncio.Task.current_task().logging_id = self.current.head.sha[:4]
+        log_context(self.current.head)
         if name in self.current.jobs:
             return
         try:
