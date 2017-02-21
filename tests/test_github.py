@@ -184,6 +184,26 @@ def test_aget_304(mocker):
         yield from GITHUB.user.aget()
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_apost(mocker):
+    from jenkins_epo.github import CustomGitHub, ApiError
+
+    aiohttp = mocker.patch('jenkins_epo.github.aiohttp')
+    session = aiohttp.ClientSession.return_value
+    response = Mock(spec=['headers', 'json', 'status'])
+    session.post = CoroutineMock(return_value=response)
+    response.status = 304
+    response.content_type = 'application/json'
+    response.headers = {'ETag': 'cafed0d0'}
+    response.json = CoroutineMock(return_value={'message': 'Not found'})
+
+    GITHUB = CustomGitHub(access_token='cafed0d0')
+
+    with pytest.raises(ApiError):
+        yield from GITHUB.user.apost(pouet=True)
+
+
 @patch('jenkins_epo.github.CACHE')
 def test_cached_request_etag(CACHE, SETTINGS):
     from jenkins_epo.github import cached_request

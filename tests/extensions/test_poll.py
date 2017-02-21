@@ -119,6 +119,7 @@ def test_preset_status_cloning(mocker):
     ext.current.cancel_queue = []
     ext.current.head.ref = 'branch'
     ext.current.head.sha = 'bab1'
+    ext.current.last_commit.maybe_update_status = CoroutineMock()
     ext.current.statuses = {}
     ext.current.job_specs = {'job': Mock()}
     ext.current.job_specs['job'].name = 'job'

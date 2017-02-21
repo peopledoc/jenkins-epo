@@ -45,13 +45,20 @@ class BackedExtension(JenkinsExtension):
             if c not in self.current.statuses
         ]
 
-        for context in missing_contextes:
-            self.current.last_commit.maybe_update_status(dict(
-                context=context,
-                description='Backed',
-                state='pending',
-            ))
-            yield from switch_coro()
+        loop = asyncio.get_event_loop()
+        tasks = [
+            loop.create_task(
+                self.current.last_commit.maybe_update_status(
+                    dict(
+                        context=context,
+                        description='Backed',
+                        state='pending',
+                    )
+                )
+            )
+            for context in missing_contextes
+        ]
+        yield from asyncio.gather(*tasks)
 
 
 class BuilderExtension(JenkinsExtension):
@@ -69,39 +76,39 @@ class BuilderExtension(JenkinsExtension):
             self.current.rebuild_failed = instruction.date
 
     @asyncio.coroutine
-    def run(self):
-        for spec in self.current.job_specs.values():
-            logger.debug("Processing %s.", spec)
-            job = self.current.jobs[spec.name]
-            not_built = self.current.last_commit.filter_not_built_contexts(
-                job.list_contexts(spec),
-                rebuild_failed=self.current.rebuild_failed
+    def process_job_spec(self, spec):
+        log_context(self.current.head)
+        update_status = self.current.last_commit.maybe_update_status
+        logger.debug("Processing %s.", spec)
+        job = self.current.jobs[spec.name]
+        not_built = self.current.last_commit.filter_not_built_contexts(
+            job.list_contexts(spec),
+            rebuild_failed=self.current.rebuild_failed
+        )
+        queue_empty = JENKINS.is_queue_empty()
+        yield from switch_coro()
+        toqueue_contexts = []
+        for context in not_built:
+            logger.debug("Computing next state for %s.", context)
+            new_status = self.status_for_new_context(
+                job, context, queue_empty,
             )
-            queue_empty = JENKINS.is_queue_empty()
-            yield from switch_coro()
-            toqueue_contexts = []
-            for context in not_built:
-                logger.debug("Computing next state for %s.", context)
-                new_status = self.current.last_commit.maybe_update_status(
-                    self.status_for_new_context(job, context, queue_empty),
-                )
-                if new_status.get('description') == 'Queued':
-                    toqueue_contexts.append(context)
+            yield from update_status(new_status)
+            if new_status.get('description') == 'Queued':
+                toqueue_contexts.append(context)
 
-            if toqueue_contexts and queue_empty:
-                try:
-                    job.build(self.current.head, spec, toqueue_contexts)
-                except Exception as e:
-                    logger.exception("Failed to queue job %s: %s.", job, e)
-                    for context in toqueue_contexts:
-                        self.current.last_commit.maybe_update_status(
-                            CommitStatus(
-                                context=context, state='error',
-                                description='Failed to queue job.',
-                                target_url=job.baseurl,
-                            )
-                        )
-                        yield from switch_coro()
+        if toqueue_contexts and queue_empty:
+            try:
+                job.build(self.current.head, spec, toqueue_contexts)
+            except Exception as e:
+                logger.exception("Failed to queue job %s: %s.", job, e)
+                for context in toqueue_contexts:
+                    new_status = CommitStatus(
+                        context=context, state='error',
+                        description='Failed to queue job.',
+                        target_url=job.baseurl,
+                    )
+                    yield from update_status(new_status)
 
     def status_for_new_context(self, job, context, queue_empty):
         new_status = CommitStatus(target_url=job.baseurl, context=context)
@@ -162,7 +169,7 @@ class CancellerExtension(JenkinsExtension):
         else:
             new_status = CommitStatus(status, **build.commit_status)
 
-        commit.maybe_update_status(new_status)
+        yield from commit.maybe_update_status(new_status)
 
     @asyncio.coroutine
     def run(self):
@@ -327,7 +334,7 @@ class PollExtension(JenkinsExtension):
                     logger.info(
                         "Preset pending status for %s.", status['context'],
                     )
-                    commit.maybe_update_status(status)
+                    yield from commit.maybe_update_status(status)
                     yield from switch_coro()
                 continue
             else:

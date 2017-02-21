@@ -17,10 +17,11 @@ def test_backed():
     ext.current.jobs = {'job': Mock()}
     ext.current.jobs['job'].list_contexts.return_value = ['job-a', 'job-b']
     ext.current.statuses = {'job-a'}
+    ext.current.last_commit.maybe_update_status = CoroutineMock()
 
     yield from ext.run()
 
-    assert 1 == len(ext.current.last_commit.mock_calls)
+    assert 1 == len(ext.current.last_commit.maybe_update_status.mock_calls)
 
 
 def test_compute_rebuild():
@@ -48,6 +49,7 @@ def test_build_queue_full(mocker):
     spec.name = 'job'
     ext.current.head.ref = 'refs/heads/pr'
     ext.current.last_commit.filter_not_built_contexts.return_value = ['job']
+    ext.current.last_commit.maybe_update_status = CoroutineMock()
     ext.current.jobs_match = []
     ext.current.job_specs = {'job': spec}
     ext.current.jobs = {'job': job}
@@ -74,9 +76,9 @@ def test_build_queue_empty(mocker):
     spec.name = 'job'
     ext.current.head.ref = 'refs/heads/pr'
     ext.current.last_commit.filter_not_built_contexts.return_value = ['job']
-    ext.current.last_commit.maybe_update_status.return_value = {
+    ext.current.last_commit.maybe_update_status = CoroutineMock(return_value={
         'description': 'Queued'
-    }
+    })
     ext.current.jobs_match = []
     ext.current.job_specs = {'job': spec}
     ext.current.jobs = {'job': job}
@@ -103,9 +105,9 @@ def test_build_failed():
     spec.name = 'job'
     ext.current.head.ref = 'refs/heads/pr'
     ext.current.last_commit.filter_not_built_contexts.return_value = ['job']
-    ext.current.last_commit.maybe_update_status.return_value = {
+    ext.current.last_commit.maybe_update_status = CoroutineMock(return_value={
         'description': 'Queued'
-    }
+    })
     ext.current.jobs_match = []
     ext.current.job_specs = {'job': spec}
     ext.current.jobs = {'job': job}
@@ -139,6 +141,7 @@ def test_cancel_ignore_other(mocker):
         )),
     ]
     ext.current.last_commit.fetch_statuses.return_value = []
+    ext.current.last_commit.maybe_update_status = CoroutineMock()
 
     yield from ext.run()
 
@@ -190,6 +193,7 @@ def test_cancel_build_running(mocker):
     JENKINS.baseurl = 'jenkins://'
 
     commit = Mock()
+    commit.maybe_update_status = CoroutineMock()
 
     ext = CancellerExtension('test', Mock())
     ext.current = ext.bot.current
@@ -221,6 +225,7 @@ def test_cancel_build_skipped(mocker):
     JENKINS.baseurl = 'jenkins://'
 
     commit = Mock()
+    commit.maybe_update_status = CoroutineMock()
 
     ext = CancellerExtension('test', Mock())
     ext.current = ext.bot.current
@@ -252,6 +257,7 @@ def test_poll_build_running(mocker):
     JENKINS.baseurl = 'jenkins://'
 
     commit = Mock()
+    commit.maybe_update_status = CoroutineMock()
 
     ext = CancellerExtension('test', Mock())
     ext.current = ext.bot.current
@@ -279,6 +285,7 @@ def test_poll_lost_build(mocker):
     from jenkins_epo.extensions.jenkins import CancellerExtension, CommitStatus
 
     commit = Mock()
+    commit.maybe_update_status = CoroutineMock()
 
     ext = CancellerExtension('test', Mock())
     ext.current = ext.bot.current

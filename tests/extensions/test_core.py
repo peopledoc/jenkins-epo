@@ -2,6 +2,7 @@ import asyncio
 from unittest.mock import Mock
 from datetime import datetime, timedelta
 
+from asynctest import CoroutineMock
 import pytest
 
 
@@ -246,6 +247,7 @@ def test_skip_run():
     ext.current.cancel_queue = []
     ext.current.jobs_match = ['matching']
     ext.current.job_specs = dict(job=Mock())
+    ext.current.job_specs['job'].name = 'job'
     ext.current.jobs = {}
     ext.current.jobs['job'] = job = Mock()
     job.list_contexts.return_value = [
@@ -258,6 +260,7 @@ def test_skip_run():
         target_url='jenkins:///job/1',
     )
     statuses['done'] = CommitStatus(state='success')
+    ext.current.last_commit.maybe_update_status = CoroutineMock()
 
     yield from ext.run()
 
@@ -282,6 +285,7 @@ def test_unskip():
     ext.current = ext.bot.current
     ext.current.jobs_match = ['m-*']
     ext.current.all_job_specs = dict(job=Mock())
+    ext.current.all_job_specs['job'].name = 'job'
     ext.current.jobs = {}
     ext.current.jobs['job'] = job = Mock()
     job.list_contexts.return_value = ['m-nostatus', 'm-unskip', 'skipped']
@@ -292,6 +296,7 @@ def test_unskip():
     statuses['skipped'] = CommitStatus(
         context='skipped', state='success', description='Skipped',
     )
+    ext.current.last_commit.maybe_update_status = CoroutineMock()
 
     yield from ext.run()
 
