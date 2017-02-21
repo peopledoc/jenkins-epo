@@ -28,7 +28,7 @@ from ..github import GITHUB, ApiError, ApiNotFoundError
 from ..jenkins import Job
 from ..repository import Branch, CommitStatus
 from ..settings import SETTINGS
-from ..utils import deepupdate, match, parse_patterns
+from ..utils import deepupdate, log_context, match, parse_patterns
 
 
 logger = logging.getLogger(__name__)
@@ -38,35 +38,39 @@ class AutoCancelExtension(Extension):
     stage = '30'
 
     @asyncio.coroutine
-    def run(self):
+    def process_commit(self, commit):
+        log_context(self.current.head)
+        is_head = commit.sha == self.current.head.sha
         now = datetime.datetime.utcnow()
         max_age = datetime.timedelta(seconds=3600)
-        logger.info("Listing previous commits from GitHub.")
-        payload = self.current.head.fetch_previous_commits()
-        commits = self.current.repository.process_commits(payload)
-        head = True
-        for i, commit in enumerate(commits):
-            age = now - commit.date
-            if i > 0 and age > max_age:
+        age = now - commit.date
+        if not is_head and age > max_age:
+            return
+
+        commit_payload = yield from commit.fetch_statuses()
+        statuses = commit.process_statuses(commit_payload)
+        for status in statuses.values():
+            status = CommitStatus(status)
+            if status.get('state') != 'pending':
                 continue
 
-            commit_payload = yield from commit.fetch_statuses()
-            statuses = commit.process_statuses(commit_payload)
-            for status in statuses.values():
-                status = CommitStatus(status)
-                if status.get('state') != 'pending':
-                    continue
+            if status.is_queueable:
+                continue
 
-                if status.is_queueable:
-                    continue
+            if is_head:
+                self.current.poll_queue.append((commit, status))
+            else:
+                logger.info("Queue cancel of %s on %s.", status, commit)
+                self.current.cancel_queue.append((commit, status))
 
-                if head:
-                    self.current.poll_queue.append((commit, status))
-                else:
-                    logger.info("Queue cancel of %s on %s.", status, commit)
-                    self.current.cancel_queue.append((commit, status))
-
-            head = False
+    @asyncio.coroutine
+    def run(self):
+        loop = asyncio.get_event_loop()
+        tasks = [
+            loop.create_task(self.process_commit(commit))
+            for commit in self.current.commits
+        ]
+        yield from asyncio.gather(*tasks)
 
 
 class HelpExtension(Extension):

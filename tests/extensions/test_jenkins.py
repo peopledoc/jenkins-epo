@@ -147,6 +147,41 @@ def test_cancel_ignore_other(mocker):
 
 @pytest.mark.asyncio
 @asyncio.coroutine
+def test_cancel_404(mocker):
+    JENKINS = mocker.patch('jenkins_epo.extensions.jenkins.JENKINS')
+    Build = mocker.patch('jenkins_epo.extensions.jenkins.Build')
+    from jenkins_epo.extensions.jenkins import (
+        CancellerExtension, CommitStatus, HttpProcessingError
+    )
+
+    JENKINS.baseurl = 'jenkins://'
+
+    commit = Mock()
+
+    ext = CancellerExtension('test', Mock())
+    ext.current = ext.bot.current
+    ext.current.head.sha = 'cafed0d0'
+    ext.current.poll_queue = []
+    ext.current.cancel_queue = [
+        (commit, CommitStatus(context='job', target_url='jenkins://job/1')),
+    ]
+    ext.current.SETTINGS.DRY_RUN = 0
+    ext.current.last_commit.fetch_statuses.return_value = []
+    ext.current.statuses = {}
+
+    Build.from_url = CoroutineMock(
+        side_effect=HttpProcessingError(code=404, message='Not Found')
+    )
+    build = Build.from_url.return_value
+
+    yield from ext.run()
+
+    assert not build.stop.mock_calls
+    assert not commit.maybe_update_status.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_cancel_build_running(mocker):
     JENKINS = mocker.patch('jenkins_epo.extensions.jenkins.JENKINS')
     Build = mocker.patch('jenkins_epo.extensions.jenkins.Build')

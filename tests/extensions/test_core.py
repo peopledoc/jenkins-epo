@@ -159,19 +159,17 @@ def test_autocancel():
     ext.current = Mock()
     ext.current.cancel_queue = cancel_queue = []
     ext.current.poll_queue = []
-    last_commit = Mock(
-        name='last', date=datetime.utcnow() - timedelta(seconds=50000)
+    ext.current.last_commit = last_commit = Mock(
+        name='last', date=datetime.utcnow() - timedelta(seconds=50000),
     )
-    ext.current.last_commit = last_commit
+    ext.current.head.sha = ext.current.last_commit.sha = 'cafed0d0'
     old_commit = Mock(
         name='old', date=datetime.utcnow() - timedelta(seconds=300)
     )
     outdated_commit = Mock(
         name='outdated', date=datetime.utcnow() - timedelta(seconds=4000)
     )
-    ext.current.repository.process_commits.return_value = [
-        last_commit, old_commit, outdated_commit,
-    ]
+    ext.current.commits = [last_commit, old_commit, outdated_commit]
 
     last_commit.fetch_statuses.return_value = []
     last_commit.process_statuses.return_value = last_statuses = {

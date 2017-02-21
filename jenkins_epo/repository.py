@@ -506,15 +506,16 @@ class Branch(Head):
     def url(self):
         return 'https://github.com/%s/tree/%s' % (self.repository, self.ref)
 
-    def fetch_previous_commits(self, last_date=None):
-        head = cached_request(
+    @asyncio.coroutine
+    def fetch_commits(self, last_date=None):
+        head = yield from cached_arequest(
             GITHUB.repos(self.repository).git.commits(self.sha)
         )
-        yield head
-        yield cached_request(
+        parent = yield from cached_arequest(
             GITHUB.repos(self.repository).git
             .commits(head['parents'][0]['sha'])
         )
+        return [head, parent]
 
     @asyncio.coroutine
     def fetch_comments(self):
@@ -567,14 +568,16 @@ class PullRequest(Head):
     def url(self):
         return self.payload['html_url']
 
-    def fetch_previous_commits(self, last_date=None):
+    @asyncio.coroutine
+    def fetch_commits(self, last_date=None):
         logger.debug("Fetching previous commits.")
-        payload = cached_request(GITHUB.repos(self.repository).compare(
-            urlquote("%s...%s" % (
+        payload = yield from cached_arequest(
+            GITHUB.repos(self.repository)
+            .compare(urlquote("%s...%s" % (
                 self.payload['base']['label'],
                 self.payload['head']['label'],
-            ))
-        ))
+            )))
+        )
         return reversed(payload['commits'])
 
     @retry
