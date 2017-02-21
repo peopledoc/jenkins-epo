@@ -122,6 +122,15 @@ def test_parse_error():
 
 @pytest.mark.asyncio
 @asyncio.coroutine
+def test_extension():
+    from jenkins_epo.bot import Extension
+
+    # For the sake of code coverage
+    yield from Extension('ext', Mock()).process_job_spec(Mock())
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_run_extension(mocker):
     pkg_resources = mocker.patch('jenkins_epo.bot.pkg_resources')
 

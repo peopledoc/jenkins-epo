@@ -320,8 +320,13 @@ def test_fetch_status_ignore(SETTINGS, mocker):
     assert not cached_arequest.mock_calls
 
 
-@patch('jenkins_epo.repository.Commit.push_status')
-def test_process_status(push_status):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_process_status(mocker):
+    push_status = mocker.patch(
+        'jenkins_epo.repository.Commit.push_status',
+        CoroutineMock()
+    )
     from jenkins_epo.repository import Commit, CommitStatus
 
     commit = Commit(Mock(), 'd0d0')
@@ -338,11 +343,16 @@ def test_process_status(push_status):
 
     push_status.return_value = None
 
-    commit.maybe_update_status(CommitStatus(context='context'))
+    yield from commit.maybe_update_status(CommitStatus(context='context'))
 
 
-@patch('jenkins_epo.repository.Commit.push_status')
-def test_update_status(push_status):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_update_status(mocker):
+    push_status = mocker.patch(
+        'jenkins_epo.repository.Commit.push_status',
+        CoroutineMock()
+    )
     from jenkins_epo.repository import Commit, CommitStatus
 
     commit = Commit(Mock(), 'd0d0')
@@ -352,13 +362,17 @@ def test_update_status(push_status):
         'updated_at': '2016-08-30T08:25:56Z',
     }
 
-    commit.maybe_update_status(CommitStatus(context='job', state='success'))
+    yield from commit.maybe_update_status(
+        CommitStatus(context='job', state='success')
+    )
 
     assert 'job' in commit.statuses
 
 
-@patch('jenkins_epo.repository.GITHUB')
-def test_push_status_dry(GITHUB):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_push_status_dry(mocker):
+    GITHUB = mocker.patch('jenkins_epo.repository.GITHUB')
     from datetime import datetime
     from jenkins_epo.repository import Commit, CommitStatus
 
@@ -366,27 +380,47 @@ def test_push_status_dry(GITHUB):
 
     commit = Commit(Mock(), 'd0d0')
     commit.statuses = {}
-    status = commit.push_status(CommitStatus(
+    status = yield from commit.push_status(CommitStatus(
         context='job', state='success', description='desc',
         updated_at=datetime(2016, 9, 13, 13, 41, 00),
     ))
     assert isinstance(status['updated_at'], str)
 
 
-@patch('jenkins_epo.repository.GITHUB')
-def test_push_status_1000(GITHUB):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_push_status_1000(mocker):
+    GITHUB = mocker.patch('jenkins_epo.repository.GITHUB')
     from jenkins_epo.repository import Commit, ApiError
 
     GITHUB.dry = False
-    GITHUB.repos.return_value.statuses.return_value.post.side_effect = (
+    GITHUB.repos.return_value.statuses.return_value.apost.side_effect = (
         ApiError('url', Mock(), dict(json=dict()))
     )
     commit = Commit(Mock(), 'd0d0')
     commit.statuses = {}
-    status = commit.push_status({
+    status = yield from commit.push_status({
         'context': 'job', 'description': '', 'state': 'success',
     })
     assert status
+    assert GITHUB.repos().statuses().apost.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_push_status(mocker):
+    GITHUB = mocker.patch('jenkins_epo.repository.GITHUB')
+    from jenkins_epo.repository import Commit
+
+    GITHUB.dry = False
+    GITHUB.repos().statuses().apost = CoroutineMock()
+    commit = Commit(Mock(), 'd0d0')
+    commit.statuses = {}
+    status = yield from commit.push_status({
+        'context': 'job', 'description': '', 'state': 'success',
+    })
+    assert status
+    assert GITHUB.repos().statuses().apost.mock_calls
 
 
 def test_filter_contextes():

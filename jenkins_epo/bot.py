@@ -289,8 +289,17 @@ class Extension(object):
         pass
 
     @asyncio.coroutine
-    def run(self):
+    def process_job_spec(self, spec):
         pass
+
+    @asyncio.coroutine
+    def run(self):
+        loop = asyncio.get_event_loop()
+        tasks = [
+            loop.create_task(self.process_job_spec(spec))
+            for spec in self.current.job_specs.values()
+        ]
+        yield from asyncio.gather(*tasks)
 
 
 class Error(object):

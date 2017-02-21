@@ -371,13 +371,14 @@ class Commit(object):
         )
         return self.statuses
 
+    @asyncio.coroutine
     def maybe_update_status(self, status):
         status = CommitStatus(status)
         if status in self.statuses:
             if self.statuses[status] == status:
                 return status
 
-        new_status = self.push_status(status)
+        new_status = yield from self.push_status(status)
         if new_status:
             status = CommitStatus(new_status)
             if 'updated_at' in status:
@@ -388,6 +389,7 @@ class Commit(object):
         return new_status
 
     @retry
+    @asyncio.coroutine
     def push_status(self, status):
         kwargs = {
             k: status[k]
@@ -408,9 +410,11 @@ class Commit(object):
                 "Set GitHub status %s to %s/%s.",
                 status, status['state'], status['description'],
             )
-            return (
-                GITHUB.repos(self.repository).statuses(self.sha).post(**kwargs)
+            payload = yield from (
+                GITHUB.repos(self.repository).statuses(self.sha)
+                .apost(**kwargs)
             )
+            return payload
         except ApiError as e:
             logger.debug('ApiError %r', e.response['json'])
             logger.warn('Hit 1000 status updates on %s.', self.sha)

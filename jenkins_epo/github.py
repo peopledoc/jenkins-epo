@@ -197,8 +197,12 @@ class CustomGitHub(GitHub):
     def ahttp(self, _method, _path, headers={}, **kw):
         url = URL('%s%s' % (_URL, _path))
         kw = dict(kw, **url.query)
-        if kw:
+        data = None
+        if kw and _method == 'GET':
             url = url.with_query(**kw)
+        if kw and _method in {'PATCH', 'POST'}:
+            data = bytes(_encode_json(kw), 'utf-8')
+
         headers = headers or {}
         if self._authorization:
             headers['Authorization'] = self._authorization
@@ -210,16 +214,17 @@ class CustomGitHub(GitHub):
 
         headers = {str(k): str(v) for k, v in headers.items()}
         session = aiohttp.ClientSession()
+        session_method = getattr(session, _method.lower())
         try:
-            response = yield from session.get(
-                url, headers=headers, timeout=self.TIMEOUT,
+            response = yield from session_method(
+                url, headers=headers, data=data, timeout=self.TIMEOUT,
             )
             self._process_resp(response.headers)
             post_rate_limit = self.x_ratelimit_remaining
             if 'json' in response.content_type:
                 payload = yield from response.json()
             else:
-                logger.debug("Fetching raw payload")
+                logger.debug("Fetching raw %s.", response.content_type)
                 payload = yield from response.read()
         finally:
             if not asyncio.get_event_loop().is_closed():

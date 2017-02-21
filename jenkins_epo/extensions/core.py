@@ -469,27 +469,28 @@ class SkipExtension(Extension):
             self.current.jobs_match = patterns
 
     @asyncio.coroutine
-    def run(self):
-        for name, spec in self.current.job_specs.items():
-            job = self.current.jobs[name]
-            for context in job.list_contexts(spec):
-                if match(context, self.current.jobs_match):
-                    continue
+    def process_job_spec(self, spec):
+        log_context(self.current.head)
+        job = self.current.jobs[spec.name]
+        for context in job.list_contexts(spec):
+            if match(context, self.current.jobs_match):
+                continue
 
-                status = self.current.statuses.get(context, CommitStatus())
-                if status.get('state') == 'success':
-                    continue
+            status = self.current.statuses.get(context, CommitStatus())
+            if status.get('state') == 'success':
+                continue
 
-                if status.is_running:
-                    self.current.cancel_queue.append(
-                        (self.current.last_commit, status)
-                    )
+            if status.is_running:
+                self.current.cancel_queue.append(
+                    (self.current.last_commit, status)
+                )
 
-                logger.info("Skipping %s.", context)
-                self.current.last_commit.maybe_update_status(CommitStatus(
-                    context=context, target_url=job.baseurl,
-                    state='success', description='Skipped!',
-                ))
+            logger.info("Skipping %s.", context)
+            new_status = CommitStatus(
+                context=context, target_url=job.baseurl,
+                state='success', description='Skipped!',
+            )
+            yield from self.current.last_commit.maybe_update_status(new_status)
 
 
 class UnskipExtension(Extension):
@@ -500,21 +501,30 @@ class UnskipExtension(Extension):
     }
 
     @asyncio.coroutine
+    def process_job_spec(self, spec):
+        job = self.current.jobs[spec.name]
+        for context in job.list_contexts(spec):
+            if not match(context, self.current.jobs_match):
+                continue
+
+            status = self.current.statuses.get(context, CommitStatus())
+            if not status.is_skipped:
+                continue
+
+            logger.info("Unskipping %s.", context)
+            new_status = CommitStatus(
+                status, state='pending', description='Backed',
+            )
+            yield from self.current.last_commit.maybe_update_status(new_status)
+
+    @asyncio.coroutine
     def run(self):
-        for name, spec in self.current.all_job_specs.items():
-            job = self.current.jobs[name]
-            for context in job.list_contexts(spec):
-                if not match(context, self.current.jobs_match):
-                    continue
-
-                status = self.current.statuses.get(context, CommitStatus())
-                if not status.is_skipped:
-                    continue
-
-                logger.info("Unskipping %s.", context)
-                self.current.last_commit.maybe_update_status(CommitStatus(
-                    status, state='pending', description='Backed',
-                ))
+        loop = asyncio.get_event_loop()
+        tasks = [
+            loop.create_task(self.process_job_spec(spec))
+            for spec in self.current.all_job_specs.values()
+        ]
+        yield from asyncio.gather(*tasks)
 
 
 class YamlExtension(Extension):
