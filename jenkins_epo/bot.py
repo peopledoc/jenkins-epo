@@ -129,7 +129,8 @@ See `jenkins: help` for documentation.
                 return
 
         logger.info("Queyring comments for instructions.")
-        self.process_instructions(self.current.head.list_comments())
+        payload = yield from self.current.head.fetch_comments()
+        self.process_instructions(payload)
 
         repr_ = reprlib.Repr()
         repr_.maxdict = repr_.maxlist = repr_.maxother = 64

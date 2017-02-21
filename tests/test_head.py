@@ -168,6 +168,22 @@ def test_branch_fetch_previous_commits(cached_request):
     assert cached_request.mock_calls
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_branch_fetch_comments(mocker):
+    arequest = mocker.patch(
+        'jenkins_epo.repository.cached_arequest',
+        CoroutineMock(return_value=[])
+    )
+    from jenkins_epo.repository import Branch
+
+    head = Branch(Mock(), dict(name='master', commit=dict(sha='cafed0d0')))
+    comments = yield from head.fetch_comments()
+
+    assert 0 == len(comments)
+    assert arequest.mock_calls
+
+
 @patch('jenkins_epo.repository.cached_request')
 def test_pr_fetch_previous_commits(cached_request):
     from jenkins_epo.repository import PullRequest
@@ -180,15 +196,21 @@ def test_pr_fetch_previous_commits(cached_request):
     assert ['last', 'previous'] == commits
 
 
-@patch('jenkins_epo.repository.cached_request')
-def test_pr_list_comments(cached_request):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_pr_fetch_comments(mocker):
+    arequest = mocker.patch(
+        'jenkins_epo.repository.cached_arequest',
+        CoroutineMock(return_value=[])
+    )
     from jenkins_epo.repository import PullRequest
 
-    cached_request.return_value = []
     pr = PullRequest(Mock(), dict(
         created_at='2017-01-20 11:08:43Z',
         number=204,
         head=dict(ref='pr', sha='d0d0cafe', label='owner:pr'),
     ))
-    comments = pr.list_comments()
+    comments = yield from pr.fetch_comments()
+
     assert 1 == len(comments)
+    assert arequest.mock_calls

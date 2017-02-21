@@ -55,8 +55,6 @@ Ideas of improvements
 
 Feel free to contribute :)
 
-- Manage regular Jenkins notifications
-  (https://wiki.jenkins-ci.org/display/JENKINS/Notification+Plugin).
 - Aggregate error comment.
 - Comment *still broken* on previous *master is broken* rather than opening a
   new issue.
@@ -68,8 +66,6 @@ Feel free to contribute :)
 - Test GraphQL.
 - Add ``clean-job`` command to drop jobs undefined un protected branches.
 - Comment old PR with «push a new commit».
-- Gather task for get job
-- Gather task for get build
 - Switch to full AsyncIO
   - drop cached_request
   - drop jenkinsapi
@@ -83,6 +79,8 @@ Feel free to contribute :)
 - Command ``install-plugins``. Install plugins on Jenkins
 - Command ``settings [repo]`` dump settings, jenkins.yml loaded.
 - Keep build forever on Jenkins for build reported in *master is broken*
+- Manage regular Jenkins notifications
+  (https://wiki.jenkins-ci.org/display/JENKINS/Notification+Plugin).
 - i18n: translate documentation, comments, logs
 - Add ansicolor to Jenkins job ?
 - Distinct global/per project settings.

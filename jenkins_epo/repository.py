@@ -476,9 +476,6 @@ class Head(object):
     def __lt__(self, other):
         return self.sort_key() < other.sort_key()
 
-    def list_comments(self):
-        raise NotImplemented
-
 
 class Branch(Head):
     def __init__(self, repository, payload):
@@ -519,10 +516,12 @@ class Branch(Head):
             .commits(head['parents'][0]['sha'])
         )
 
-    def list_comments(self):
-        return cached_request(
+    @asyncio.coroutine
+    def fetch_comments(self):
+        payload = yield from cached_arequest(
             GITHUB.repos(self.repository).commits(self.sha).comments
         )
+        return payload
 
     @retry
     def comment(self, body):
@@ -597,12 +596,14 @@ class PullRequest(Head):
         logger.warn("Deleting branch %s.", self.ref)
         GITHUB.repos(self.repository).git.refs.heads(self.ref).delete()
 
-    def list_comments(self):
+    @asyncio.coroutine
+    def fetch_comments(self):
         # PR updated_at match the latest change of PR, not the date of edition
         # of the description. So, fall back to creation date.
         description = dict(self.payload, updated_at=self.payload['created_at'])
         issue = GITHUB.repos(self.repository).issues(self.payload['number'])
-        return [description] + cached_request(issue.comments)
+        comments = yield from cached_arequest(issue.comments)
+        return [description] + comments
 
     @retry
     def merge(self, message=None):
