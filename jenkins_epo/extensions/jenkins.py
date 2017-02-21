@@ -80,7 +80,7 @@ class BuilderExtension(JenkinsExtension):
             yield from switch_coro()
             toqueue_contexts = []
             for context in not_built:
-                logger.debug("Computing new status for %s.", spec)
+                logger.debug("Computing next state for %s.", spec)
                 new_status = self.current.last_commit.maybe_update_status(
                     self.status_for_new_context(job, context, queue_empty),
                 )
