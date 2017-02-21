@@ -165,6 +165,38 @@ def test_cancel_build_running(mocker):
     ]
     ext.current.SETTINGS.DRY_RUN = 0
     ext.current.last_commit.fetch_statuses.return_value = []
+    ext.current.statuses = {}
+
+    Build.from_url = CoroutineMock()
+    build = Build.from_url.return_value
+
+    yield from ext.run()
+
+    assert build.stop.mock_calls
+    assert commit.maybe_update_status.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_cancel_build_skipped(mocker):
+    JENKINS = mocker.patch('jenkins_epo.extensions.jenkins.JENKINS')
+    Build = mocker.patch('jenkins_epo.extensions.jenkins.Build')
+    from jenkins_epo.extensions.jenkins import CancellerExtension, CommitStatus
+
+    JENKINS.baseurl = 'jenkins://'
+
+    commit = Mock()
+
+    ext = CancellerExtension('test', Mock())
+    ext.current = ext.bot.current
+    ext.current.head.sha = 'cafed0d0'
+    ext.current.poll_queue = []
+    ext.current.cancel_queue = [
+        (commit, CommitStatus(context='job', target_url='jenkins://job/1')),
+    ]
+    ext.current.SETTINGS.DRY_RUN = 0
+    ext.current.last_commit.fetch_statuses.return_value = []
+    ext.current.statuses = {'job': {'state': 'success'}}
 
     Build.from_url = CoroutineMock()
     build = Build.from_url.return_value

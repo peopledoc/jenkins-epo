@@ -141,13 +141,17 @@ class CancellerExtension(JenkinsExtension):
 
         if cancel and build.is_running:
             if self.current.SETTINGS.DRY_RUN:
-                logger.warn("Would cancelling %s.", build)
+                logger.warn("Would cancel %s.", build)
             else:
                 logger.warn("Cancelling %s.", build)
                 yield from build.stop()
-            new_status = status.__class__(
-                status, state='error', description='Cancelled after push.'
-            )
+            last_status = self.current.statuses.get(status['context'], {})
+            if last_status.get('state') != 'success':
+                new_status = status.__class__(
+                    status, state='error', description='Cancelled after push.'
+                )
+            else:
+                new_status = last_status
         else:
             new_status = CommitStatus(status, **build.commit_status)
 
@@ -303,9 +307,11 @@ class PollExtension(JenkinsExtension):
                 continue
 
             try:
-                if build.sha == self.current.head.sha:
-                    continue
+                build_sha = build.sha
             except Exception:
+                build_sha = self.current.head.sha
+
+            if build_sha == self.current.head.sha:
                 commit = self.current.last_commit
                 preset_statuses = self.iter_preset_statuses(
                     contextes, build,
@@ -322,6 +328,7 @@ class PollExtension(JenkinsExtension):
                 status = CommitStatus(context=job.name, **build.commit_status)
                 logger.info("Queuing %s for cancel.", build)
                 self.current.cancel_queue.append((commit, status))
+
         logger.debug("Polling %s done.", spec.name)
 
     @asyncio.coroutine
