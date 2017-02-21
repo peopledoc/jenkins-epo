@@ -21,7 +21,7 @@ from .github import GITHUB, cached_arequest
 from .repository import Repository, REPOSITORIES, Head, UnauthorizedRepository
 from .settings import SETTINGS
 from .tasks import PrinterTask, ProcessTask, RepositoryPollerTask
-from .utils import match, retry
+from .utils import match, retry, log_context
 from .workers import WORKERS
 
 logger = logging.getLogger(__name__)
@@ -77,8 +77,7 @@ def process_url(url, throttle=True):
     if head.repository not in REPOSITORIES:
         logger.error("%s not managed.", head.repository)
         return
-    task.logging_id = head.sha[:4]
-
+    log_context(head)
     logger.info("Working on %s.", head)
 
     bot = Bot()

@@ -86,6 +86,16 @@ def filter_exception_for_retry(exception):
     return True
 
 
+def log_context(instance):
+    task = asyncio.Task.current_task()
+    if not task:
+        return
+
+    if hasattr(instance, 'sha'):
+        task.logging_id = str(instance.sha)[:4]
+        return
+
+
 def format_duration(duration):
     duration = timedelta(seconds=duration / 1000.)
     h, m, s = str(duration).split(':')
