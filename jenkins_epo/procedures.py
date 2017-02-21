@@ -18,10 +18,10 @@ import logging
 
 from .bot import Bot
 from .github import GITHUB, cached_arequest
-from .repository import REPOSITORIES, Head, UnauthorizedRepository
+from .repository import Repository, REPOSITORIES, Head, UnauthorizedRepository
 from .settings import SETTINGS
 from .tasks import PrinterTask, ProcessTask, RepositoryPollerTask
-from .utils import retry
+from .utils import match, retry
 from .workers import WORKERS
 
 logger = logging.getLogger(__name__)
@@ -60,6 +60,10 @@ _task_map = {}
 
 @asyncio.coroutine
 def process_url(url, throttle=True):
+    if not match(url, Repository.heads_filter):
+        logger.debug("Skipping %s. Filtered.", url)
+        return
+
     task = asyncio.Task.current_task()
     running_task = _task_map.get(url)
     if running_task and not running_task.done():

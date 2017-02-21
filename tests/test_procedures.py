@@ -50,6 +50,19 @@ def test_print(mocker, SETTINGS, WORKERS):
 
 @pytest.mark.asyncio
 @asyncio.coroutine
+def test_process_url_skip(mocker, SETTINGS):
+    heads_filter = mocker.patch(
+        'jenkins_epo.procedures.Repository.heads_filter', []
+    )
+    heads_filter[:] = ['NONE']
+
+    from jenkins_epo.procedures import process_url
+
+    yield from process_url('url://')
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_process_url(mocker, SETTINGS):
     REPOSITORIES = mocker.patch(
         'jenkins_epo.procedures.REPOSITORIES', MagicMock()
