@@ -16,6 +16,7 @@ import asyncio
 from collections import OrderedDict
 import logging
 
+from aiohttp.errors import HttpProcessingError
 from jenkinsapi.custom_exceptions import UnknownJob
 
 from ..bot import Extension, Error, SkipHead
@@ -135,6 +136,12 @@ class CancellerExtension(JenkinsExtension):
         logger.debug("Query Jenkins %s status for %s.", status, commit)
         try:
             build = yield from Build.from_url(status['target_url'])
+        except HttpProcessingError as e:
+            logger.warn(
+                "Failed to get %s: %s %s",
+                status['target_url'], e.code, e.message,
+            )
+            return
         except NotOnJenkins as e:
             logger.debug("%s not on this Jenkins", status['target_url'])
             return
