@@ -509,7 +509,7 @@ class UnskipExtension(Extension):
 
                 logger.info("Unskipping %s.", context)
                 self.current.last_commit.maybe_update_status(CommitStatus(
-                    status, state='pending', description='Backed!',
+                    status, state='pending', description='Backed',
                 ))
 
 
