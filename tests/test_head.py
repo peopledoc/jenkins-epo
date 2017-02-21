@@ -155,17 +155,22 @@ def test_sort_heads():
     assert wanted == computed
 
 
-@patch('jenkins_epo.repository.cached_request')
-def test_branch_fetch_previous_commits(cached_request):
-    cached_request.side_effect = [
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_branch_fetch_commits(mocker):
+    cached_arequest = mocker.patch(
+        'jenkins_epo.repository.cached_arequest', CoroutineMock()
+    )
+    cached_arequest.side_effect = [
         dict(parents=[dict(sha='d0d0cafe')]),
         dict()
     ]
     from jenkins_epo.repository import Branch
 
     head = Branch(Mock(), dict(name='branch', commit=dict(sha='d0d0cafe')))
-    assert list(head.fetch_previous_commits())
-    assert cached_request.mock_calls
+    payload = yield from head.fetch_commits()
+    assert payload
+    assert cached_arequest.mock_calls
 
 
 @pytest.mark.asyncio
@@ -184,16 +189,20 @@ def test_branch_fetch_comments(mocker):
     assert arequest.mock_calls
 
 
-@patch('jenkins_epo.repository.cached_request')
-def test_pr_fetch_previous_commits(cached_request):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_pr_fetch_commits(mocker):
+    cached_arequest = mocker.patch(
+        'jenkins_epo.repository.cached_arequest', CoroutineMock()
+    )
+    cached_arequest.return_value = dict(commits=['previous', 'last'])
     from jenkins_epo.repository import PullRequest
-    cached_request.return_value = dict(commits=['previous', 'last'])
     head = PullRequest(Mock(), dict(
         head=dict(ref='pr', sha='d0d0cafe', label='owner:pr'),
         base=dict(label='owner:base'),
     ))
-    commits = list(head.fetch_previous_commits())
-    assert ['last', 'previous'] == commits
+    commits = yield from head.fetch_commits()
+    assert ['last', 'previous'] == list(commits)
 
 
 @pytest.mark.asyncio

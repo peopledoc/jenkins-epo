@@ -124,7 +124,6 @@ def test_parse_error():
 @asyncio.coroutine
 def test_run_extension(mocker):
     pkg_resources = mocker.patch('jenkins_epo.bot.pkg_resources')
-    mocker.patch('jenkins_epo.bot.Commit')
 
     from jenkins_epo.bot import Bot
 
@@ -139,12 +138,17 @@ def test_run_extension(mocker):
     bot = Bot()
     assert 'ext' in bot.extensions_map
 
-    pr = Mock()
+    pr = Mock(name='pr')
+    pr.fetch_commits = CoroutineMock()
+    commits = [Mock()]
+    pr.repository.process_commits.return_value = commits
     pr.fetch_comments = CoroutineMock(return_value=[])
-    pr.repository.fetch_commit.return_value = []
+    commits[0].fetch_statuses = CoroutineMock()
 
     yield from bot.run(pr)
 
+    assert pr.fetch_commits.mock_calls
+    assert pr.fetch_comments.mock_calls
     assert ext.begin.mock_calls
     assert ext.run.mock_calls
 
@@ -153,7 +157,6 @@ def test_run_extension(mocker):
 @asyncio.coroutine
 def test_begin_skip_head(mocker):
     pkg_resources = mocker.patch('jenkins_epo.bot.pkg_resources')
-    mocker.patch('jenkins_epo.bot.Commit')
 
     from jenkins_epo.bot import Bot, SkipHead
 
@@ -165,10 +168,12 @@ def test_begin_skip_head(mocker):
     ext.SETTINGS = {}
     ext.begin.side_effect = SkipHead()
 
-    pr = Mock()
-    pr.sha = 'cafed0d0'
+    pr = Mock(name='pr')
+    pr.fetch_commits = CoroutineMock()
+    commits = [Mock()]
+    pr.repository.process_commits.return_value = commits
     pr.fetch_comments = CoroutineMock(return_value=[])
-    pr.repository.fetch_commit.return_value = []
+    commits[0].fetch_statuses = CoroutineMock()
 
     yield from Bot().run(pr)
 
@@ -180,7 +185,6 @@ def test_begin_skip_head(mocker):
 @asyncio.coroutine
 def test_run_skip_head(mocker):
     pkg_resources = mocker.patch('jenkins_epo.bot.pkg_resources')
-    mocker.patch('jenkins_epo.bot.Commit')
 
     from jenkins_epo.bot import Bot, SkipHead
 
@@ -192,10 +196,12 @@ def test_run_skip_head(mocker):
     ext.SETTINGS = {}
     ext.run.side_effect = SkipHead()
 
-    pr = Mock()
-    pr.sha = 'cafed0d0'
+    pr = Mock(name='pr')
+    pr.fetch_commits = CoroutineMock()
+    commits = [Mock()]
+    pr.repository.process_commits.return_value = commits
     pr.fetch_comments = CoroutineMock(return_value=[])
-    pr.repository.fetch_commit.return_value = []
+    commits[0].fetch_statuses = CoroutineMock()
 
     yield from Bot().run(pr)
 

@@ -22,7 +22,6 @@ import reprlib
 import yaml
 
 from .github import GITHUB
-from .repository import Commit
 from .settings import SETTINGS
 from .utils import Bunch, parse_datetime, match, parse_patterns
 
@@ -111,11 +110,12 @@ See `jenkins: help` for documentation.
     def run(self, head):
         self.workon(head)
 
-        sha = self.current.head.sha
-        payload = yield from self.current.head.repository.fetch_commit(sha)
-        self.current.last_commit = Commit(
-            self.current.head.repository, sha, payload,
+        logger.info("Listing commits from GitHub.")
+        payload = yield from self.current.head.fetch_commits()
+        self.current.commits = list(
+            self.current.repository.process_commits(payload)
         )
+        self.current.last_commit = self.current.commits[0]
 
         logger.info("Fetching latest job status on GitHub.")
         payload = yield from self.current.last_commit.fetch_statuses()
