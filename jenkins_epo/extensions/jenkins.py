@@ -141,7 +141,7 @@ class CancellerExtension(JenkinsExtension):
 
         if cancel and build.is_running:
             if self.current.SETTINGS.DRY_RUN:
-                logger.warn("Would cancelling %s.", build)
+                logger.warn("Would cancel %s.", build)
             else:
                 logger.warn("Cancelling %s.", build)
                 yield from build.stop()
