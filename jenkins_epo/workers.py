@@ -75,7 +75,7 @@ class WorkerPool(object):
             except CancelledError:
                 logger.warn("Cancel of %s", item)
             except Exception as e:
-                if SETTINGS.VERBOSE:
+                if SETTINGS.VERBOSE or SETTINGS.DEBUG:
                     logger.exception("Failed to process %s: %s", item, e)
                 else:
                     logger.error("Failed to process %s: %s", item, e)
