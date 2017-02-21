@@ -303,9 +303,11 @@ class PollExtension(JenkinsExtension):
                 continue
 
             try:
-                if build.sha == self.current.head.sha:
-                    continue
+                build_sha = build.sha
             except Exception:
+                build_sha = self.current.head.sha
+
+            if build_sha == self.current.head.sha:
                 commit = self.current.last_commit
                 preset_statuses = self.iter_preset_statuses(
                     contextes, build,
@@ -322,6 +324,7 @@ class PollExtension(JenkinsExtension):
                 status = CommitStatus(context=job.name, **build.commit_status)
                 logger.info("Queuing %s for cancel.", build)
                 self.current.cancel_queue.append((commit, status))
+
         logger.debug("Polling %s done.", spec.name)
 
     @asyncio.coroutine
