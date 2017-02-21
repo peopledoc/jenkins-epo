@@ -1,6 +1,7 @@
 import asyncio
 from unittest.mock import Mock, patch
 
+from asynctest import CoroutineMock
 import pytest
 
 
@@ -139,8 +140,7 @@ def test_run_extension(mocker):
     assert 'ext' in bot.extensions_map
 
     pr = Mock()
-    pr.list_comments.return_value = []
-
+    pr.fetch_comments = CoroutineMock(return_value=[])
     pr.repository.fetch_commit.return_value = []
 
     yield from bot.run(pr)
@@ -167,6 +167,7 @@ def test_begin_skip_head(mocker):
 
     pr = Mock()
     pr.sha = 'cafed0d0'
+    pr.fetch_comments = CoroutineMock(return_value=[])
     pr.repository.fetch_commit.return_value = []
 
     yield from Bot().run(pr)
@@ -193,8 +194,8 @@ def test_run_skip_head(mocker):
 
     pr = Mock()
     pr.sha = 'cafed0d0'
+    pr.fetch_comments = CoroutineMock(return_value=[])
     pr.repository.fetch_commit.return_value = []
-    pr.list_comments.return_value = []
 
     yield from Bot().run(pr)
 
