@@ -145,9 +145,13 @@ class CancellerExtension(JenkinsExtension):
             else:
                 logger.warn("Cancelling %s.", build)
                 yield from build.stop()
-            new_status = status.__class__(
-                status, state='error', description='Cancelled after push.'
-            )
+            last_status = self.current.statuses.get(status['context'], {})
+            if last_status.get('state') != 'success':
+                new_status = status.__class__(
+                    status, state='error', description='Cancelled after push.'
+                )
+            else:
+                new_status = last_status
         else:
             new_status = CommitStatus(status, **build.commit_status)
 
