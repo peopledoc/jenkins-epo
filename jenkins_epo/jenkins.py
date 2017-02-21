@@ -259,7 +259,7 @@ class Build(object):
 
     @property
     def commit_status(self):
-        state, description = self._status_map[self.payload['result']]
+        state, description = self._status_map[self.payload.get('result')]
         description = description % dict(
             name=self.payload['displayName'],
             duration=format_duration(self.payload['duration']),
