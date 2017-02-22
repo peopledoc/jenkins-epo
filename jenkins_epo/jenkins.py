@@ -44,7 +44,7 @@ class RESTClient(object):
         self.path = path
 
     def __call__(self, arg):
-        return self.__class__(self.path.lstrip('/') + '/' + str(arg))
+        return self.__class__(self.path.rstrip('/') + '/' + str(arg))
 
     def __getattr__(self, name):
         return self(name)
