@@ -16,9 +16,11 @@ def test_lazy_load(mocker):
 
 def test_requester(mocker):
     mocker.patch('jenkins_epo.jenkins.Requester.get_url')
+    mocker.patch('jenkins_epo.jenkins.Requester.post_url')
     from jenkins_epo.jenkins import VerboseRequester
 
     VerboseRequester().get_url('url://')
+    VerboseRequester().post_url('url://')
 
 
 @pytest.mark.asyncio

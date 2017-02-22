@@ -91,6 +91,12 @@ class VerboseRequester(Requester):
         logger.debug("GET %s (sync)", url)
         return super(VerboseRequester, self).get_url(url, *a, **kw)
 
+    def post_url(self, url, *a, **kw):
+        logger.debug("POST %s (sync)", url)
+        return super(VerboseRequester, self).post_url(
+            url, *a, **kw
+        )
+
 
 # Monkey patch poll=True to avoid I/O in __init__
 JenkinsBase.__init__.__defaults__ = (False,)
