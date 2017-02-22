@@ -315,6 +315,10 @@ class Job(object):
         return getattr(self._instance, name)
 
     @property
+    def enabled(self):
+        return self._instance._data.get('color') == 'disabled'
+
+    @property
     def revision_param(self):
         if not hasattr(self, '_revision_param'):
             self._revision_param = None
