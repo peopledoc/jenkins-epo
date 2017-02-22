@@ -1,7 +1,6 @@
 import asyncio
-from unittest.mock import Mock, patch
 
-from asynctest import CoroutineMock
+from asynctest import CoroutineMock, Mock, patch
 import pytest
 
 
@@ -111,8 +110,9 @@ def test_from_url_unprotected_branch_no_pr(mocker):
     assert cached_arequest.mock_calls
 
 
-@patch('jenkins_epo.repository.GITHUB')
-def test_delete_branch(GITHUB):
+def test_delete_branch(mocker):
+    GITHUB = mocker.patch('jenkins_epo.repository.GITHUB')
+
     from jenkins_epo.repository import PullRequest
 
     GITHUB.dry = False
