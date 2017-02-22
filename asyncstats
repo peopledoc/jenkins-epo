@@ -1,0 +1,70 @@
+#!/usr/bin/env python
+
+import datetime
+import logging
+import re
+import sys
+
+logging.basicConfig(format='%(message)s', level=logging.DEBUG)
+logger = logging
+
+logline_re = re.compile(r'^(?P<date>2017.*) =(?P<name>.*)= .*$')
+last_views = dict()
+maxblocks = dict()
+task_durations = dict()
+task_starts = dict()
+GET_count = 0
+HEAD_count = 0
+first_date = None
+
+with open(sys.argv[1]) as fo:
+    prev_task = 'main'
+    for line in fo:
+        if ' GET ' in line:
+            GET_count += 1
+
+        if ' Working on ' in line:
+            HEAD_count += 1
+
+        match = logline_re.match(line.strip())
+        if not match:
+            continue
+        date = match.group('date')
+        date = datetime.datetime.strptime(date, '%Y-%m-%d %H:%M:%S,%f')
+        if not first_date:
+            first_date = date
+        curr_task = match.group('name').strip()
+        start = task_starts.setdefault(curr_task, date)
+        task_durations[curr_task] = date - start
+        if prev_task == curr_task:
+            continue
+
+        last_views[prev_task] = date
+        last_view = last_views.get(curr_task, date)
+        blocktime = date - last_view
+        maxblock = maxblocks.setdefault(curr_task, blocktime)
+        maxblocks[curr_task] = max(blocktime, maxblock)
+
+        prev_task = curr_task
+
+
+for task, duration in sorted(task_durations.items(), key=lambda x: x[1]):
+    if task in {'main', 'bot', 'othr'}:
+        continue
+    if task.startswith('wk'):
+        continue
+    logger.info(
+        "%s: duration=%s, blocked_max=%s",
+        task, duration, maxblocks[task],
+    )
+
+total_time = date - first_date
+logger.info(
+    "Total GET requests: %d (%.2f r/s).",
+    GET_count, GET_count / total_time.total_seconds(),
+)
+logger.info(
+    "Total HEADs: %d (moyenne de %.2fs).",
+    HEAD_count, total_time.total_seconds() / HEAD_count,
+)
+logger.info("Total time. %s.", total_time)
