@@ -41,9 +41,6 @@ def test_fetch_builds(mocker):
 
     api_instance = Mock(_data=dict())
     api_instance.name = 'freestyle'
-    xml = api_instance._get_config_element_tree.return_value
-    xml.findall.return_value = []
-    xml.find.return_value = None
 
     job = Job(api_instance)
     yield from job.fetch_builds()
@@ -56,9 +53,6 @@ def test_process_builds():
 
     api_instance = Mock(_data=dict())
     api_instance.name = 'freestyle'
-    xml = api_instance._get_config_element_tree.return_value
-    xml.findall.return_value = []
-    xml.find.return_value = None
 
     job = Job(api_instance)
 
