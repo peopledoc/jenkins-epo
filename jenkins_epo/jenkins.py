@@ -322,7 +322,7 @@ class Job(object):
 
     @property
     def enabled(self):
-        return self._instance._data.get('color') == 'disabled'
+        return not self._instance._data.get('color', '').startswith('disabled')
 
     @property
     def revision_param(self):

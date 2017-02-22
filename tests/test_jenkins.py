@@ -26,8 +26,8 @@ def test_requester(mocker):
 def test_enabled():
     from jenkins_epo.jenkins import Job
 
-    assert Job(Mock(_data=dict(color='disabled'))).enabled
-    assert not Job(Mock(_data=dict(color='blue'))).enabled
+    assert not Job(Mock(_data=dict(color='disabled'))).enabled
+    assert Job(Mock(_data=dict(color='blue'))).enabled
 
 
 @pytest.mark.asyncio
