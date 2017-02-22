@@ -9,14 +9,14 @@ import pytest
 @asyncio.coroutine
 def test_from_url(SETTINGS, mocker):
     SETTINGS.JENKINS_URL = 'jenkins://'
-    RESTClient = mocker.patch('jenkins_epo.jenkins.RESTClient')
+    Client = mocker.patch('jenkins_epo.jenkins.rest.Client')
 
     from jenkins_epo.jenkins import Build, NotOnJenkins
 
     with pytest.raises(NotOnJenkins):
         yield from Build.from_url('circleci:///')
 
-    RESTClient().aget = CoroutineMock(return_value=dict(number=1))
+    Client().api.python.aget = CoroutineMock(return_value=dict(number=1))
 
     build = yield from Build.from_url('jenkins://job/1')
 
@@ -112,13 +112,13 @@ def test_commit_status():
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_stop(SETTINGS, mocker):
-    RESTClient = mocker.patch('jenkins_epo.jenkins.RESTClient')
+    Client = mocker.patch('jenkins_epo.jenkins.rest.Client')
 
     from jenkins_epo.jenkins import Build
 
     build = Build(Mock(), payload=dict(url='jenkins://'))
-    RESTClient().stop.apost = CoroutineMock()
+    Client().stop.apost = CoroutineMock()
 
     yield from build.stop()
 
-    assert RESTClient().stop.apost.mock_calls
+    assert Client().stop.apost.mock_calls

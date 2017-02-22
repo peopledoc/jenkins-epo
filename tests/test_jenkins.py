@@ -1,6 +1,6 @@
 import asyncio
-from asynctest import patch, CoroutineMock, Mock
 
+from asynctest import patch, CoroutineMock, Mock
 import pytest
 
 
@@ -26,8 +26,10 @@ def test_requester(mocker):
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_fetch_builds(mocker):
-    RESTClient = mocker.patch('jenkins_epo.jenkins.RESTClient')
-    RESTClient().aget = aget = CoroutineMock(return_value=dict(builds=[]))
+    Client = mocker.patch('jenkins_epo.jenkins.rest.Client')
+    Client().api.python.aget = aget = CoroutineMock(
+        return_value=dict(builds=[])
+    )
     from jenkins_epo.jenkins import Job
 
     api_instance = Mock(_data=dict())
@@ -355,11 +357,13 @@ def test_get_job(factory, load, SETTINGS):
 def test_aget_job(mocker, SETTINGS):
     mocker.patch('jenkins_epo.jenkins.LazyJenkins.load')
     mocker.patch('jenkins_epo.jenkins.Job.factory')
-    RESTClient = mocker.patch('jenkins_epo.jenkins.RESTClient')
-    client = RESTClient.return_value
-    client.return_value.aget = CoroutineMock()
+    Client = mocker.patch('jenkins_epo.jenkins.rest.Client')
+    client = Client()
+    client.api.python.aget = CoroutineMock()
+    client().aget = CoroutineMock()
 
     from jenkins_epo.jenkins import LazyJenkins
+
     my = LazyJenkins()
     my._instance = Mock()
     job = yield from my.aget_job('name')
@@ -397,11 +401,13 @@ def test_queue_empty(mocker, SETTINGS):
 
     JENKINS = LazyJenkins(Mock())
     JENKINS.rest = Mock()
-    JENKINS.rest.queue.aget = CoroutineMock(return_value=dict(items=[]))
+    JENKINS.rest.queue.api.python.aget = CoroutineMock(
+        return_value=dict(items=[]),
+    )
 
     yield from JENKINS.is_queue_empty()
 
-    assert JENKINS.rest.queue.aget.mock_calls
+    assert JENKINS.rest.queue.api.python.aget.mock_calls
 
 
 @patch('jenkins_epo.jenkins.JobSpec')
