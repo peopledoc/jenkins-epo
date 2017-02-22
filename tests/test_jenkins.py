@@ -381,13 +381,18 @@ def test_update_job(factory, SETTINGS):
     assert factory.mock_calls
 
 
-def test_queue_empty(SETTINGS):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_queue_empty(mocker, SETTINGS):
     from jenkins_epo.jenkins import LazyJenkins
 
     JENKINS = LazyJenkins(Mock())
-    JENKINS._instance.get_queue.return_value._data = dict(items=[])
+    JENKINS.rest = Mock()
+    JENKINS.rest.queue.aget = CoroutineMock(return_value=dict(items=[]))
 
-    assert JENKINS.is_queue_empty()
+    yield from JENKINS.is_queue_empty()
+
+    assert JENKINS.rest.queue.aget.mock_calls
 
 
 @patch('jenkins_epo.jenkins.JobSpec')

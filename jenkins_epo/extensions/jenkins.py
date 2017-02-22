@@ -85,8 +85,7 @@ class BuilderExtension(JenkinsExtension):
             job.list_contexts(spec),
             rebuild_failed=self.current.rebuild_failed
         )
-        queue_empty = JENKINS.is_queue_empty()
-        yield from switch_coro()
+        queue_empty = yield from JENKINS.is_queue_empty()
         toqueue_contexts = []
         for context in not_built:
             logger.debug("Computing next state for %s.", context)

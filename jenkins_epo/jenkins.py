@@ -116,13 +116,11 @@ class LazyJenkins(object):
                 lazy=True,
             )
 
-    @retry
+    @asyncio.coroutine
     def is_queue_empty(self):
-        queue = self.get_queue()
-        queue.poll()
-        data = queue._data
+        payload = yield from self.rest.queue.aget()
         items = [
-            i for i in data['items']
+            i for i in payload['items']
             if not i['stuck'] and match(i['task']['name'], self.queue_patterns)
         ]
         return len(items) <= SETTINGS.QUEUE_MAX

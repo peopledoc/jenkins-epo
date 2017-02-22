@@ -55,7 +55,7 @@ def test_build_queue_full(mocker):
     ext.current.jobs = {'job': job}
     ext.current.statuses = {}
 
-    JENKINS.is_queue_empty.return_value = False
+    JENKINS.is_queue_empty = CoroutineMock(return_value=False)
 
     yield from ext.run()
 
@@ -84,7 +84,7 @@ def test_build_queue_empty(mocker):
     ext.current.jobs = {'job': job}
     ext.current.statuses = {}
 
-    JENKINS.is_queue_empty.return_value = True
+    JENKINS.is_queue_empty = CoroutineMock(return_value=True)
 
     yield from ext.run()
 
@@ -94,7 +94,9 @@ def test_build_queue_empty(mocker):
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_build_failed():
+def test_build_failed(mocker):
+    JENKINS = mocker.patch('jenkins_epo.extensions.jenkins.JENKINS')
+
     from jenkins_epo.extensions.jenkins import BuilderExtension
 
     ext = BuilderExtension('builder', Mock())
@@ -112,6 +114,8 @@ def test_build_failed():
     ext.current.job_specs = {'job': spec}
     ext.current.jobs = {'job': job}
     ext.current.statuses = {}
+
+    JENKINS.is_queue_empty = CoroutineMock(return_value=True)
 
     yield from ext.run()
 
