@@ -99,6 +99,7 @@ class LazyJenkins(object):
 
     def __init__(self, instance=None):
         self._instance = instance
+        self.rest = None
 
     def __getattr__(self, name):
         self.load()
@@ -108,6 +109,7 @@ class LazyJenkins(object):
     def load(self):
         if not self._instance:
             logger.debug("Connecting to Jenkins %s", SETTINGS.JENKINS_URL)
+            self.rest = RESTClient(SETTINGS.JENKINS_URL)
             self._instance = Jenkins(
                 baseurl=SETTINGS.JENKINS_URL,
                 requester=VerboseRequester(baseurl=SETTINGS.JENKINS_URL),
