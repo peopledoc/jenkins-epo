@@ -86,7 +86,7 @@ class RESTClient(object):
 
 class VerboseRequester(Requester):
     def get_url(self, url, *a, **kw):
-        logger.debug("GET %s", url)
+        logger.debug("GET %s (sync)", url)
         return super(VerboseRequester, self).get_url(url, *a, **kw)
 
 
