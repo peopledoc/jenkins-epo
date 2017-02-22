@@ -22,7 +22,7 @@ from jenkinsapi.custom_exceptions import UnknownJob
 from ..bot import Extension, Error, SkipHead
 from ..jenkins import Build, JENKINS, NotOnJenkins
 from ..repository import Commit, CommitStatus
-from ..utils import log_context, match, switch_coro
+from ..utils import log_context, match
 
 
 logger = logging.getLogger(__name__)
@@ -85,8 +85,7 @@ class BuilderExtension(JenkinsExtension):
             job.list_contexts(spec),
             rebuild_failed=self.current.rebuild_failed
         )
-        queue_empty = JENKINS.is_queue_empty()
-        yield from switch_coro()
+        queue_empty = yield from JENKINS.is_queue_empty()
         toqueue_contexts = []
         for context in not_built:
             logger.debug("Computing next state for %s.", context)
@@ -335,7 +334,6 @@ class PollExtension(JenkinsExtension):
                         "Preset pending status for %s.", status['context'],
                     )
                     yield from commit.maybe_update_status(status)
-                    yield from switch_coro()
                 continue
             else:
                 commit = Commit(self.current.head.repository, build.sha)

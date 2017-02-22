@@ -14,6 +14,13 @@ def test_lazy_load(mocker):
     assert JENKINS._instance
 
 
+def test_requester(mocker):
+    mocker.patch('jenkins_epo.jenkins.Requester.get_url')
+    from jenkins_epo.jenkins import VerboseRequester
+
+    VerboseRequester().get_url('url://')
+
+
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_fetch_builds(mocker):
@@ -381,13 +388,18 @@ def test_update_job(factory, SETTINGS):
     assert factory.mock_calls
 
 
-def test_queue_empty(SETTINGS):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_queue_empty(mocker, SETTINGS):
     from jenkins_epo.jenkins import LazyJenkins
 
     JENKINS = LazyJenkins(Mock())
-    JENKINS._instance.get_queue.return_value._data = dict(items=[])
+    JENKINS.rest = Mock()
+    JENKINS.rest.queue.aget = CoroutineMock(return_value=dict(items=[]))
 
-    assert JENKINS.is_queue_empty()
+    yield from JENKINS.is_queue_empty()
+
+    assert JENKINS.rest.queue.aget.mock_calls
 
 
 @patch('jenkins_epo.jenkins.JobSpec')

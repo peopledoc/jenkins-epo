@@ -86,7 +86,7 @@ class RESTClient(object):
 
 class VerboseRequester(Requester):
     def get_url(self, url, *a, **kw):
-        logger.debug("GET %s", url)
+        logger.debug("GET %s (sync)", url)
         return super(VerboseRequester, self).get_url(url, *a, **kw)
 
 
@@ -99,6 +99,7 @@ class LazyJenkins(object):
 
     def __init__(self, instance=None):
         self._instance = instance
+        self.rest = None
 
     def __getattr__(self, name):
         self.load()
@@ -108,19 +109,18 @@ class LazyJenkins(object):
     def load(self):
         if not self._instance:
             logger.debug("Connecting to Jenkins %s", SETTINGS.JENKINS_URL)
+            self.rest = RESTClient(SETTINGS.JENKINS_URL)
             self._instance = Jenkins(
                 baseurl=SETTINGS.JENKINS_URL,
                 requester=VerboseRequester(baseurl=SETTINGS.JENKINS_URL),
                 lazy=True,
             )
 
-    @retry
+    @asyncio.coroutine
     def is_queue_empty(self):
-        queue = self.get_queue()
-        queue.poll()
-        data = queue._data
+        payload = yield from self.rest.queue.aget()
         items = [
-            i for i in data['items']
+            i for i in payload['items']
             if not i['stuck'] and match(i['task']['name'], self.queue_patterns)
         ]
         return len(items) <= SETTINGS.QUEUE_MAX
