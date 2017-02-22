@@ -19,7 +19,6 @@ import base64
 from datetime import datetime, timezone
 import logging
 import os.path
-import sys
 import time
 from yarl import URL
 
@@ -80,7 +79,9 @@ def check_rate_limit_threshold():
     )))
 
 
-def _cached_request_middleware(query, **kw):
+@retry
+@asyncio.coroutine
+def cached_arequest(query, **kw):
     check_rate_limit_threshold()
     cache_key = '_'.join([
         'gh', SETTINGS.GITHUB_TOKEN[:8], str(query._name), _encode_params(kw),
@@ -96,7 +97,7 @@ def _cached_request_middleware(query, **kw):
         pass
 
     try:
-        response = yield headers
+        response = yield from query.aget(headers=headers, **kw)
     except ApiError as e:
         if e.response['code'] != 304:
             raise
@@ -108,43 +109,6 @@ def _cached_request_middleware(query, **kw):
 
     CACHE.set(cache_key, response)
     return response
-
-
-@retry
-def cached_request(query, **kw):
-    generator = _cached_request_middleware(query, **kw)
-    headers = next(generator)
-    kw = dict(per_page=b'100', **kw)
-    try:
-        response = query.get(headers=headers, **kw)
-    except Exception as e:
-        callable, args = generator.throw, sys.exc_info()
-    else:
-        callable, args = generator.send, (response,)
-
-    try:
-        callable(*args)
-    except StopIteration as e:
-        return e.value
-
-
-@retry
-@asyncio.coroutine
-def cached_arequest(query, **kw):
-    generator = _cached_request_middleware(query, **kw)
-    headers = next(generator)
-    kw = dict(per_page='100', **kw)
-    try:
-        response = yield from query.aget(headers=headers, **kw)
-    except Exception as e:
-        callable, args = generator.throw, sys.exc_info()
-    else:
-        callable, args = generator.send, (response,)
-
-    try:
-        callable(*args)
-    except StopIteration as e:
-        return e.value
 
 
 @asyncio.coroutine

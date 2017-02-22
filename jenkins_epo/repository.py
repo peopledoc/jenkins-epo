@@ -24,9 +24,7 @@ import re
 from github import ApiError
 import yaml
 
-from .github import (
-    cached_arequest, cached_request, unpaginate, GITHUB, ApiNotFoundError
-)
+from .github import cached_arequest, unpaginate, GITHUB, ApiNotFoundError
 from .settings import SETTINGS
 from .utils import Bunch, match, parse_datetime, parse_patterns, retry
 

@@ -67,7 +67,6 @@ Feel free to contribute :)
 - Add ``clean-job`` command to drop jobs undefined un protected branches.
 - Comment old PR with «push a new commit».
 - Switch to full AsyncIO
-  - drop cached_request
   - drop jenkinsapi
   - drop githubpy
   - see siesta
