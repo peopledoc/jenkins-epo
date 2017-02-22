@@ -40,11 +40,13 @@ class NotOnJenkins(Exception):
 
 
 class RESTClient(object):
-    def __init__(self, path=''):
-        self.path = path
+    def __init__(self, url=''):
+        self.url = url
 
-    def __call__(self, arg):
-        return self.__class__(self.path.rstrip('/') + '/' + str(arg))
+    def __call__(self, url):
+        if not url.startswith('http://'):
+            url = self.url.rstrip('/') + '/' + str(url)
+        return self.__class__(url)
 
     def __getattr__(self, name):
         return self(name)
@@ -52,7 +54,7 @@ class RESTClient(object):
     @retry
     def afetch(self, **kw):
         session = aiohttp.ClientSession()
-        url = URL(self.path)
+        url = URL(self.url)
         if kw:
             url = url.with_query(**kw)
         logger.debug("GET %s", url)
@@ -71,7 +73,7 @@ class RESTClient(object):
     @retry
     def apost(self, **kw):
         session = aiohttp.ClientSession()
-        url = URL(self.path)
+        url = URL(self.url)
         if kw:
             url = url.with_query(**kw)
         logger.debug("POST %s", url)
