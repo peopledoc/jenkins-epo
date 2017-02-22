@@ -72,6 +72,7 @@ def test_build_queue_empty(mocker):
     ext = BuilderExtension('builder', Mock())
     ext.current = ext.bot.current
     job = Mock()
+    job.build = CoroutineMock()
     spec = Mock(config=dict())
     spec.name = 'job'
     ext.current.head.ref = 'refs/heads/pr'
@@ -94,7 +95,7 @@ def test_build_queue_empty(mocker):
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_build_failed(mocker):
+def test_build_failed(mocker, SETTINGS):
     JENKINS = mocker.patch('jenkins_epo.extensions.jenkins.JENKINS')
 
     from jenkins_epo.extensions.jenkins import BuilderExtension
@@ -102,9 +103,10 @@ def test_build_failed(mocker):
     ext = BuilderExtension('builder', Mock())
     ext.current = ext.bot.current
     job = Mock()
-    job.build.side_effect = Exception('POUET')
+    job.build = CoroutineMock(side_effect=Exception('POUET'))
     spec = Mock(config=dict())
     spec.name = 'job'
+    ext.current.SETTINGS = SETTINGS
     ext.current.head.ref = 'refs/heads/pr'
     ext.current.last_commit.filter_not_built_contexts.return_value = ['job']
     ext.current.last_commit.maybe_update_status = CoroutineMock(return_value={

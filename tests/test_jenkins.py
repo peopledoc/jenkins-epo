@@ -66,7 +66,10 @@ def test_process_builds():
     assert 1 == builds[1].number
 
 
-def test_freestyle_build(SETTINGS):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_freestyle_build(mocker, SETTINGS):
+    JENKINS = mocker.patch('jenkins_epo.jenkins.JENKINS')
     from jenkins_epo.jenkins import FreestyleJob
 
     api_instance = Mock(_data=dict())
@@ -83,14 +86,19 @@ def test_freestyle_build(SETTINGS):
     }
     job = FreestyleJob(api_instance)
     job._node_param = 'NODE'
+    job._revision_param = 'R'
 
     SETTINGS.DRY_RUN = 0
-    job.build(pr, spec, 'freestyle')
+    yield from job.build(pr, spec, 'freestyle')
 
-    assert api_instance.invoke.mock_calls
+    assert JENKINS.rest.job().buildWithParameters.apost.mock_calls
 
 
-def test_freestyle_build_dry(SETTINGS):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_freestyle_build_dry(mocker, SETTINGS):
+    JENKINS = mocker.patch('jenkins_epo.jenkins.JENKINS')
+
     from jenkins_epo.jenkins import FreestyleJob
 
     api_instance = Mock(_data=dict())
@@ -108,9 +116,9 @@ def test_freestyle_build_dry(SETTINGS):
 
     SETTINGS.DRY_RUN = 1
 
-    job.build(pr, spec, 'freestyle')
+    yield from job.build(pr, spec, 'freestyle')
 
-    assert not api_instance.invoke.mock_calls
+    assert not JENKINS.rest.job().buildWithParameters.apost.mock_calls
 
 
 def test_freestyle_node_param():
@@ -262,7 +270,10 @@ def test_matrix_list_context_superset(JobSpec):
     assert 2 == len(contexts)
 
 
-def test_matrix_build(SETTINGS):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_matrix_build(mocker, SETTINGS):
+    JENKINS = mocker.patch('jenkins_epo.jenkins.JENKINS')
     from jenkins_epo.jenkins import MatrixJob, JobSpec
 
     SETTINGS.DRY_RUN = 0
@@ -282,12 +293,17 @@ def test_matrix_build(SETTINGS):
     job._combination_param = 'C'
     job._revision_param = 'R'
 
-    job.build(Mock(url='url://', fullref='refs/heads/master'), spec, 'matrix')
+    yield from job.build(
+        Mock(url='url://', fullref='refs/heads/master'), spec, 'matrix',
+    )
 
-    assert api_instance.invoke.mock_calls
+    assert JENKINS.rest.job().buildWithParameters.mock_calls
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_matrix_build_dry(mocker, SETTINGS):
+    JENKINS = mocker.patch('jenkins_epo.jenkins.JENKINS')
     from jenkins_epo.jenkins import MatrixJob, JobSpec
 
     SETTINGS.DRY_RUN = 1
@@ -306,9 +322,9 @@ def test_matrix_build_dry(mocker, SETTINGS):
     job._node_axis = job._revision_param = None
     job._combination_param = 'C'
 
-    job.build(Mock(url='url://'), spec, 'matrix')
+    yield from job.build(Mock(url='url://'), spec, 'matrix')
 
-    assert not job.api_instance.invoke.mock_calls
+    assert not JENKINS.rest.job().buildWithParameters.mock_calls
 
 
 @patch('jenkins_epo.jenkins.Job.factory')
