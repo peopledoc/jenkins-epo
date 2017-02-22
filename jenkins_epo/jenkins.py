@@ -13,24 +13,21 @@
 # jenkins-epo.  If not, see <http://www.gnu.org/licenses/>.
 
 
-import ast
 import asyncio
 from datetime import datetime, timedelta
 from itertools import product
 import logging
 import re
 
-import aiohttp
 from jenkinsapi.jenkinsbase import JenkinsBase
 from jenkinsapi.jenkins import Jenkins, Requester
 from jenkins_yml import Job as JobSpec
 import yaml
-from yarl import URL
 
 from .settings import SETTINGS
 from .utils import format_duration, match, parse_patterns, retry
 from .web import fullurl
-
+from . import rest
 
 logger = logging.getLogger(__name__)
 
@@ -39,55 +36,16 @@ class NotOnJenkins(Exception):
     pass
 
 
-class RESTClient(object):
-    def __init__(self, path=''):
-        self.path = path
-
-    def __call__(self, arg):
-        return self.__class__(self.path.lstrip('/') + '/' + str(arg))
-
-    def __getattr__(self, name):
-        return self(name)
-
-    @retry
-    def afetch(self, **kw):
-        session = aiohttp.ClientSession()
-        url = URL(self.path)
-        if kw:
-            url = url.with_query(**kw)
-        logger.debug("GET %s", url)
-        try:
-            response = yield from session.get(url, timeout=10)
-            payload = yield from response.read()
-        finally:
-            yield from session.close()
-        response.raise_for_status()
-        return payload.decode('utf-8')
-
-    def aget(self, **kw):
-        payload = yield from self.api.python.afetch(**kw)
-        return ast.literal_eval(payload)
-
-    @retry
-    def apost(self, **kw):
-        session = aiohttp.ClientSession()
-        url = URL(self.path)
-        if kw:
-            url = url.with_query(**kw)
-        logger.debug("POST %s", url)
-        try:
-            response = yield from session.post(url, timeout=10)
-            payload = yield from response.read()
-        finally:
-            yield from session.close()
-        response.raise_for_status()
-        return payload.decode('utf-8')
-
-
 class VerboseRequester(Requester):
     def get_url(self, url, *a, **kw):
         logger.debug("GET %s (sync)", url)
         return super(VerboseRequester, self).get_url(url, *a, **kw)
+
+    def post_url(self, url, *a, **kw):
+        logger.debug("POST %s (sync)", url)
+        return super(VerboseRequester, self).post_url(
+            url, *a, **kw
+        )
 
 
 # Monkey patch poll=True to avoid I/O in __init__
@@ -109,7 +67,7 @@ class LazyJenkins(object):
     def load(self):
         if not self._instance:
             logger.debug("Connecting to Jenkins %s", SETTINGS.JENKINS_URL)
-            self.rest = RESTClient(SETTINGS.JENKINS_URL)
+            self.rest = rest.Client(SETTINGS.JENKINS_URL)
             self._instance = Jenkins(
                 baseurl=SETTINGS.JENKINS_URL,
                 requester=VerboseRequester(baseurl=SETTINGS.JENKINS_URL),
@@ -118,7 +76,7 @@ class LazyJenkins(object):
 
     @asyncio.coroutine
     def is_queue_empty(self):
-        payload = yield from self.rest.queue.aget()
+        payload = yield from self.rest.queue.api.python.aget()
         items = [
             i for i in payload['items']
             if not i['stuck'] and match(i['task']['name'], self.queue_patterns)
@@ -137,9 +95,10 @@ class LazyJenkins(object):
     def aget_job(self, name):
         self.load()
         instance = self._instance.get_job(name)
-        client = RESTClient(instance.baseurl)
-        instance._data = yield from client.aget()
-        instance._config = yield from client('config.xml').afetch()
+        client = rest.Client(instance.baseurl)
+        instance._data = yield from client.api.python.aget()
+        payload = yield from client('config.xml').aget()
+        instance._config = payload.data
         return Job.factory(instance)
 
     DESCRIPTION_TMPL = """\
@@ -234,7 +193,9 @@ class Build(object):
         if not url.startswith(SETTINGS.JENKINS_URL):
             raise NotOnJenkins("%s is not on this Jenkins." % url)
 
-        payload = yield from RESTClient(url).aget(tree=cls.jenkins_tree)
+        payload = yield from rest.Client(url).api.python.aget(
+            tree=cls.jenkins_tree,
+        )
         return Build(None, payload)
 
     def __getattr__(self, name):
@@ -310,7 +271,7 @@ class Build(object):
 
     @asyncio.coroutine
     def stop(self):
-        payload = yield from RESTClient(self.payload['url']).stop.apost()
+        payload = yield from rest.Client(self.payload['url']).stop.apost()
         return payload
 
 
@@ -409,7 +370,9 @@ class Job(object):
     @asyncio.coroutine
     def fetch_builds(self):
         tree = "builds[" + Build.jenkins_tree + "]"
-        payload = yield from RESTClient(self.baseurl).aget(tree=tree)
+        payload = yield from rest.Client(self.baseurl).api.python.aget(
+            tree=tree,
+        )
         return payload['builds']
 
     def process_builds(self, payload):
