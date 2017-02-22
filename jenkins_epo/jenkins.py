@@ -292,12 +292,18 @@ class Job(object):
     def __init__(self, api_instance):
         self._instance = api_instance
         self.config = self._instance._get_config_element_tree()
-        self.spec = JobSpec.from_xml(self.name, self.config)
         match = self.embedded_data_re.search(
             self._instance._data.get('description', '')
         )
         data = match.group('yaml') if match else '{}'
         self.embedded_data = yaml.load(data).get('epo', {})
+        self._spec = None
+
+    @property
+    def spec(self):
+        if not self._spec:
+            self._spec = JobSpec.from_xml(self.name, self.config)
+        return self._spec
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.name)
@@ -313,6 +319,10 @@ class Job(object):
 
     def __getattr__(self, name):
         return getattr(self._instance, name)
+
+    @property
+    def enabled(self):
+        return self._instance._data.get('color') == 'disabled'
 
     @property
     def revision_param(self):

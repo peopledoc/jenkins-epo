@@ -111,7 +111,7 @@ class BuilderExtension(JenkinsExtension):
 
     def status_for_new_context(self, job, context, queue_empty):
         new_status = CommitStatus(target_url=job.baseurl, context=context)
-        if not job.is_enabled():
+        if not job.enabled:
             new_status.update({
                 'description': 'Disabled on Jenkins.',
                 'state': 'success',
