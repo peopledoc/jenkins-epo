@@ -1,8 +1,7 @@
 import asyncio
 from datetime import datetime
-from unittest.mock import Mock, patch
 
-from asynctest import CoroutineMock
+from asynctest import CoroutineMock, Mock
 import pytest
 
 
@@ -193,9 +192,13 @@ def test_load_settings_collaborators_denied(mocker):
     assert unpaginate.mock_calls
 
 
-@patch('jenkins_epo.repository.GITHUB')
-@patch('jenkins_epo.repository.cached_request')
-def test_load_settings_collaborators_override(cached_request, GITHUB):
+def test_load_settings_collaborators_override(mocker):
+    cached_arequest = mocker.patch(
+        'jenkins_epo.repository.cached_arequest',
+        CoroutineMock()
+    )
+    GITHUB = mocker.patch('jenkins_epo.repository.GITHUB')
+
     from jenkins_epo.repository import Repository
 
     GITHUB.fetch_file_contents.side_effect = [
@@ -205,7 +208,7 @@ def test_load_settings_collaborators_override(cached_request, GITHUB):
     repo = Repository('owner', 'repo1')
     repo.load_settings()
 
-    assert not cached_request.mock_calls
+    assert not cached_arequest.mock_calls
 
 
 def test_load_settings_already_loaded():
@@ -269,8 +272,7 @@ def test_collaborators():
     assert 'owner' in collaborators
 
 
-@patch('jenkins_epo.repository.cached_request')
-def test_process_commits(cached_request):
+def test_process_commits():
     from jenkins_epo.repository import Repository
 
     repo = Repository('owner', 'name')
@@ -471,27 +473,27 @@ def test_filter_contextes():
     assert 'skipped' in not_built
 
 
-@patch('jenkins_epo.repository.cached_request')
-def test_fetch_combined(cached_request):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_fetch_combined(mocker):
+    cached_arequest = mocker.patch('jenkins_epo.repository.cached_arequest')
     from jenkins_epo.repository import Commit
 
     commit = Commit(Mock(), sha='x')
 
-    ret = commit.fetch_combined_status()
+    ret = yield from commit.fetch_combined_status()
 
-    assert ret == cached_request.return_value
+    assert ret == cached_arequest.return_value
+    assert cached_arequest.mock_calls
 
 
-@patch('jenkins_epo.repository.cached_request')
-def test_commit_date(cached_request):
+def test_commit_date():
     from jenkins_epo.repository import Commit
 
     commit = Commit(Mock(), 'd0d0')
     assert repr(commit)
 
-    cached_request.return_value = {'author': {'date': '2016-10-11T14:45:00Z'}}
-
-    commit.fetch_payload()
+    commit.payload = {'author': {'date': '2016-10-11T14:45:00Z'}}
 
     assert 2016 == commit.date.year
 

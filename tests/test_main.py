@@ -1,7 +1,6 @@
 import asyncio
-from unittest.mock import MagicMock, Mock
 
-from asynctest import CoroutineMock
+from asynctest import CoroutineMock, MagicMock, Mock
 import pytest
 
 

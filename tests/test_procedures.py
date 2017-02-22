@@ -1,9 +1,7 @@
 import asyncio
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, Mock
 
-from aiohttp.test_utils import make_mocked_coro
-from asynctest import CoroutineMock
+from asynctest import CoroutineMock, MagicMock, Mock
 import pytest
 
 
@@ -180,7 +178,7 @@ def test_process_url_unmanaged(mocker, SETTINGS, event_loop):
 def test_whoami(mocker):
     mocker.patch(
         'jenkins_epo.procedures.cached_arequest',
-        make_mocked_coro(return_value=dict(login='aramis')),
+        CoroutineMock(return_value=dict(login='aramis')),
     )
 
     from jenkins_epo import procedures

@@ -204,21 +204,6 @@ def test_apost(mocker):
         yield from GITHUB.user.apost(pouet=True)
 
 
-@patch('jenkins_epo.github.CACHE')
-def test_cached_request_etag(CACHE, SETTINGS):
-    from jenkins_epo.github import cached_request
-
-    SETTINGS.GITHUB_TOKEN = 'cafec4e3e'
-
-    CACHE.get.return_value = response = Mock()
-    response._headers = {'Etag': 'e1ag'}
-    query = Mock()
-    cached_request(query)
-
-    headers = query.get.mock_calls[0][2]['headers']
-    assert 'If-None-Match' in headers
-
-
 @pytest.mark.asyncio
 @patch('jenkins_epo.github.GITHUB')
 @patch('jenkins_epo.github.CACHE')

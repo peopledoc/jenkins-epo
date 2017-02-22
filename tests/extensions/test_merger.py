@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime, timedelta
 from unittest.mock import Mock
 
+from asynctest import CoroutineMock
 import pytest
 
 
@@ -204,9 +205,9 @@ def test_not_green():
     ext.current = Mock()
     ext.current.opm = Mock()
     ext.current.opm_denied = []
-    ext.current.last_commit.fetch_combined_status.return_value = {
-        'state': 'error'
-    }
+    ext.current.last_commit.fetch_combined_status = CoroutineMock(
+        return_value={'state': 'error'}
+    )
     ext.current.wip = None
 
     yield from ext.run()
@@ -226,10 +227,9 @@ def test_merge_fail():
     ext.current.opm.author = 'collaborator'
     ext.current.opm_denied = []
     ext.current.wip = None
-
-    ext.current.last_commit.fetch_combined_status.return_value = {
-        'state': 'success'
-    }
+    ext.current.last_commit.fetch_combined_status = CoroutineMock(
+        return_value={'state': 'success'}
+    )
     ext.current.head.merge.side_effect = ApiError('url', {}, dict(
         code=405, json=dict(message="error")
     ))
@@ -249,9 +249,9 @@ def test_merge_success():
     ext.current.opm = Mock(author='author')
     ext.current.opm_denied = []
     ext.current.last_merge_error = None
-    ext.current.last_commit.fetch_combined_status.return_value = {
-        'state': 'success'
-    }
+    ext.current.last_commit.fetch_combined_status = CoroutineMock(
+        return_value={'state': 'success'}
+    )
     ext.current.wip = None
 
     yield from ext.run()

@@ -285,7 +285,7 @@ jenkins: opm-processed
         if not self.current.statuses:
             return logger.info("Not jobs reported yet. Postpone merge.")
 
-        status = self.current.last_commit.fetch_combined_status()
+        status = yield from self.current.last_commit.fetch_combined_status()
         if status['state'] != 'success':
             return logger.info("PR not green. Postpone merge.")
 

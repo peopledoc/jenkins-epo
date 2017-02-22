@@ -1,7 +1,6 @@
 import asyncio
-from unittest.mock import Mock, patch
 
-from asynctest import CoroutineMock
+from asynctest import CoroutineMock, Mock, patch
 import pytest
 
 

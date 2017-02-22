@@ -24,9 +24,7 @@ import re
 from github import ApiError
 import yaml
 
-from .github import (
-    cached_arequest, cached_request, unpaginate, GITHUB, ApiNotFoundError
-)
+from .github import cached_arequest, unpaginate, GITHUB, ApiNotFoundError
 from .settings import SETTINGS
 from .utils import Bunch, match, parse_datetime, parse_patterns, retry
 
@@ -311,14 +309,6 @@ class Commit(object):
         payload = self.payload.get('commit', self.payload)
         return parse_datetime(payload['author']['date'])
 
-    def fetch_payload(self):
-        logger.debug("Fetching commit %s.", self.sha[:7])
-        payload = cached_request(
-            GITHUB.repos(self.repository).commits(self.sha)
-        )
-        self.payload = payload
-        return payload
-
     @asyncio.coroutine
     def fetch_statuses(self):
         if SETTINGS.IGNORE_STATUSES:
@@ -330,10 +320,12 @@ class Commit(object):
                 GITHUB.repos(self.repository).status(self.sha),
             )
 
+    @asyncio.coroutine
     def fetch_combined_status(self):
-        return cached_request(
+        payload = cached_arequest(
             GITHUB.repos(self.repository).commits(self.sha).status,
         )
+        return payload
 
     def filter_not_built_contexts(self, contexts, rebuild_failed=None):
         for context in contexts:
