@@ -22,7 +22,7 @@ from jenkinsapi.custom_exceptions import UnknownJob
 from ..bot import Extension, Error, SkipHead
 from ..jenkins import Build, JENKINS, NotOnJenkins
 from ..repository import Commit, CommitStatus
-from ..utils import log_context, match, switch_coro
+from ..utils import log_context, match
 
 
 logger = logging.getLogger(__name__)
@@ -334,7 +334,6 @@ class PollExtension(JenkinsExtension):
                         "Preset pending status for %s.", status['context'],
                     )
                     yield from commit.maybe_update_status(status)
-                    yield from switch_coro()
                 continue
             else:
                 commit = Commit(self.current.head.repository, build.sha)
