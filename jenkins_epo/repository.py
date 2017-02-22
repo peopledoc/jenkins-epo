@@ -311,14 +311,6 @@ class Commit(object):
         payload = self.payload.get('commit', self.payload)
         return parse_datetime(payload['author']['date'])
 
-    def fetch_payload(self):
-        logger.debug("Fetching commit %s.", self.sha[:7])
-        payload = cached_request(
-            GITHUB.repos(self.repository).commits(self.sha)
-        )
-        self.payload = payload
-        return payload
-
     @asyncio.coroutine
     def fetch_statuses(self):
         if SETTINGS.IGNORE_STATUSES:

@@ -482,16 +482,13 @@ def test_fetch_combined(cached_request):
     assert ret == cached_request.return_value
 
 
-@patch('jenkins_epo.repository.cached_request')
-def test_commit_date(cached_request):
+def test_commit_date():
     from jenkins_epo.repository import Commit
 
     commit = Commit(Mock(), 'd0d0')
     assert repr(commit)
 
-    cached_request.return_value = {'author': {'date': '2016-10-11T14:45:00Z'}}
-
-    commit.fetch_payload()
+    commit.payload = {'author': {'date': '2016-10-11T14:45:00Z'}}
 
     assert 2016 == commit.date.year
 
