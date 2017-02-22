@@ -471,15 +471,18 @@ def test_filter_contextes():
     assert 'skipped' in not_built
 
 
-@patch('jenkins_epo.repository.cached_request')
-def test_fetch_combined(cached_request):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_fetch_combined(mocker):
+    cached_arequest = mocker.patch('jenkins_epo.repository.cached_arequest')
     from jenkins_epo.repository import Commit
 
     commit = Commit(Mock(), sha='x')
 
-    ret = commit.fetch_combined_status()
+    ret = yield from commit.fetch_combined_status()
 
-    assert ret == cached_request.return_value
+    assert ret == cached_arequest.return_value
+    assert cached_arequest.mock_calls
 
 
 def test_commit_date():

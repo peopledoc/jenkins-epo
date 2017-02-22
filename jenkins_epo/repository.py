@@ -322,10 +322,12 @@ class Commit(object):
                 GITHUB.repos(self.repository).status(self.sha),
             )
 
+    @asyncio.coroutine
     def fetch_combined_status(self):
-        return cached_request(
+        payload = cached_arequest(
             GITHUB.repos(self.repository).commits(self.sha).status,
         )
+        return payload
 
     def filter_not_built_contexts(self, contexts, rebuild_failed=None):
         for context in contexts:
