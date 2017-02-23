@@ -283,13 +283,16 @@ class Repository(object):
         )
 
     @retry
+    @asyncio.coroutine
     def set_hook(self, payload, hookid=None):  # hookaïda !
+        hooks = GITHUB.repos(self).hooks
         if hookid:
             logger.info("Updating webhook for %s.", self)
-            return GITHUB.repos(self).hooks(hookid).patch(**payload)
+            payload = yield from hooks(hookid).apatch(**payload)
         else:
             logger.info("Registering webhook for %s.", self)
-            return GITHUB.repos(self).hooks.post(**payload)
+            payload = yield from hooks.apost(**payload)
+        return payload
 
 
 class Commit(object):

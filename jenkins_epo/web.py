@@ -198,7 +198,7 @@ class RegisterTask(Task):
             else:
                 hookid = hook['id']
                 break
-        repository.set_hook(webhook, hookid=hookid)
+        yield from repository.set_hook(webhook, hookid=hookid)
 
 
 def fullurl(route='simple-webhook', **query):
