@@ -132,7 +132,20 @@ def test_process(mocker):
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_register(mocker):
+def test_register_missing_secret(mocker, SETTINGS):
+    SETTINGS.GITHUB_SECRET = ''
+
+    from jenkins_epo.main import register
+
+    with pytest.raises(SystemExit):
+        yield from register()
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_register(mocker, SETTINGS, WORKERS):
+    SETTINGS.GITHUB_SECRET = 'notasecret'
+
     register_webhook = mocker.patch(
         'jenkins_epo.main.register_webhook', CoroutineMock(),
     )

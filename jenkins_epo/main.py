@@ -92,6 +92,10 @@ def process(url):
 @asyncio.coroutine
 def register():
     """Register GitHub webhook"""
+    if not SETTINGS.GITHUB_SECRET:
+        logger.error("Use GITHUB_SECRET to define webhook shared secret.")
+        sys.exit(1)
+
     yield from WORKERS.start()
     yield from register_webhook()
     yield from WORKERS.terminate()
