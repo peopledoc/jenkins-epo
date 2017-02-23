@@ -245,6 +245,7 @@ Failed to create or update Jenkins job `%(name)s`.
 
     @asyncio.coroutine
     def process_job(self, action, spec):
+        log_context(self.current.head)
         job = None
         try:
             job = yield from action(spec)
@@ -313,6 +314,7 @@ class PollExtension(JenkinsExtension):
 
     @asyncio.coroutine
     def poll_job(self, spec):
+        log_context(self.current.head)
         asyncio.Task.current_task().logging_id = self.current.head.sha[:4]
         job = self.current.jobs[spec.name]
         payload = yield from job.fetch_builds()
