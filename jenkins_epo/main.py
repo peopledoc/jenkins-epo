@@ -145,7 +145,7 @@ def main(argv=None, *, loop=None):
             loop.run_until_complete(task)
         except BaseException:
             loop.close()
-            raise
+            task.result()
         else:
             loop.close()
     else:
