@@ -104,3 +104,12 @@ def test_parse_links():
 
     assert 'last' in links
     assert 'next' in links
+
+
+def test_post_mortem(mocker):
+    pdb = mocker.patch('jenkins_epo.utils.pdb')
+    from jenkins_epo.utils import post_mortem
+
+    post_mortem()
+
+    assert pdb.post_mortem.mock_calls
