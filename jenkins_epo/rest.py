@@ -67,6 +67,9 @@ class Client(object):
     def __getattr__(self, name):
         return self(name)
 
+    def __repr__(self):
+        return '<REST %s>' % (self.url)
+
     @retry
     def aget(self, **kw):
         session = aiohttp.ClientSession()
