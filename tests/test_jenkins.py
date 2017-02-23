@@ -360,15 +360,6 @@ def test_job_managed(from_xml, SETTINGS):
     assert job.managed
 
 
-@patch('jenkins_epo.jenkins.LazyJenkins.load')
-@patch('jenkins_epo.jenkins.Job.factory')
-def test_get_job(factory, load, SETTINGS):
-    from jenkins_epo.jenkins import LazyJenkins
-    my = LazyJenkins()
-    my._instance = Mock()
-    my.get_job('name')
-
-
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_aget_job(mocker, SETTINGS):

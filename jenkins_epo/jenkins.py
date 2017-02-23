@@ -84,13 +84,6 @@ class LazyJenkins(object):
         return len(items) <= SETTINGS.QUEUE_MAX
 
     @retry
-    def get_job(self, name):
-        self.load()
-        instance = self._instance.get_job(name)
-        instance.poll()
-        return Job.factory(instance)
-
-    @retry
     @asyncio.coroutine
     def aget_job(self, name):
         self.load()
