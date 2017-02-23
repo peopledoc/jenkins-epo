@@ -89,6 +89,7 @@ class WorkerPool(object):
         for task in pending_workers:
             if not task.done():
                 task.cancel()
+        yield from asyncio.gather(*self.tasks, return_exceptions=True)
         self.tasks[:] = []
 
 
