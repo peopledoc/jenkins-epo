@@ -327,23 +327,38 @@ def test_matrix_build_dry(mocker, SETTINGS):
     assert not JENKINS.rest.job().buildWithParameters.mock_calls
 
 
-@patch('jenkins_epo.jenkins.Job.factory')
-def test_create_job(factory, SETTINGS):
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_create_job(mocker, SETTINGS):
     from jenkins_epo.jenkins import LazyJenkins
 
     JENKINS = LazyJenkins(Mock())
+    JENKINS.rest = Mock()
+    JENKINS.rest.createItem.apost = CoroutineMock()
+    JENKINS.rest.job().api.python.aget = CoroutineMock(return_value=dict(
+        url='url://', name='job',
+    ))
+    JENKINS.rest.job()('config.xml').aget = CoroutineMock(
+        return_value=Mock(data='<project/>')
+    )
+
     spec = Mock(config=dict())
+    spec.name = 'job'
 
     SETTINGS.DRY_RUN = 1
-    JENKINS.create_job(spec)
+    job = yield from JENKINS.create_job(spec)
+
+    assert job is None
     assert 'updated_at' in spec.config['description']
-    assert not JENKINS._instance.create_job.mock_calls
+    assert not JENKINS.rest.createItem.apost.mock_calls
 
     SETTINGS.DRY_RUN = 0
-    JENKINS.create_job(spec)
+    job = yield from JENKINS.create_job(spec)
 
-    assert JENKINS._instance.create_job.mock_calls
-    assert factory.mock_calls
+    assert job
+    assert JENKINS.rest.createItem.apost.mock_calls
+    assert JENKINS.rest.job().api.python.aget.mock_calls
+    assert JENKINS.rest.job()().aget.mock_calls
 
 
 @patch('jenkins_epo.jenkins.JobSpec.from_xml')
@@ -365,41 +380,72 @@ def test_job_managed(from_xml, SETTINGS):
 def test_aget_job(mocker, SETTINGS):
     mocker.patch('jenkins_epo.jenkins.LazyJenkins.load')
     mocker.patch('jenkins_epo.jenkins.Job.factory')
-    Client = mocker.patch('jenkins_epo.jenkins.rest.Client')
-    client = Client()
-    client.api.python.aget = CoroutineMock()
-    client().aget = CoroutineMock()
 
     from jenkins_epo.jenkins import LazyJenkins
 
     my = LazyJenkins()
     my._instance = Mock()
+    my.rest = Mock()
+    my.rest.job().api.python.aget = CoroutineMock(return_value=dict(
+        url='url://', name='job',
+    ))
+    my.rest.job()().aget = CoroutineMock()
+
     job = yield from my.aget_job('name')
 
     assert job
 
 
-@patch('jenkins_epo.jenkins.Job.factory')
-def test_update_job(factory, SETTINGS):
-    from jenkins_epo.jenkins import LazyJenkins
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_aget_job_404(mocker, SETTINGS):
+    mocker.patch('jenkins_epo.jenkins.LazyJenkins.load')
+    mocker.patch('jenkins_epo.jenkins.Job.factory')
+
+    from aiohttp.errors import HttpProcessingError
+    from jenkins_epo.jenkins import LazyJenkins, UnknownJob
+
+    my = LazyJenkins()
+    my._instance = Mock()
+    my.rest = Mock()
+    my.rest.job().api.python.aget = CoroutineMock(
+        side_effect=HttpProcessingError(code=404)
+    )
+    my.rest.job()().aget = CoroutineMock()
+
+    with pytest.raises(UnknownJob):
+        yield from my.aget_job('name')
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_update_job(mocker, SETTINGS):
+    aget_job = mocker.patch(
+        'jenkins_epo.jenkins.JENKINS.aget_job',
+        CoroutineMock(),
+    )
+    rest = mocker.patch('jenkins_epo.jenkins.JENKINS.rest')
+
+    url = rest.job()
+    url.api.python.aget = CoroutineMock()
+    url().aget = CoroutineMock()
+    url().apost = CoroutineMock()
+
+    from jenkins_epo.jenkins import Job
 
     SETTINGS.DRY_RUN = 1
 
-    JENKINS = LazyJenkins(Mock())
     spec = Mock(config=dict())
-    api_instance = JENKINS._instance.get_job.return_value
+    spec.name = 'job'
 
-    JENKINS.update_job(spec)
-
-    assert not api_instance.update_config.mock_calls
-    assert factory.mock_calls
+    job = Job(Mock(_data=dict()))
+    new_job = yield from job.update(spec)
+    assert new_job is job
 
     SETTINGS.DRY_RUN = 0
-
-    JENKINS.update_job(spec)
-
-    assert api_instance.update_config.mock_calls
-    assert factory.mock_calls
+    new_job = yield from job.update(spec)
+    assert new_job is not job
+    assert aget_job.mock_calls
 
 
 @pytest.mark.asyncio

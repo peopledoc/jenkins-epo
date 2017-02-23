@@ -17,10 +17,9 @@ from collections import OrderedDict
 import logging
 
 from aiohttp.errors import HttpProcessingError
-from jenkinsapi.custom_exceptions import UnknownJob
 
 from ..bot import Extension, Error, SkipHead
-from ..jenkins import Build, JENKINS, NotOnJenkins
+from ..jenkins import Build, JENKINS, NotOnJenkins, UnknownJob
 from ..repository import Commit, CommitStatus
 from ..utils import log_context, match
 
@@ -232,7 +231,7 @@ Failed to create or update Jenkins job `%(name)s`.
                 update = True
 
             if update:
-                yield JENKINS.update_job, spec
+                yield current_job.update, spec
 
     @asyncio.coroutine
     def fetch_job(self, name):
@@ -245,6 +244,25 @@ Failed to create or update Jenkins job `%(name)s`.
             pass
 
     @asyncio.coroutine
+    def process_job(self, action, spec):
+        job = None
+        try:
+            job = yield from action(spec)
+        except Exception as e:
+            self.current.errors.append(self.process_error(spec, e))
+
+        if not job:
+            return
+
+        self.current.jobs[job.name] = job
+
+        if spec.config.get('periodic'):
+            yield from self.current.last_commit.push_status(CommitStatus(
+                context=job.name, state='success',
+                target_url=job.baseurl, description='Created!',
+            ))
+
+    @asyncio.coroutine
     def run(self):
         logger.info("Fetching jobs from Jenkins.")
         loop = asyncio.get_event_loop()
@@ -254,23 +272,11 @@ Failed to create or update Jenkins job `%(name)s`.
         ]
         yield from asyncio.gather(*tasks)
 
-        for action, spec in self.process_job_specs():
-            job = None
-            try:
-                job = action(spec)
-            except Exception as e:
-                self.current.errors.append(self.process_error(spec, e))
-
-            if not job:
-                continue
-
-            self.current.jobs[job.name] = job
-
-            if spec.config.get('periodic'):
-                self.current.last_commit.push_status(CommitStatus(
-                    context=job.name, state='success',
-                    target_url=job.baseurl, description='Created!',
-                ))
+        tasks = [
+            loop.create_task(self.process_job(action, spec))
+            for action, spec in self.process_job_specs()
+        ]
+        yield from asyncio.gather(*tasks)
 
     def process_error(self, spec, e):
         detail = (
