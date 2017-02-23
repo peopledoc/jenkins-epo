@@ -185,6 +185,27 @@ def test_aget_304(mocker):
 
 
 @pytest.mark.asyncio
+def test_aget_422(mocker):
+    from jenkins_epo.github import CustomGitHub, ApiError
+
+    aiohttp = mocker.patch('jenkins_epo.github.aiohttp')
+    session = aiohttp.ClientSession.return_value
+    response = Mock(spec=['headers', 'json', 'status'])
+    session.get = CoroutineMock(return_value=response)
+    response.status = 422
+    response.headers = {}
+    response.content_type = 'application/json'
+    response.json = CoroutineMock(
+        return_value={'errors': [{'message': 'Pouet'}]},
+    )
+
+    GITHUB = CustomGitHub(access_token='cafed0d0')
+
+    with pytest.raises(ApiError):
+        yield from GITHUB.user.aget()
+
+
+@pytest.mark.asyncio
 @asyncio.coroutine
 def test_apost(mocker):
     from jenkins_epo.github import CustomGitHub, ApiError
