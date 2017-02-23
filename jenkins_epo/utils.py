@@ -16,12 +16,14 @@ from __future__ import absolute_import
 
 import asyncio
 import aiohttp.errors
+import pdb
 import collections
 from concurrent.futures import TimeoutError
 from datetime import datetime, timedelta, timezone
 import fnmatch
 import logging
 import re
+import sys
 
 from github import ApiError
 from http.client import HTTPException
@@ -144,6 +146,11 @@ def parse_links(data):
 
 def parse_patterns(raw):
     return [p for p in str(raw).split(',') if p]
+
+
+def post_mortem():
+    pdb.post_mortem(sys.exc_info()[2])
+    logger.debug('Graceful exit from debugger.')
 
 
 class Bunch(dict):

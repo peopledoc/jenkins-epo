@@ -132,17 +132,52 @@ def test_process(mocker):
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_register(mocker):
+def test_register_missing_secret(mocker, SETTINGS):
+    SETTINGS.GITHUB_SECRET = ''
+
+    from jenkins_epo.main import register
+
+    with pytest.raises(SystemExit):
+        yield from register()
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_register(mocker, SETTINGS, WORKERS):
+    SETTINGS.GITHUB_SECRET = 'notasecret'
+
     register_webhook = mocker.patch(
-        'jenkins_epo.main.register_webhook', CoroutineMock(),
+        'jenkins_epo.main.register_webhook', CoroutineMock(return_value=[]),
     )
-    WORKERS = mocker.patch('jenkins_epo.main.WORKERS')
-    WORKERS.start = CoroutineMock()
-    WORKERS.terminate = CoroutineMock()
+    mocker.patch('jenkins_epo.main.WORKERS', WORKERS)
 
     from jenkins_epo.main import register
 
     yield from register()
+
+    assert WORKERS.start.mock_calls
+    assert register_webhook.mock_calls
+    assert WORKERS.terminate.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_register_failure(mocker, SETTINGS, WORKERS):
+    SETTINGS.GITHUB_SECRET = 'notasecret'
+
+    from concurrent.futures import Future
+    future = Future()
+    future.set_exception(Exception())
+    register_webhook = mocker.patch(
+        'jenkins_epo.main.register_webhook',
+        CoroutineMock(return_value=[future]),
+    )
+    mocker.patch('jenkins_epo.main.WORKERS', WORKERS)
+
+    from jenkins_epo.main import register
+
+    with pytest.raises(SystemExit):
+        yield from register()
 
     assert WORKERS.start.mock_calls
     assert register_webhook.mock_calls

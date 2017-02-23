@@ -12,7 +12,7 @@
 # This file implements a simple async worker pool.
 
 import asyncio
-from concurrent.futures import CancelledError
+from concurrent.futures import Future, CancelledError
 import logging
 
 from .compat import PriorityQueue
@@ -23,9 +23,10 @@ from .utils import switch_coro
 logger = logging.getLogger(__name__)
 
 
-class Task(object):
+class Task(Future):
     # A priorized task class.
     def __init__(self, priority=('50-default',)):
+        super(Task, self).__init__()
         self.priority = priority
 
     def __lt__(self, other):
@@ -71,10 +72,13 @@ class WorkerPool(object):
             )
             task = loop.create_task(item())
             try:
-                yield from task
+                res = yield from task
+                item.set_result(res)
             except CancelledError:
+                item.cancel()
                 logger.warn("Cancel of %s", item)
             except Exception as e:
+                item.set_exception(e)
                 if SETTINGS.VERBOSE or SETTINGS.DEBUG:
                     logger.exception("Failed to process %s: %s", item, e)
                 else:
@@ -89,6 +93,7 @@ class WorkerPool(object):
         for task in pending_workers:
             if not task.done():
                 task.cancel()
+        yield from asyncio.gather(*self.tasks, return_exceptions=True)
         self.tasks[:] = []
 
 

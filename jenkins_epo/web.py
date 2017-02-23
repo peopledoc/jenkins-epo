@@ -153,9 +153,13 @@ app.router.add_post('/github-webhook', github_webhook, name='github-webhook')
 
 @asyncio.coroutine
 def register_webhook():
+    futures = []
     for qualname in REPOSITORIES:
-        yield from WORKERS.enqueue(RegisterTask(qualname))
+        future = RegisterTask(qualname)
+        futures.append(future)
+        yield from WORKERS.enqueue(future)
     yield from WORKERS.queue.join()
+    return futures
 
 
 class RegisterTask(Task):
@@ -194,7 +198,7 @@ class RegisterTask(Task):
             else:
                 hookid = hook['id']
                 break
-        repository.set_hook(webhook, hookid=hookid)
+        yield from repository.set_hook(webhook, hookid=hookid)
 
 
 def fullurl(route='simple-webhook', **query):

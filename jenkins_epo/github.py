@@ -203,6 +203,9 @@ class CustomGitHub(GitHub):
             )
             if response.status == 404:
                 raise ApiNotFoundError(url, req, resp)
+            if resp.code == 422:
+                for error in resp.json['errors']:
+                    logger.warn("%s", error['message'])
             raise ApiError(url, req, resp)
 
         if 'json' not in response.content_type:
@@ -245,7 +248,7 @@ class CustomGitHub(GitHub):
         try:
             pre_rate_limit = self.x_ratelimit_remaining
             logger.debug(
-                "%s %s (remaining=%s)",
+                "%s %s (sync, remaining=%s)",
                 _method, url, self.x_ratelimit_remaining,
             )
 

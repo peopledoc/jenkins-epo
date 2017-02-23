@@ -92,9 +92,18 @@ def process(url):
 @asyncio.coroutine
 def register():
     """Register GitHub webhook"""
+    if not SETTINGS.GITHUB_SECRET:
+        logger.error("Use GITHUB_SECRET to define webhook shared secret.")
+        sys.exit(1)
+
     yield from WORKERS.start()
-    yield from register_webhook()
+    futures = yield from register_webhook()
     yield from WORKERS.terminate()
+
+    try:
+        yield from asyncio.gather(*futures)
+    except Exception as e:
+        sys.exit(1)
 
 
 def resolve(func):
@@ -145,7 +154,7 @@ def main(argv=None, *, loop=None):
             loop.run_until_complete(task)
         except BaseException:
             loop.close()
-            raise
+            task.result()
         else:
             loop.close()
     else:

@@ -228,6 +228,7 @@ def test_register_task_new(SETTINGS, mocker):
     repo = Repository.from_name.return_value
     repo.fetch_hooks = CoroutineMock()
     repo.process_hooks = Mock(return_value=[])
+    repo.set_hook = CoroutineMock()
 
     from jenkins_epo.web import RegisterTask
 

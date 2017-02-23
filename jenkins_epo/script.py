@@ -25,6 +25,8 @@ import pkg_resources
 import traceback
 import sys
 
+from .utils import post_mortem
+
 
 logger = logging.getLogger(__name__)
 
@@ -119,16 +121,6 @@ def setup_logging():
         config['handlers']['stderr']['formatter'] = 'systemd'
 
     return config
-
-
-def post_mortem():
-    try:
-        import ipdb as pdb
-    except ImportError:
-        import pdb
-
-    pdb.post_mortem(sys.exc_info()[2])
-    logger.debug('Graceful exit from debugger.')
 
 
 def entrypoint(argv=None):

@@ -280,6 +280,8 @@ def test_process_commits():
     assert 1 == len(items)
 
 
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_set_hook(mocker):
     GITHUB = mocker.patch('jenkins_epo.repository.GITHUB')
 
@@ -287,11 +289,11 @@ def test_set_hook(mocker):
 
     repo = Repository('owner', 'name')
 
-    repo.set_hook(dict())
-    assert GITHUB.repos.return_value.hooks.post.mock_calls
+    yield from repo.set_hook(dict())
+    assert GITHUB.repos().hooks.apost.mock_calls
 
-    repo.set_hook(dict(), hookid='1231')
-    assert GITHUB.repos.return_value.hooks.return_value.patch.mock_calls
+    yield from repo.set_hook(dict(), hookid='1231')
+    assert GITHUB.repos().hooks().apatch.mock_calls
 
 
 @pytest.mark.asyncio
