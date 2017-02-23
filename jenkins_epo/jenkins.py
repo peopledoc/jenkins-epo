@@ -62,10 +62,6 @@ class LazyJenkins(object):
         self._instance = instance
         self.rest = None
 
-    def __getattr__(self, name):
-        self.load()
-        return getattr(self._instance, name)
-
     @retry
     def load(self):
         if not self._instance:
