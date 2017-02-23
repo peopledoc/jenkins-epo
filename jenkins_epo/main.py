@@ -97,8 +97,13 @@ def register():
         sys.exit(1)
 
     yield from WORKERS.start()
-    yield from register_webhook()
+    futures = yield from register_webhook()
     yield from WORKERS.terminate()
+
+    try:
+        yield from asyncio.gather(*futures)
+    except Exception as e:
+        sys.exit(1)
 
 
 def resolve(func):
