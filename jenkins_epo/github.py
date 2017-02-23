@@ -248,7 +248,7 @@ class CustomGitHub(GitHub):
         try:
             pre_rate_limit = self.x_ratelimit_remaining
             logger.debug(
-                "%s %s (remaining=%s)",
+                "%s %s (sync, remaining=%s)",
                 _method, url, self.x_ratelimit_remaining,
             )
 
