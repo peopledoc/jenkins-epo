@@ -19,8 +19,11 @@ from itertools import product
 import logging
 import re
 
+import aiohttp.errors
 from jenkinsapi.jenkinsbase import JenkinsBase
 from jenkinsapi.jenkins import Jenkins, Requester
+from jenkinsapi.job import Job as JenkinsJob
+from jenkinsapi.custom_exceptions import UnknownJob
 from jenkins_yml import Job as JobSpec
 import yaml
 
@@ -59,10 +62,6 @@ class LazyJenkins(object):
         self._instance = instance
         self.rest = None
 
-    def __getattr__(self, name):
-        self.load()
-        return getattr(self._instance, name)
-
     @retry
     def load(self):
         if not self._instance:
@@ -84,20 +83,20 @@ class LazyJenkins(object):
         return len(items) <= SETTINGS.QUEUE_MAX
 
     @retry
-    def get_job(self, name):
-        self.load()
-        instance = self._instance.get_job(name)
-        instance.poll()
-        return Job.factory(instance)
-
-    @retry
     @asyncio.coroutine
     def aget_job(self, name):
         self.load()
-        instance = self._instance.get_job(name)
-        client = rest.Client(instance.baseurl)
-        instance._data = yield from client.api.python.aget()
-        payload = yield from client('config.xml').aget()
+        url = self.rest.job(name)
+        try:
+            data = yield from url.api.python.aget()
+        except aiohttp.errors.HttpProcessingError as e:
+            if 404 == e.code:
+                raise UnknownJob()
+            raise
+
+        instance = JenkinsJob(data['url'], data['name'], self._instance)
+        instance._data = data
+        payload = yield from url('config.xml').aget()
         instance._config = payload.data
         return Job.factory(instance)
 
@@ -121,7 +120,7 @@ class LazyJenkins(object):
         )
         return spec
 
-    @retry
+    @asyncio.coroutine
     def create_job(self, job_spec):
         job_spec = self.preprocess_spec(job_spec)
         config = job_spec.as_xml()
@@ -129,25 +128,13 @@ class LazyJenkins(object):
             logger.warn("Would create new Jenkins job %s.", job_spec)
             return None
 
-        api_instance = self._instance.create_job(job_spec.name, config)
+        yield from self.rest.createItem.apost(
+            name=job_spec.name, data=config,
+            headers={'Content-Type': 'text/xml'},
+        )
+        job = yield from self.aget_job(job_spec.name)
         logger.warn("Created new Jenkins job %s.", job_spec.name)
-        api_instance.poll()
-        return Job.factory(api_instance)
-
-    @retry
-    def update_job(self, job_spec):
-        api_instance = self._instance.get_job(job_spec.name)
-        job_spec = self.preprocess_spec(job_spec)
-        config = job_spec.as_xml()
-        if SETTINGS.DRY_RUN:
-            logger.warn("Would update Jenkins job %s.", job_spec)
-            api_instance.poll()
-            return Job.factory(api_instance)
-
-        api_instance.update_config(config)
-        logger.warn("Updated Jenkins job %s.", job_spec.name)
-        api_instance.poll()
-        return Job.factory(api_instance)
+        return job
 
 
 JENKINS = LazyJenkins()
@@ -388,6 +375,21 @@ class Job(object):
     def process_builds(self, payload):
         payload = reversed(sorted(payload, key=lambda b: b['number']))
         return (Build(self, entry) for entry in payload)
+
+    @asyncio.coroutine
+    def update(self, job_spec):
+        job_spec = JENKINS.preprocess_spec(job_spec)
+        config = job_spec.as_xml()
+        if SETTINGS.DRY_RUN:
+            logger.warn("Would update Jenkins job %s.", job_spec)
+            return self
+
+        yield from JENKINS.rest.job(job_spec.name)('config.xml').apost(
+            headers={'Content-Type': 'text/xml'}, data=config,
+        )
+        job = yield from JENKINS.aget_job(job_spec.name)
+        logger.warn("Updated Jenkins job %s.", job_spec.name)
+        return job
 
 
 class FreestyleJob(Job):

@@ -502,6 +502,7 @@ class UnskipExtension(Extension):
 
     @asyncio.coroutine
     def process_job_spec(self, spec):
+        log_context(self.current.head)
         job = self.current.jobs[spec.name]
         for context in job.list_contexts(spec):
             if not match(context, self.current.jobs_match):

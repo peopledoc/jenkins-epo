@@ -4,6 +4,15 @@ from asynctest import CoroutineMock, Mock
 import pytest
 
 
+def test_repr():
+    from jenkins_epo.rest import Client
+
+    client = Client()
+    client = client('https://fqdn.tld/path').subpath
+
+    assert '/path/subpath' in repr(client)
+
+
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_get(mocker):

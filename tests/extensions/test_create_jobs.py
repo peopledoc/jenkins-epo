@@ -194,8 +194,7 @@ def test_job_uptodate(JENKINS):
     assert not res
 
 
-@patch('jenkins_epo.extensions.jenkins.JENKINS')
-def test_job_update(JENKINS):
+def test_job_update():
     from jenkins_epo.extensions.jenkins import CreateJobsExtension
 
     ext = CreateJobsExtension('createjob', Mock())
@@ -203,15 +202,16 @@ def test_job_update(JENKINS):
     ext.current.refresh_jobs = None
     ext.current.job_specs = {'new_job': Mock(config=dict())}
     ext.current.job_specs['new_job'].name = 'new_job'
-    ext.current.jobs = {'new_job': Mock()}
-    ext.current.jobs['new_job'].spec.contains.return_value = False
+    job = Mock()
+    job.spec.contains.return_value = False
+    ext.current.jobs = {'new_job': job}
 
     res = [x for x in ext.process_job_specs()]
     assert res
 
     action, spec = res[0]
 
-    assert action == JENKINS.update_job
+    assert action == job.update
 
 
 @pytest.mark.asyncio
@@ -230,8 +230,11 @@ def test_jenkins_create_success(mocker):
     ext.current.head.repository.jobs = {}
     ext.current.job_specs = dict(new=JobSpec('new', dict(periodic=True)))
     ext.current.jobs = {}
+    ext.current.last_commit.push_status = CoroutineMock()
     JENKINS.aget_job = CoroutineMock(side_effect=UnknownJob('POUET'))
-    JENKINS.create_job.return_value.name = 'new'
+    JENKINS.create_job = CoroutineMock()
+    job = JENKINS.create_job.return_value
+    job.name = 'new'
     process_job_specs.return_value = [(JENKINS.create_job, Mock())]
 
     yield from ext.run()
@@ -248,7 +251,7 @@ def test_jenkins_fails_existing(mocker):
     process_job_specs = mocker.patch(
         'jenkins_epo.extensions.jenkins.CreateJobsExtension.process_job_specs'
     )
-    JENKINS = mocker.patch('jenkins_epo.extensions.jenkins.JENKINS')
+
     from jenkins_yml.job import Job as JobSpec
     from jenkins_epo.extensions.jenkins import CreateJobsExtension
 
@@ -258,16 +261,16 @@ def test_jenkins_fails_existing(mocker):
     ext.current.head.sha = 'cafed0d0'
     ext.current.head.repository.jobs = {'job': Mock()}
     ext.current.job_specs = dict(job=JobSpec.factory('job', 'toto'))
-    ext.current.jobs = {'job': Mock()}
+    job = Mock()
+    ext.current.jobs = {'job': job}
+    job.update = CoroutineMock(side_effect=Exception('POUET'))
 
-    JENKINS.update_job.side_effect = Exception('POUET')
-
-    process_job_specs.return_value = [(JENKINS.update_job, Mock())]
+    process_job_specs.return_value = [(job.update, Mock())]
 
     yield from ext.run()
 
     assert ext.current.errors
-    assert JENKINS.update_job.mock_calls
+    assert job.update.mock_calls
 
 
 @patch('jenkins_epo.extensions.jenkins.JENKINS')
@@ -281,11 +284,11 @@ def test_refresh_job_outdated(JENKINS):
     ext.current.refresh_jobs = None
     ext.current.job_specs = {'job': Mock(config={})}
     ext.current.job_specs['job'].name = 'job'
-    ext.current.jobs = {'job': Mock(
-        updated_at=datetime.now() - timedelta(hours=1),
-    )}
-    ext.current.jobs['job'].name = 'job'
-    ext.current.jobs['job'].spec.contains.return_value = True
+    job = Mock(updated_at=datetime.now() - timedelta(hours=1))
+    job.name = 'job'
+    job.spec.contains.return_value = True
+    job.update = CoroutineMock()
+    ext.current.jobs = {'job': job}
 
     ext.process_instruction(Instruction(
         author='author', name='refresh-jobs', date=datetime.now()
@@ -296,7 +299,7 @@ def test_refresh_job_outdated(JENKINS):
     items = list(ext.process_job_specs())
     assert 1 == len(items)
     action, spec = items[0]
-    assert JENKINS.update_job == action
+    assert job.update == action
 
     ext.current.jobs['job'].updated_at = datetime.now() + timedelta(hours=1)
     items = list(ext.process_job_specs())

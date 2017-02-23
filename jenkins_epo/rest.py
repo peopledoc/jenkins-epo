@@ -67,6 +67,9 @@ class Client(object):
     def __getattr__(self, name):
         return self(name)
 
+    def __repr__(self):
+        return '<REST %s>' % (self.url)
+
     @retry
     def aget(self, **kw):
         session = aiohttp.ClientSession()
@@ -86,14 +89,16 @@ class Client(object):
         return Payload.factory(response.status, response.headers, payload)
 
     @retry
-    def apost(self, **kw):
+    def apost(self, headers={}, data=None, **kw):
         session = aiohttp.ClientSession()
         url = URL(self.url)
         if kw:
             url = url.with_query(**kw)
         logger.debug("POST %s", url)
         try:
-            response = yield from session.post(url, timeout=10)
+            response = yield from session.post(
+                url, headers=headers, data=data, timeout=10,
+            )
             payload = yield from response.read()
         finally:
             yield from session.close()
