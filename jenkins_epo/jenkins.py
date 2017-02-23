@@ -322,7 +322,7 @@ class Job(object):
 
     @property
     def enabled(self):
-        return self._instance._data.get('color') == 'disabled'
+        return not self._instance._data.get('color', '').startswith('disabled')
 
     @property
     def revision_param(self):
@@ -394,12 +394,14 @@ class FreestyleJob(Job):
     def list_contexts(self, spec):
         yield self._instance.name
 
-    def build(self, pr, spec, contexts):
+    @asyncio.coroutine
+    def build(self, head, spec, contexts):
         log = str(self)
         params = spec.config.get('parameters', {}).copy()
+
         if self.revision_param:
-            params[self.revision_param] = pr.fullref
-            log += ' for %s' % pr.ref
+            params[self.revision_param] = head.fullref
+            log += ' for %s' % head.ref
 
         if 'node' in spec.config:
             if self.node_param:
@@ -409,12 +411,15 @@ class FreestyleJob(Job):
                     "Can't assign build to node %s.", spec.config['node'],
                 )
 
-        params['YML_NOTIFY_URL'] = fullurl(head=pr.url)
+        params['YML_NOTIFY_URL'] = fullurl(head=head.url)
+        params['delay'] = 0
+        params['cause'] = 'EPO'
 
         if SETTINGS.DRY_RUN:
             return logger.info("Would queue %s.", log)
 
-        self._instance.invoke(build_params=params, delay=0, cause='EPO')
+        url = JENKINS.rest.job(self.name).buildWithParameters
+        yield from url.apost(**params)
         logger.info("Queued new build %s", log)
 
 
@@ -483,8 +488,13 @@ class MatrixJob(Job):
 
             yield '%s/%s' % (self._instance.name, name)
 
+    @asyncio.coroutine
     def build(self, pr, spec, contexts):
-        build_params = {'YML_NOTIFY_URL': fullurl(head=pr.url)}
+        build_params = {
+            'YML_NOTIFY_URL': fullurl(head=pr.url),
+            'cause': 'EPO',
+            'delay': 0,
+        }
 
         for name, value in spec.config.get('parameters', {}).items():
             build_params[name] = value
@@ -512,7 +522,8 @@ class MatrixJob(Job):
                 logger.info("Would trigger %s for %s", context, pr.ref)
             return
 
-        self._instance.invoke(build_params=build_params, delay=0, cause='EPO')
+        url = JENKINS.rest.job(self.name).buildWithParameters
+        yield from url.apost(**build_params)
 
         for context in contexts:
             log = '%s/%s' % (self, context)

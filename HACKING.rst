@@ -70,6 +70,7 @@ Feel free to contribute :)
   - drop jenkinsapi
   - drop githubpy
   - see siesta
+- Manage 422 GitHub errors
 - Test merge commit (pull/XXXX/{head,merge})
 - json log (EPO_JSON=path/to/log.json), to debug asynchronicity
 - metrics: build count, total time on Jenkins, cancelled build (how much time

@@ -98,8 +98,10 @@ class BuilderExtension(JenkinsExtension):
 
         if toqueue_contexts and queue_empty:
             try:
-                job.build(self.current.head, spec, toqueue_contexts)
+                yield from job.build(self.current.head, spec, toqueue_contexts)
             except Exception as e:
+                if self.current.SETTINGS.DEBUG:
+                    raise
                 logger.exception("Failed to queue job %s: %s.", job, e)
                 for context in toqueue_contexts:
                     new_status = CommitStatus(
