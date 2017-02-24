@@ -325,7 +325,7 @@ class Commit(object):
 
     @asyncio.coroutine
     def fetch_combined_status(self):
-        payload = cached_arequest(
+        payload = yield from cached_arequest(
             GITHUB.repos(self.repository).commits(self.sha).status,
         )
         return payload

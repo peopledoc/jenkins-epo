@@ -478,7 +478,9 @@ def test_filter_contextes():
 @pytest.mark.asyncio
 @asyncio.coroutine
 def test_fetch_combined(mocker):
-    cached_arequest = mocker.patch('jenkins_epo.repository.cached_arequest')
+    cached_arequest = mocker.patch(
+        'jenkins_epo.repository.cached_arequest', CoroutineMock()
+    )
     from jenkins_epo.repository import Commit
 
     commit = Commit(Mock(), sha='x')
