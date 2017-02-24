@@ -55,34 +55,32 @@ Ideas of improvements
 
 Feel free to contribute :)
 
-- Aggregate error comment.
+- Aggregate errors comment.
 - Comment *still broken* on previous *master is broken* rather than opening a
   new issue.
-- Detect branch from commit_comment event.
+- Detect branch from ``commit_comment`` event.
 - Set custom status context. Create job name with <owner>_<project>_<job>.
   Context with only <job>.
 - Cancel job on PR close.
-- Skip event on comments not containing ``jenkins:``
+- Skip event on comments not containing ``jenkins:``.
 - Test GraphQL.
-- Add ``clean-job`` command to drop jobs undefined un protected branches.
+- Add ``clean-job`` command to drop jobs undefined in protected branches.
 - Comment old PR with «push a new commit».
 - Switch to full AsyncIO
   - drop jenkinsapi
   - drop githubpy
   - see siesta
-- Manage 422 GitHub errors
 - Test merge commit (pull/XXXX/{head,merge})
-- json log (EPO_JSON=path/to/log.json), to debug asynchronicity
 - metrics: build count, total time on Jenkins, cancelled build (how much time
   saved), etc.
 - Pipeline dashboard
 - Command ``install-plugins``. Install plugins on Jenkins
-- Command ``settings [repo]`` dump settings, jenkins.yml loaded.
+- Distinct global/per project settings.
+- Command ``settings [head]`` dump settings, jenkins.yml loaded.
 - Keep build forever on Jenkins for build reported in *master is broken*
 - Manage regular Jenkins notifications
   (https://wiki.jenkins-ci.org/display/JENKINS/Notification+Plugin).
 - i18n: translate documentation, comments, logs
 - Add ansicolor to Jenkins job ?
-- Distinct global/per project settings.
 - Disable extensions from jenkins.yml.
 - Support "jenkins, skip", "Jenkins, rebuild.", "@bot merge", "jenkins:rebuild"
