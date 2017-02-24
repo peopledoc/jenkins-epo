@@ -272,15 +272,17 @@ class Repository(object):
             logger.debug("%s=%r", k, v)
 
     @retry
+    @asyncio.coroutine
     def report_issue(self, title, body):
         if GITHUB.dry:
             logger.info("Would report issue '%s'", title)
-            return {'number': 0}
+            return {'number': 0, 'html_url': self.url}
 
         logger.info("Reporting issue on %s", self)
-        return GITHUB.repos(self).issues.post(
+        payload = yield from GITHUB.repos(self).issues.apost(
             title=title, body=body,
         )
+        return payload
 
     @retry
     @asyncio.coroutine
@@ -324,8 +326,15 @@ class Commit(object):
             )
 
     @asyncio.coroutine
+    def fetch_comments(self):
+        comments = yield from cached_arequest(
+            GITHUB.repos(self.repository).commits(self.sha).comments
+        )
+        return comments
+
+    @asyncio.coroutine
     def fetch_combined_status(self):
-        payload = cached_arequest(
+        payload = yield from cached_arequest(
             GITHUB.repos(self.repository).commits(self.sha).status,
         )
         return payload
@@ -532,6 +541,43 @@ class Branch(Head):
         (
             GITHUB.repos(self.repository).commits(self.sha).comments
             .post(body=body.strip())
+        )
+
+
+class Issue(object):
+    url_re = re.compile(r'https://github.com/.*/issues?/(?P<number>\d+)')
+
+    @classmethod
+    def from_url(cls, repository, url):
+        match = cls.url_re.match(url)
+        if not match:
+            raise Exception("Not an issue URL")
+
+        return cls(repository, payload={
+            'number': match.group('number'), 'html_url': url,
+        })
+
+    def __init__(self, repository, payload):
+        self.repository = repository
+        self.payload = payload
+
+    def __str__(self):
+        return str(self.payload['html_url'])
+
+    @property
+    def number(self):
+        return int(self.payload['number'])
+
+    @retry
+    @asyncio.coroutine
+    def comment(self, body):
+        if GITHUB.dry:
+            return logger.info("Would comment on %s.", self)
+
+        logger.info("Commenting on %s", self)
+        yield from (
+            GITHUB.repos(self.repository).issues(self.number).comments
+            .apost(body=body.strip())
         )
 
 

@@ -124,35 +124,6 @@ def test_error_denied():
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_report():
-    from jenkins_epo.extensions.core import ReportExtension, Branch
-
-    ext = ReportExtension('merger', Mock())
-    ext.current = Mock()
-    ext.current.head = Mock(spec=Branch)
-    ext.current.head.sha = 'c0defada'
-    ext.current.head.fullref = 'refs/heads/branch'
-    ext.current.head.ref = 'branch'
-    ext.current.head.repository = Mock()
-    ext.current.head.repository.report_issue.return_value = {
-        'number': '1',
-    }
-    ext.current.report_done = None
-    ext.current.statuses = {
-        'job1': {
-            'state': 'failure',
-            'target_url': 'build_url',
-        },
-    }
-
-    yield from ext.run()
-
-    assert ext.current.head.comment.mock_calls
-    assert ext.current.head.repository.report_issue.mock_calls
-
-
-@pytest.mark.asyncio
-@asyncio.coroutine
 def test_autocancel():
     from jenkins_epo.extensions.core import AutoCancelExtension
 

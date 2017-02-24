@@ -26,7 +26,7 @@ from jenkins_yml.job import Job as JobSpec
 from ..bot import Extension, Error, SkipHead
 from ..github import GITHUB, ApiError, ApiNotFoundError
 from ..jenkins import Job
-from ..repository import Branch, CommitStatus
+from ..repository import Branch, CommitStatus, Issue
 from ..settings import SETTINGS
 from ..utils import deepupdate, log_context, match, parse_patterns
 
@@ -322,59 +322,100 @@ class ReportExtension(Extension):
     stage = '90'
 
     ISSUE_TEMPLATE = """
-Commit %(abbrev)s is broken on %(branch)s:
+%(message)s:
 
 %(builds)s
 """
     COMMENT_TEMPLATE = """
-Build failure reported at #%(issue)s.
+Build failure reported at %(issue)s.
 
 <!--
-jenkins: report-done
+jenkins: {issue-url: "%(issue)s"}
 -->
 """
 
     DEFAULTS = {
-        # Issue URL where the failed builds are reported.
-        'report_done': False,
+        'issue_url': False,
     }
 
     def process_instruction(self, instruction):
-        if instruction == 'report-done':
-            self.current.report_done = True
+        if instruction.name == 'issue-url':
+            self.current.issue_url = instruction.args
+        elif instruction.name == 'report-done':
+            self.current.issue_url = True
 
-    @asyncio.coroutine
-    def run(self):
-        if self.current.report_done:
+    def failed_build_urls(self):
+        if self.current.issue_url:
             return
 
         if not isinstance(self.current.head, Branch):
             return
 
-        errored = [
+        pending = [
             s for s in self.current.statuses.values()
-            if s['state'] == 'failure'
+            if s['state'] == 'pending'
         ]
-        if not errored:
+        if pending:
             return
 
-        branch_name = self.current.head.ref
-        build_urls = [s['target_url'] for s in errored if s['target_url']]
-        builds = '- ' + '\n- '.join(build_urls)
-        issue = self.current.head.repository.report_issue(
-            title="%s is broken" % (branch_name,),
-            body=self.ISSUE_TEMPLATE % dict(
-                abbrev=self.current.head.sha[:7],
-                branch=branch_name,
-                builds=builds,
-                sha=self.current.head.sha,
-                ref=self.current.head.ref,
-            )
-        )
+        build_urls = [
+            s['target_url']
+            for s in self.current.statuses.values()
+            if s['state'] == 'failure'
+        ]
+        return build_urls
 
-        self.current.head.comment(body=self.COMMENT_TEMPLATE % dict(
-            issue=issue['number']
-        ))
+    def find_issue_url(self, comments):
+        for instruction in self.bot.parse_instructions(comments):
+            if instruction.name == 'issue-url':
+                logger.debug("Found a previous broken commit.")
+                return instruction.args
+        else:
+            logger.debug("Found a previous green commit.")
+            return
+
+    @asyncio.coroutine
+    def fetch_previous_comments(self):
+        for previous in self.current.commits[1:]:
+            comments = yield from previous.fetch_comments()
+            return comments
+        return []
+
+    @asyncio.coroutine
+    def run(self):
+        build_urls = self.failed_build_urls()
+        if not build_urls:
+            return
+
+        previous_comments = yield from self.fetch_previous_comments()
+        self.current.issue_url = self.find_issue_url(previous_comments)
+
+        builds = '- ' + '\n- '.join(build_urls)
+        if self.current.issue_url:
+            issue = Issue.from_url(
+                self.current.repository, self.current.issue_url
+            )
+            message = "%s is still broken at %s" % (
+                self.current.head.ref, self.current.head.sha[:7],
+            )
+            yield from issue.comment(body=self.ISSUE_TEMPLATE % dict(
+                builds=builds, message=message,
+            ))
+        else:
+            message = "%s is broken since %s" % (
+                self.current.head.ref, self.current.head.sha[:7],
+            )
+            issue = yield from self.current.repository.report_issue(
+                title="%s is broken" % (self.current.head.ref,),
+                body=self.ISSUE_TEMPLATE % dict(
+                    builds=builds, message=message
+                )
+            )
+            self.current.issue_url = issue['html_url']
+
+        self.current.head.comment(
+            body=self.COMMENT_TEMPLATE % dict(issue=self.current.issue_url,)
+        )
 
 
 class SecurityExtension(Extension):
