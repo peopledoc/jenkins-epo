@@ -146,7 +146,7 @@ def test_run_extension(mocker):
     bot = Bot()
     assert 'ext' in bot.extensions_map
 
-    pr = Mock(name='pr')
+    pr = Mock(name='pr', payload=dict())
     pr.fetch_commits = CoroutineMock()
     commits = [Mock()]
     pr.repository.process_commits.return_value = commits
@@ -176,7 +176,7 @@ def test_begin_skip_head(mocker):
     ext.SETTINGS = {}
     ext.begin.side_effect = SkipHead()
 
-    pr = Mock(name='pr')
+    pr = Mock(name='pr', payload=dict())
     pr.fetch_commits = CoroutineMock()
     commits = [Mock()]
     pr.repository.process_commits.return_value = commits
@@ -187,6 +187,20 @@ def test_begin_skip_head(mocker):
 
     assert ext.begin.mock_calls
     assert not ext.run.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_run_skip_closed(mocker):
+    pkg_resources = mocker.patch('jenkins_epo.bot.pkg_resources')
+
+    from jenkins_epo.bot import Bot
+
+    pkg_resources.iter_entry_points.return_value = []
+    pr = Mock(name='pr')
+    pr.payload = dict(state='closed')
+
+    yield from Bot().run(pr)
 
 
 @pytest.mark.asyncio
@@ -204,7 +218,7 @@ def test_run_skip_head(mocker):
     ext.SETTINGS = {}
     ext.run.side_effect = SkipHead()
 
-    pr = Mock(name='pr')
+    pr = Mock(name='pr', payload=dict())
     pr.fetch_commits = CoroutineMock()
     commits = [Mock()]
     pr.repository.process_commits.return_value = commits

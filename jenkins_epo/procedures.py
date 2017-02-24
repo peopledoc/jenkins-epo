@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 import logging
 
 from .bot import Bot
-from .github import GITHUB, cached_arequest
+from .github import GITHUB, cached_arequest, ApiNotFoundError
 from .repository import Repository, REPOSITORIES, Head, UnauthorizedRepository
 from .settings import SETTINGS
 from .tasks import PrinterTask, ProcessTask, RepositoryPollerTask
@@ -61,8 +61,7 @@ _task_map = {}
 @asyncio.coroutine
 def process_url(url, throttle=True):
     if not match(url, Repository.heads_filter):
-        logger.debug("Skipping %s. Filtered.", url)
-        return
+        return logger.debug("Skipping %s. Filtered.", url)
 
     task = asyncio.Task.current_task()
     running_task = _task_map.get(url)
@@ -73,10 +72,14 @@ def process_url(url, throttle=True):
 
     if throttle:
         yield from throttle_github()
-    head = yield from Head.from_url(url)
+    try:
+        head = yield from Head.from_url(url)
+    except ApiNotFoundError:
+        return logger.error("No such head. Skipping.")
+
     if head.repository not in REPOSITORIES:
-        logger.error("%s not managed.", head.repository)
-        return
+        return logger.error("%s not managed.", head.repository)
+
     log_context(head)
     logger.info("Working on %s.", head)
 

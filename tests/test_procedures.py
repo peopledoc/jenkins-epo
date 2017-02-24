@@ -61,6 +61,18 @@ def test_process_url_skip(mocker, SETTINGS):
 
 @pytest.mark.asyncio
 @asyncio.coroutine
+def test_process_url_not_found(mocker, SETTINGS):
+    from_url = mocker.patch(
+        'jenkins_epo.procedures.Head.from_url', CoroutineMock()
+    )
+    from jenkins_epo.procedures import process_url, ApiNotFoundError
+    from_url.side_effect = ApiNotFoundError('url://', Mock(), Mock())
+
+    yield from process_url('url://', throttle=False)
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_process_url(mocker, SETTINGS):
     REPOSITORIES = mocker.patch(
         'jenkins_epo.procedures.REPOSITORIES', MagicMock()
