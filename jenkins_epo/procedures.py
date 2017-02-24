@@ -61,8 +61,7 @@ _task_map = {}
 @asyncio.coroutine
 def process_url(url, throttle=True):
     if not match(url, Repository.heads_filter):
-        logger.debug("Skipping %s. Filtered.", url)
-        return
+        return logger.debug("Skipping %s. Filtered.", url)
 
     task = asyncio.Task.current_task()
     running_task = _task_map.get(url)
@@ -75,8 +74,8 @@ def process_url(url, throttle=True):
         yield from throttle_github()
     head = yield from Head.from_url(url)
     if head.repository not in REPOSITORIES:
-        logger.error("%s not managed.", head.repository)
-        return
+        return logger.error("%s not managed.", head.repository)
+
     log_context(head)
     logger.info("Working on %s.", head)
 
