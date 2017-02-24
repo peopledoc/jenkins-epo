@@ -314,6 +314,26 @@ def test_fetch_comments(mocker):
 
 @pytest.mark.asyncio
 @asyncio.coroutine
+def test_report_issue(mocker):
+    GITHUB = mocker.patch('jenkins_epo.repository.GITHUB')
+    GITHUB.repos().issues.apost = CoroutineMock()
+
+    from jenkins_epo.repository import Repository
+
+    repo = Repository('owner', 'name')
+
+    GITHUB.dry = 1
+    payload = yield from repo.report_issue('title', 'body')
+    assert not GITHUB.repos().issues.apost.mock_calls
+    assert 0 == payload['number']
+
+    GITHUB.dry = 0
+    yield from repo.report_issue('title', 'body')
+    assert GITHUB.repos().issues.apost.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_fetch_status(mocker):
     cached_arequest = mocker.patch('jenkins_epo.repository.cached_arequest')
     cached_arequest.return_value = payload = dict(status=True)

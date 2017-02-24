@@ -405,7 +405,7 @@ jenkins: {issue-url: "%(issue)s"}
             message = "%s is broken since %s" % (
                 self.current.head.ref, self.current.head.sha[:7],
             )
-            issue = self.current.repository.report_issue(
+            issue = yield from self.current.repository.report_issue(
                 title="%s is broken" % (self.current.head.ref,),
                 body=self.ISSUE_TEMPLATE % dict(
                     builds=builds, message=message

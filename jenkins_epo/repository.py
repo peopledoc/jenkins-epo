@@ -272,15 +272,17 @@ class Repository(object):
             logger.debug("%s=%r", k, v)
 
     @retry
+    @asyncio.coroutine
     def report_issue(self, title, body):
         if GITHUB.dry:
             logger.info("Would report issue '%s'", title)
             return {'number': 0, 'html_url': self.url}
 
         logger.info("Reporting issue on %s", self)
-        return GITHUB.repos(self).issues.post(
+        payload = yield from GITHUB.repos(self).issues.apost(
             title=title, body=body,
         )
+        return payload
 
     @retry
     @asyncio.coroutine
