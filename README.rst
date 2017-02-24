@@ -22,7 +22,7 @@ Features
 - Cancel running jobs when pushing new commits.
 - Report issue on broken protected branches.
 - Auto-merge PR.
-- Works behind firewall.
+- Works with webhook and/or behind firewall.
 - Extensible through entry-point.
 
 

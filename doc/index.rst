@@ -15,5 +15,6 @@ Table of contents
    install
    yml
    comment
+   security
    troubleshoot
    hacking
