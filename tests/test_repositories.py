@@ -298,6 +298,22 @@ def test_set_hook(mocker):
 
 @pytest.mark.asyncio
 @asyncio.coroutine
+def test_fetch_comments(mocker):
+    cached_arequest = mocker.patch(
+        'jenkins_epo.repository.cached_arequest',
+        CoroutineMock(return_value=[dict()])
+    )
+
+    from jenkins_epo.repository import Commit
+
+    commit = Commit(Mock(), 'd0d0cafe')
+    payload = yield from commit.fetch_comments()
+    assert len(payload)
+    assert cached_arequest.mock_calls
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
 def test_fetch_status(mocker):
     cached_arequest = mocker.patch('jenkins_epo.repository.cached_arequest')
     cached_arequest.return_value = payload = dict(status=True)

@@ -56,8 +56,6 @@ Ideas of improvements
 Feel free to contribute :)
 
 - Aggregate errors comment.
-- Comment *still broken* on previous *master is broken* rather than opening a
-  new issue.
 - Detect branch from ``commit_comment`` event.
 - Set custom status context. Create job name with <owner>_<project>_<job>.
   Context with only <job>.
