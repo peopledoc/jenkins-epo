@@ -102,6 +102,16 @@ Now test it for real : push a new commit in a PR and see how fast the jobs are
 triggered!
 
 
+Without GitHub webhook
+======================
+
+You can still ping EPO with ``/simple-webhook`` (e.g. in `git hooks
+<https://git-scm.com/book/gr/v2/Customizing-Git-Git-Hooks>`_, make rule, etc.).
+
+You may want to decrease ``POLL_INTERVAL``. EPO will throttle heads processing
+to spread GitHub API calls to fit the limit of 5000 calls per hour.
+
+
 Adding a new repository
 =======================
 
