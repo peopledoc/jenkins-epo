@@ -2,7 +2,7 @@
  Installing
 ############
 
-Jenkins EPO is a Python3.4 software configured by environment variables. The
+Jenkins EPO is a Python3.4+ software configured by environment variables. The
 package ships a systemd unit reading environment variable from
 ``/etc/jenkins-epo.conf`` file.
 
@@ -13,11 +13,11 @@ But the first requirement is a Jenkins up and running. ``jenkins-epo
 list-plugins`` lists required Jenkins plugins to run managed jobs. It's up to
 Jenkins administrator to install these plugins.
 
-Next step is to have a GitHub API token. You can create one associated with the
-GitHub user assigned to Jenkins to clone.
-
 Jenkins must be able to clone repositories with HTTPS. Register a Jenkins
 credentials for HTTPS clone, and set ``JOBS_CREDENTIALS`` according to it.
+
+Next step is to have a GitHub API token. You can create one associated with the
+GitHub user assigned to Jenkins to clone.
 
 Test your settings like this::
 
