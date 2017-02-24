@@ -110,6 +110,9 @@ See `jenkins: help` for documentation.
     def run(self, head):
         self.workon(head)
 
+        if self.current.head.payload.get('state') == 'closed':
+            return logger.info("Skipping closed head.")
+
         logger.info("Listing commits from GitHub.")
         payload = yield from self.current.head.fetch_commits()
         self.current.commits = list(
