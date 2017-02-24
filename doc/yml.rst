@@ -25,10 +25,6 @@ You can actually add a bunch of Jenkins job feature in YML:
 .. code-block:: yaml
 
    app-job:
-     # Limit job on specific branch
-     branches: master
-     # Attach job to one stage of the CI pipeline
-     stage: test
      # Target a specific node or node label
      node: slave0
      # Matrix. Only values in YML are triggered
@@ -66,6 +62,41 @@ Tests report and coverage
          --cov=app --cov-report=xml:{env:CI_ARTEFACTS}/coverage.xml
 
 
+Defining a pipeline
+===================
+
+EPO provides a simple pipeline inspired by `GitLab CI
+<https://docs.gitlab.com/ce/ci/pipelines.html>`_. Jobs are groupped by stage.
+Default defined stages are ``build``, ``test`` and ``deploy``. The default stage
+of a job is ``test``. Here is a sample pipeline.
+
+.. code-block:: yaml
+
+   settings:
+     stages: [build, test, deploy]
+
+   app-build:
+     # Attach job to one stage of the CI pipeline
+     stage: build
+     script: make
+
+   app-test:
+     stage: test
+     script: make test
+
+   app-deploy:
+     stage: deploy
+     # Limit job on specific branch
+     branches: master
+     script: fab prod update
+
+
+No jobs are triggered if the previous stage has a missing or failed build.
+
+There is nothing like manual build or environment. Also there is no UI yet other
+than GitHub.
+
+
 Create a periodic job
 =====================
 
@@ -80,3 +111,8 @@ according to the latest ``jenkins.yml`` version.
      periodic: H 3 * * *
      # Run only on master
      default_revision: refs/heads/master
+
+
+Periodic jobs can be part of pipeline stage. The stage will be completed only
+when the periodic job will succeed. However, periodic jobs are out of pipeline
+by default.
