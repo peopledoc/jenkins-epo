@@ -81,7 +81,7 @@ if __name__ == '__main__':
             ],
         },
         install_requires=[
-            'aiohttp',
+            'aiohttp<2.0.0',
             'githubpy',
             'jenkinsapi',
             'jenkins-yml[renderer]',
