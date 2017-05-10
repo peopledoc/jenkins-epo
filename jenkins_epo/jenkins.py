@@ -180,6 +180,9 @@ class Build(object):
         if not url.startswith(SETTINGS.JENKINS_URL):
             raise NotOnJenkins("%s is not on this Jenkins." % url)
 
+        if url.endswith("/display/redirect"):
+            url = url.replace("/display/redirect", "")
+
         payload = yield from rest.Client(url).api.python.aget(
             tree=cls.jenkins_tree,
         )

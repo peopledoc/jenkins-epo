@@ -481,3 +481,23 @@ epo:
 
     job = Job(Mock(_data=dict(description="""no yaml""")))
     assert not job.updated_at
+
+
+@pytest.mark.asyncio
+@asyncio.coroutine
+def test_from_url_removes_suffix(mocker, SETTINGS):
+    from jenkins_epo.jenkins import Build
+    Client = mocker.patch('jenkins_epo.jenkins.rest.Client')
+    Client().api.python.aget = aget = CoroutineMock(
+        return_value={}
+    )
+    SETTINGS.JENKINS_URL = "http://jenkins.local"
+    url = SETTINGS.JENKINS_URL + "/job/rh2-build-doc/4910/display/redirect"
+    correct_url = SETTINGS.JENKINS_URL + "/job/rh2-build-doc/4910"
+
+    build = yield from Build.from_url(url)
+
+    assert isinstance(build, Build)
+    assert build.job is None
+    assert build.payload == {}
+    assert Client.mock_calls[1] == mocker.call(correct_url)
